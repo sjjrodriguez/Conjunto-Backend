@@ -1,14 +1,15 @@
 package com.residencial.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
-
 import java.time.LocalDate;
 import java.time.LocalTime;
 
 @Entity
 @Table(name = "reserva")
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -34,10 +35,12 @@ public class Reserva {
     @Column(length = 250)
     private String observaciones;
 
+    @JsonBackReference
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "zona_comun_id", nullable = false)
     private ZonaComun zonaComun;
 
+    @JsonBackReference
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "apartamento_id", nullable = false)
     private Apartamento apartamento;

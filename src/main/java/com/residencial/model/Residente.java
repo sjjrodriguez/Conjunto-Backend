@@ -1,11 +1,13 @@
 package com.residencial.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
 @Table(name = "residente")
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -31,6 +33,7 @@ public class Residente {
     @Column(length = 20)
     private TipoResidente tipoResidente;
 
+    @JsonBackReference
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "apartamento_id", nullable = false)
     private Apartamento apartamento;

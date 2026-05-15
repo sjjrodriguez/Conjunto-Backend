@@ -1,5 +1,8 @@
 package com.residencial.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -8,7 +11,8 @@ import java.util.List;
 
 @Entity
 @Table(name = "zona_comun")
-@Data
+@Getter // Cambiado de @Data para evitar recursión en toString/equals
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -32,10 +36,16 @@ public class ZonaComun {
 
     private boolean disponible;
 
+    // Usamos @JsonIgnore porque para el listado de Android
+    // no necesitamos que nos devuelva toda la info del Conjunto.
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "conjunto_id", nullable = false)
     private Conjunto conjunto;
 
+    // Esto permite que cuando consultes una zona, veas sus reservas
+    // pero evita que la reserva intente volver a pintar la zona.
+    @JsonManagedReference
     @OneToMany(mappedBy = "zonaComun", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Reserva> reservas;
 }

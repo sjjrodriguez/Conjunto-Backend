@@ -1,5 +1,6 @@
 package com.residencial.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -8,7 +9,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "pago")
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -37,6 +39,8 @@ public class Pago {
     @Column(length = 250)
     private String observaciones;
 
+    // ¡Vital para evitar el Error 500 al buscar pagos!
+    @JsonBackReference
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "apartamento_id", nullable = false)
     private Apartamento apartamento;
