@@ -1,11 +1,14 @@
 # Usamos la imagen de Java 21 que ya tenías
 FROM eclipse-temurin:21-jdk
 
+# Forzamos al contenedor a usar UTF-8 para evitar errores con tildes
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
 # Definimos el directorio de trabajo dentro del contenedor
 WORKDIR /app
 
 # Corregido: Copiamos todos los archivos del proyecto al contenedor
-# El primer punto es el origen (tu PC) y el segundo el destino (/app)
 COPY . .
 
 # Damos permisos de ejecución al wrapper de Maven
@@ -15,7 +18,6 @@ RUN chmod +x mvnw
 RUN ./mvnw clean package -Dmaven.test.skip=true
 
 # Renombramos el archivo .jar generado para que sea fácil de ejecutar
-# Esto busca cualquier jar en target y lo mueve a la raíz como app.jar
 RUN cp target/*.jar app.jar
 
 # Comando para iniciar la aplicación
