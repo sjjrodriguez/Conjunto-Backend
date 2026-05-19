@@ -3,31 +3,29 @@ package com.residencial.model;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
-import java.time.LocalTime;
 
 @Entity
-@Table(name = "reserva")
+@Table(name = "obra")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class Reserva {
+public class Obra {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private LocalDate fecha;
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String descripcionAdecuacion;
 
     @Column(nullable = false)
-    private LocalTime hora;
+    private LocalDate fechaInicio;
 
     @Column(nullable = false)
-    private String estado; // "Pendiente", "Aprobada", "Rechazada"
+    private LocalDate fechaFinEstimada;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "zona_comun_id", nullable = false)
-    private ZonaComun zonaComun;
+    @Column(nullable = false)
+    private String estadoObra; // "EN_PROCESO" o "FINALIZADA"
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "apartamento_id", nullable = false)

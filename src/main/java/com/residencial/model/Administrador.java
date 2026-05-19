@@ -4,21 +4,18 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "apartamento")
+@Table(name = "administrador")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class Apartamento {
+public class Administrador {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private String torre;
-
-    @Column(nullable = false)
-    private String apto;
+    @Column(nullable = false, unique = true)
+    private String usuario;
 
     @Column(nullable = false)
     private String contrasena;

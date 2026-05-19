@@ -1,45 +1,47 @@
 package com.residencial.controller;
 
-import com.residencial.dto.ReservaRequest;
-import com.residencial.dto.ReservaResponse;
-import com.residencial.dto.ZonaComunResponse;
+import com.residencial.dto.ReservaDTO;
 import com.residencial.service.ReservaService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
+import java.util.Map;
 
 @RestController
+@RequestMapping("/api/reservas")
 @RequiredArgsConstructor
-@Tag(name = "Reservas y Zonas Comunes", description = "Gestión de zonas comunes y reservas de apartamentos")
 public class ReservaController {
 
-    private final ReservaService reservaService;
+    private final ReservaService service;
 
-    @GetMapping("/api/v1/zonas-comunes/disponibles")
-    @Operation(summary = "Listar zonas comunes disponibles",
-               description = "Retorna todas las zonas comunes habilitadas para reserva en el conjunto")
-    public ResponseEntity<List<ZonaComunResponse>> listarZonasDisponibles() {
-        return ResponseEntity.ok(reservaService.listarZonasDisponibles());
+    @GetMapping
+    public List<ReservaDTO> listarTodas() {
+        return service.listarTodas();
     }
 
-    @PostMapping("/api/v1/reservas")
-    @Operation(summary = "Registrar una reserva",
-               description = "Crea una reserva para una zona común validando que no haya conflictos de horario")
-    public ResponseEntity<ReservaResponse> registrarReserva(@RequestBody ReservaRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(reservaService.registrarReserva(request));
+    @GetMapping("/apartamento/{apartamentoId}")
+    public List<ReservaDTO> listarPorApartamento(@PathVariable Long apartamentoId) {
+        return service.listarPorApartamento(apartamentoId);
     }
 
-    @GetMapping("/api/v1/reservas/apartamento/{idApartamento}")
-    @Operation(summary = "Historial de reservas por apartamento",
-               description = "Lista todas las reservas realizadas por un apartamento")
-    public ResponseEntity<List<ReservaResponse>> listarPorApartamento(
-            @Parameter(description = "ID del apartamento") @PathVariable long idApartamento) {
-        return ResponseEntity.ok(reservaService.listarReservasPorApartamento(idApartamento));
+    @PostMapping
+    public ResponseEntity<ReservaDTO> guardar(@RequestBody ReservaDTO dto) {
+        return ResponseEntity.ok(service.guardar(dto));
+    }
+
+    @PutMapping("/{id}/estado")
+    public ResponseEntity<ReservaDTO> cambiarEstado(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        String nuevoEstado = body.get("estado");
+        ReservaDTO updated = service.cambiarEstado(id, nuevoEstado);
+        return updated != null ? ResponseEntity.ok(updated) : ResponseEntity.notFound().build();
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+        service.eliminar(id);
+        return ResponseEntity.noContent().build();
     }
 }

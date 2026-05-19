@@ -1,11 +1,12 @@
 package com.residencial.service;
 
-import com.residencial.dto.ApartamentoDetalleResponse;
-import com.residencial.dto.ApartamentoResumenResponse;
-
+import com.residencial.model.Apartamento;
 import java.util.List;
 
 public interface ApartamentoService {
-    List<ApartamentoResumenResponse> listarPorTorre(long idTorre);
-    ApartamentoDetalleResponse obtenerDetalle(long idApartamento);
+    List<Apartamento> listarTodos();
+    Apartamento buscarPorId(Long id);
+    Apartamento guardar(Apartamento apartamento);
+    Apartamento actualizar(Long id, Apartamento apartamento);
+    void eliminar(Long id);
 }

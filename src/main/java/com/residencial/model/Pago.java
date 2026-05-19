@@ -1,51 +1,29 @@
 package com.residencial.model;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-
 @Entity
 @Table(name = "pago")
-@Getter
-@Setter
-@Builder
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class Pago {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private long id;
+    private Long id;
 
     @Column(nullable = false)
-    private int mes;
+    private Double saldoPendiente;
 
     @Column(nullable = false)
-    private int anio;
+    private String estadoCuenta; // "Al Día", "En Mora"
 
-    @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal valor;
-
-    @Enumerated(EnumType.STRING)
-    @Column(length = 20)
-    private EstadoPago estado;
-
-    @Column(name = "fecha_pago")
-    private LocalDateTime fechaPago;
-
-    @Column(length = 250)
+    @Column(columnDefinition = "TEXT")
     private String observaciones;
 
-    // ¡Vital para evitar el Error 500 al buscar pagos!
-    @JsonBackReference
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "apartamento_id", nullable = false)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "apartamento_id", nullable = false, unique = true)
     private Apartamento apartamento;
-
-    public enum EstadoPago {
-        PAGADO, PENDIENTE, VENCIDO
-    }
 }

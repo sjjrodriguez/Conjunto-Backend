@@ -2,32 +2,26 @@ package com.residencial.model;
 
 import jakarta.persistence.*;
 import lombok.*;
-import java.time.LocalDate;
-import java.time.LocalTime;
 
 @Entity
-@Table(name = "reserva")
+@Table(name = "vehiculo")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class Reserva {
+public class Vehiculo {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false)
-    private LocalDate fecha;
+    private String placa;
+
+    private String marca;
+    private String color;
 
     @Column(nullable = false)
-    private LocalTime hora;
-
-    @Column(nullable = false)
-    private String estado; // "Pendiente", "Aprobada", "Rechazada"
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "zona_comun_id", nullable = false)
-    private ZonaComun zonaComun;
+    private String tipo; // "Carro" o "Moto"
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "apartamento_id", nullable = false)

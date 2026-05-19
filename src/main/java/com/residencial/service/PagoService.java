@@ -1,10 +1,10 @@
 package com.residencial.service;
 
-import com.residencial.dto.CarteraResponse;
-import com.residencial.dto.PagoRequest;
-import com.residencial.dto.PagoResponse;
+import com.residencial.dto.PagoDTO;
 
 public interface PagoService {
-    PagoResponse registrarPago(PagoRequest request);
-    CarteraResponse obtenerCartera(long idApartamento);
+    PagoDTO consultarPorApartamento(Long apartamentoId);
+    PagoDTO simularPago(Long apartamentoId);
+    PagoDTO guardar(PagoDTO dto);
+    PagoDTO actualizar(Long id, PagoDTO dto);
 }

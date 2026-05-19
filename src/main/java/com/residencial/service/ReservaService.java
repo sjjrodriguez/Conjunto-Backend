@@ -1,13 +1,12 @@
 package com.residencial.service;
 
-import com.residencial.dto.ReservaRequest;
-import com.residencial.dto.ReservaResponse;
-import com.residencial.dto.ZonaComunResponse;
-
+import com.residencial.dto.ReservaDTO;
 import java.util.List;
 
 public interface ReservaService {
-    List<ZonaComunResponse> listarZonasDisponibles();
-    ReservaResponse registrarReserva(ReservaRequest request);
-    List<ReservaResponse> listarReservasPorApartamento(long idApartamento);
+    List<ReservaDTO> listarTodas();
+    List<ReservaDTO> listarPorApartamento(Long apartamentoId);
+    ReservaDTO guardar(ReservaDTO dto);
+    ReservaDTO cambiarEstado(Long id, String nuevoEstado);
+    void eliminar(Long id);
 }
