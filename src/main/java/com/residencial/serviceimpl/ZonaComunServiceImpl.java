@@ -6,6 +6,7 @@ import com.residencial.repository.ZonaComunRepository;
 import com.residencial.service.ZonaComunService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -16,13 +17,19 @@ public class ZonaComunServiceImpl implements ZonaComunService {
     private final ZonaComunRepository repo;
 
     private ZonaComunDTO toDTO(ZonaComun z) {
-        return new ZonaComunDTO(z.getId(), z.getNombre(),
-                z.getEstadoRecibido(), z.getDescripcionEstado());
+        return new ZonaComunDTO(
+                z.getId(), z.getNombre(),
+                z.getEstadoRecibido(), z.getDescripcionEstado(),
+                z.getEsReservable()
+        );
     }
 
     private ZonaComun toEntity(ZonaComunDTO dto) {
-        return new ZonaComun(dto.getId(), dto.getNombre(),
-                dto.getEstadoRecibido(), dto.getDescripcionEstado());
+        return new ZonaComun(
+                dto.getId(), dto.getNombre(),
+                dto.getEstadoRecibido(), dto.getDescripcionEstado(),
+                dto.getEsReservable() != null ? dto.getEsReservable() : false
+        );
     }
 
     @Override
@@ -46,6 +53,7 @@ public class ZonaComunServiceImpl implements ZonaComunService {
             z.setNombre(dto.getNombre());
             z.setEstadoRecibido(dto.getEstadoRecibido());
             z.setDescripcionEstado(dto.getDescripcionEstado());
+            z.setEsReservable(dto.getEsReservable() != null ? dto.getEsReservable() : false);
             return toDTO(repo.save(z));
         }).orElse(null);
     }

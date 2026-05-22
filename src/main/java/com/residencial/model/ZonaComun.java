@@ -9,7 +9,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ZonaComun {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -18,8 +17,11 @@ public class ZonaComun {
     private String nombre;
 
     @Column(nullable = false)
-    private String estadoRecibido; // "Buen Estado", "Deteriorado"
+    private String estadoRecibido;
 
     @Column(columnDefinition = "TEXT")
     private String descripcionEstado;
+
+    @Column(nullable = false)
+    private Boolean esReservable;
 }

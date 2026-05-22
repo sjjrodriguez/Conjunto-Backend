@@ -10,4 +10,5 @@ public class ZonaComunDTO {
     private String nombre;
     private String estadoRecibido;
     private String descripcionEstado;
+    private Boolean esReservable;
 }
