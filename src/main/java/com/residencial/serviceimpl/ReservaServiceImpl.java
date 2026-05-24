@@ -9,7 +9,9 @@ import com.residencial.repository.ReservaRepository;
 import com.residencial.repository.ZonaComunRepository;
 import com.residencial.service.ReservaService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -43,7 +45,23 @@ public class ReservaServiceImpl implements ReservaService {
                 .orElseThrow(() -> new RuntimeException("Apartamento no encontrado"));
         ZonaComun zona = zonaRepo.findById(dto.getZonaComunId())
                 .orElseThrow(() -> new RuntimeException("Zona Común no encontrada"));
-        Reserva r = new Reserva(null, dto.getFecha(), dto.getHora(), "Pendiente", zona, apto);
+
+        // Validar conflicto de horario
+        boolean ocupada = repo.existsByZonaComunIdAndFechaAndHoraAndEstadoIn(
+                dto.getZonaComunId(),
+                dto.getFecha(),
+                dto.getHora(),
+                List.of("PENDIENTE", "APROBADA")
+        );
+
+        if (ocupada) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Ya existe una reserva para esta zona en esa fecha y hora"
+            );
+        }
+
+        Reserva r = new Reserva(null, dto.getFecha(), dto.getHora(), "PENDIENTE", zona, apto);
         return toDTO(repo.save(r));
     }
 
