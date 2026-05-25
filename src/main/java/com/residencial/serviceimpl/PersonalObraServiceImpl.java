@@ -24,6 +24,12 @@ public class PersonalObraServiceImpl implements PersonalObraService {
     }
 
     @Override
+    public List<PersonalObraDTO> listarTodos() {
+        return repo.findAll().stream()
+                .map(this::toDTO).collect(Collectors.toList());
+    }
+
+    @Override
     public List<PersonalObraDTO> listarPorObra(Long obraId) {
         return repo.findByObraId(obraId).stream()
                 .map(this::toDTO).collect(Collectors.toList());

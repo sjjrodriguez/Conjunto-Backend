@@ -11,8 +11,12 @@ import java.util.List;
 @RequestMapping("/api/personal-obra")
 @RequiredArgsConstructor
 public class PersonalObraController {
-
     private final PersonalObraService service;
+
+    @GetMapping
+    public List<PersonalObraDTO> listarTodos() {
+        return service.listarTodos();
+    }
 
     @GetMapping("/obra/{obraId}")
     public List<PersonalObraDTO> listarPorObra(@PathVariable Long obraId) {
