@@ -11,4 +11,6 @@ public class PersonalObraDTO {
     private String cedula;
     private Boolean arlEstado;
     private Long obraId;
+    private String torrePiso;
+    private String aptoNum;
 }

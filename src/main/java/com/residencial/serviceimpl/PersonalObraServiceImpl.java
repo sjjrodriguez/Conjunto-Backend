@@ -19,8 +19,21 @@ public class PersonalObraServiceImpl implements PersonalObraService {
     private final ObraRepository obraRepo;
 
     private PersonalObraDTO toDTO(PersonalObra p) {
-        return new PersonalObraDTO(p.getId(), p.getNombreTrabajador(),
-                p.getCedula(), p.getArlEstado(), p.getObra().getId());
+        String torre = "";
+        String apto = "";
+        if (p.getObra() != null && p.getObra().getApartamento() != null) {
+            torre = p.getObra().getApartamento().getTorre();
+            apto = p.getObra().getApartamento().getApto();
+        }
+        return new PersonalObraDTO(
+                p.getId(),
+                p.getNombreTrabajador(),
+                p.getCedula(),
+                p.getArlEstado(),
+                p.getObra().getId(),
+                torre,
+                apto
+        );
     }
 
     @Override
