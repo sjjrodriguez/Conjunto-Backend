@@ -77,10 +77,12 @@
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- H2: base en memoria para los tests y para el perfil "demo" (desarrollo local).
+             En produccion no se usa: sin el perfil demo la app se conecta a Supabase. -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <scope>test</scope>
+            <scope>runtime</scope>
         </dependency>
     </dependencies>
 
