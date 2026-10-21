@@ -6,7 +6,11 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 
 @Entity
-@Table(name = "reserva")
+@Table(name = "reserva", indexes = {
+        @Index(name = "idx_reserva_apartamento", columnList = "apartamento_id"),
+        // Búsqueda de choques de horario: misma zona en un rango de fechas
+        @Index(name = "idx_reserva_zona_fecha", columnList = "zona_comun_id, fecha")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

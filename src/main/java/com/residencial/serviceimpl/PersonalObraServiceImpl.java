@@ -54,7 +54,8 @@ public class PersonalObraServiceImpl implements PersonalObraService {
 
     @Override
     public PersonalObraDTO guardar(PersonalObraDTO dto) {
-        Obra obra = obraRepo.findById(dto.getObraId())
+        // Con su apartamento: toDTO necesita torre y apto
+        Obra obra = obraRepo.findConApartamentoById(dto.getObraId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Obra no encontrada: " + dto.getObraId()));
         acceso.verificarApartamento(obra.getApartamento().getId());
         PersonalObra p = new PersonalObra(null, dto.getNombreTrabajador(),

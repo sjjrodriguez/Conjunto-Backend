@@ -5,6 +5,7 @@ import com.residencial.service.PagoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/pagos")
@@ -12,6 +13,12 @@ import org.springframework.web.bind.annotation.*;
 public class PagoController {
 
     private final PagoService service;
+
+    // Cartera completa para el admin en una sola petición (antes: una por apartamento)
+    @GetMapping
+    public List<PagoDTO> listarTodos() {
+        return service.listarTodos();
+    }
 
     @GetMapping("/apartamento/{apartamentoId}")
     public ResponseEntity<PagoDTO> consultarPorApartamento(@PathVariable Long apartamentoId) {

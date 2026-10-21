@@ -11,6 +11,8 @@ import com.residencial.security.AccesoService;
 import com.residencial.service.PagoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +25,12 @@ public class PagoServiceImpl implements PagoService {
     private PagoDTO toDTO(Pago p) {
         return new PagoDTO(p.getId(), p.getSaldoPendiente(),
                 p.getEstadoCuenta(), p.getObservaciones(), p.getApartamento().getId());
+    }
+
+    @Override
+    public List<PagoDTO> listarTodos() {
+        // toDTO solo usa el id del apartamento, que ya viene en la fila: una sola consulta
+        return repo.findAll().stream().map(this::toDTO).collect(Collectors.toList());
     }
 
     @Override
