@@ -9,6 +9,8 @@ import java.util.List;
 public interface NotificacionRepository extends JpaRepository<Notificacion, Long> {
     List<Notificacion> findTop50ByOrderByFechaDescIdDesc();
 
+    long countByLeidaFalse();
+
     @Modifying
     @Query("update Notificacion n set n.leida = true where n.leida = false")
     int marcarTodasLeidas();

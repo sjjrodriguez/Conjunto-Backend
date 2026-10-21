@@ -7,6 +7,7 @@ import java.util.List;
 
 public interface NotificacionService {
     List<NotificacionDTO> listarRecientes();
+    long contarNoLeidas();
     void marcarTodasLeidas();
     void eliminarTodas();
     void avisarNuevaReserva(Reserva reserva);

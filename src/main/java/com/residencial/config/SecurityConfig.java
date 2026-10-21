@@ -68,6 +68,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(a -> a
                 .requestMatchers("/error").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/**").permitAll()
+                // Estado del servicio para Render (sin detalles); el resto de actuator no está expuesto
+                .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
                 // Solo responden si SWAGGER_ENABLED=true
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
 

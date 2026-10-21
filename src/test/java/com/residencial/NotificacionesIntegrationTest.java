@@ -110,11 +110,18 @@ class NotificacionesIntegrationTest {
     void marcarLeidasYLimpiar() throws Exception {
         enviar(post("/api/vehiculos"), propietario,
                 "{\"placa\":\"AAA111\",\"tipo\":\"Moto\",\"apartamentoId\":" + apto.getId() + "}");
+        enviar(post("/api/vehiculos"), propietario,
+                "{\"placa\":\"BBB222\",\"tipo\":\"Carro\",\"apartamentoId\":" + apto.getId() + "}");
+        mvc.perform(get("/api/notificaciones/no-leidas").header("Authorization", admin))
+                .andExpect(status().isOk())
+                .andExpect(content().json("{\"total\":2}", true));
 
         mvc.perform(put("/api/notificaciones/leidas").header("Authorization", admin))
                 .andExpect(status().isNoContent());
         mvc.perform(get("/api/notificaciones").header("Authorization", admin))
                 .andExpect(jsonPath("$[0].leida").value(true));
+        mvc.perform(get("/api/notificaciones/no-leidas").header("Authorization", admin))
+                .andExpect(jsonPath("$.total").value(0));
 
         mvc.perform(delete("/api/notificaciones").header("Authorization", admin))
                 .andExpect(status().isNoContent());
@@ -127,6 +134,8 @@ class NotificacionesIntegrationTest {
         mvc.perform(get("/api/notificaciones").header("Authorization", propietario))
                 .andExpect(status().isForbidden());
         mvc.perform(delete("/api/notificaciones").header("Authorization", propietario))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/notificaciones/no-leidas").header("Authorization", propietario))
                 .andExpect(status().isForbidden());
         mvc.perform(get("/api/notificaciones"))
                 .andExpect(status().isUnauthorized());

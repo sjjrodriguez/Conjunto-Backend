@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.util.Map;
 
 /** Solo para el administrador (ver SecurityConfig). */
 @RestController
@@ -19,6 +20,12 @@ public class NotificacionController {
     @GetMapping
     public List<NotificacionDTO> listar() {
         return service.listarRecientes();
+    }
+
+    // Para el contador del panel: no hace falta descargar la lista completa
+    @GetMapping("/no-leidas")
+    public Map<String, Long> contarNoLeidas() {
+        return Map.of("total", service.contarNoLeidas());
     }
 
     @PutMapping("/leidas")

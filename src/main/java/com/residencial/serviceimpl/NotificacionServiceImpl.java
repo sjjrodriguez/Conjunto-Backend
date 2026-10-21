@@ -49,6 +49,11 @@ public class NotificacionServiceImpl implements NotificacionService {
     }
 
     @Override
+    public long contarNoLeidas() {
+        return repo.countByLeidaFalse();
+    }
+
+    @Override
     @Transactional
     public void marcarTodasLeidas() {
         repo.marcarTodasLeidas();
