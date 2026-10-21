@@ -3,6 +3,7 @@ package com.residencial.serviceimpl;
 import com.residencial.dto.VehiculoDTO;
 import com.residencial.exception.RecursoNoEncontradoException;
 import com.residencial.model.Apartamento;
+import com.residencial.model.Catalogo;
 import com.residencial.model.Vehiculo;
 import com.residencial.repository.ApartamentoRepository;
 import com.residencial.repository.VehiculoRepository;
@@ -39,7 +40,7 @@ public class VehiculoServiceImpl implements VehiculoService {
         Apartamento apto = aptoRepo.findById(dto.getApartamentoId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Apartamento no encontrado"));
         Vehiculo v = new Vehiculo(null, dto.getPlaca(), dto.getMarca(),
-                dto.getColor(), dto.getTipo(), apto);
+                dto.getColor(), Catalogo.TIPO_VEHICULO.normalizar(dto.getTipo()), apto);
         return toDTO(repo.save(v));
     }
 

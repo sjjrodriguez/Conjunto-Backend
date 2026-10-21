@@ -3,6 +3,7 @@ package com.residencial.serviceimpl;
 import com.residencial.dto.PagoDTO;
 import com.residencial.exception.RecursoNoEncontradoException;
 import com.residencial.model.Apartamento;
+import com.residencial.model.Catalogo;
 import com.residencial.model.Pago;
 import com.residencial.repository.ApartamentoRepository;
 import com.residencial.repository.PagoRepository;
@@ -48,7 +49,7 @@ public class PagoServiceImpl implements PagoService {
     public PagoDTO guardar(PagoDTO dto) {
         Apartamento apto = aptoRepo.findById(dto.getApartamentoId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Apartamento no encontrado"));
-        Pago p = new Pago(null, dto.getSaldoPendiente(), dto.getEstadoCuenta(),
+        Pago p = new Pago(null, dto.getSaldoPendiente(), Catalogo.ESTADO_CUENTA.normalizar(dto.getEstadoCuenta()),
                 dto.getObservaciones(), apto);
         return toDTO(repo.save(p));
     }
@@ -57,7 +58,7 @@ public class PagoServiceImpl implements PagoService {
     public PagoDTO actualizar(Long id, PagoDTO dto) {
         return repo.findById(id).map(p -> {
             p.setSaldoPendiente(dto.getSaldoPendiente());
-            p.setEstadoCuenta(dto.getEstadoCuenta());
+            p.setEstadoCuenta(Catalogo.ESTADO_CUENTA.normalizar(dto.getEstadoCuenta()));
             p.setObservaciones(dto.getObservaciones());
             return toDTO(repo.save(p));
         }).orElse(null);

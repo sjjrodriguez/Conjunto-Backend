@@ -3,6 +3,7 @@ package com.residencial.serviceimpl;
 import com.residencial.dto.ResidenteDTO;
 import com.residencial.exception.RecursoNoEncontradoException;
 import com.residencial.model.Apartamento;
+import com.residencial.model.Catalogo;
 import com.residencial.model.Residente;
 import com.residencial.repository.ApartamentoRepository;
 import com.residencial.repository.ResidenteRepository;
@@ -34,7 +35,7 @@ public class ResidenteServiceImpl implements ResidenteService {
         r.setNombreCompleto(dto.getNombreCompleto());
         r.setTelefono(dto.getTelefono());
         r.setIdentificacion(dto.getIdentificacion());
-        r.setTipoHabitante(dto.getTipoHabitante());
+        r.setTipoHabitante(Catalogo.TIPO_HABITANTE.normalizar(dto.getTipoHabitante()));
         r.setApartamento(apto);
         return r;
     }
@@ -56,7 +57,7 @@ public class ResidenteServiceImpl implements ResidenteService {
             r.setNombreCompleto(dto.getNombreCompleto());
             r.setTelefono(dto.getTelefono());
             r.setIdentificacion(dto.getIdentificacion());
-            r.setTipoHabitante(dto.getTipoHabitante());
+            r.setTipoHabitante(Catalogo.TIPO_HABITANTE.normalizar(dto.getTipoHabitante()));
             return toDTO(repo.save(r));
         }).orElse(null);
     }

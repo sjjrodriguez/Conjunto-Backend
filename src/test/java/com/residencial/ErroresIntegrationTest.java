@@ -111,7 +111,7 @@ class ErroresIntegrationTest {
         mvc.perform(put(url).header("Authorization", admin)
                         .contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.mensaje").value("El estado es obligatorio"));
+                .andExpect(jsonPath("$.mensaje").value("El estado de la reserva es obligatorio"));
         mvc.perform(put(url).header("Authorization", admin).contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.mensaje").isNotEmpty());

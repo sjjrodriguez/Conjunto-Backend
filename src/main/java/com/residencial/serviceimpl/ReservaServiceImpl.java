@@ -3,6 +3,7 @@ package com.residencial.serviceimpl;
 import com.residencial.dto.ReservaDTO;
 import com.residencial.exception.RecursoNoEncontradoException;
 import com.residencial.model.Apartamento;
+import com.residencial.model.Catalogo;
 import com.residencial.model.Reserva;
 import com.residencial.model.ZonaComun;
 import com.residencial.repository.ApartamentoRepository;
@@ -72,11 +73,9 @@ public class ReservaServiceImpl implements ReservaService {
 
     @Override
     public ReservaDTO cambiarEstado(Long id, String nuevoEstado) {
-        if (nuevoEstado == null || nuevoEstado.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El estado es obligatorio");
-        }
+        String estado = Catalogo.ESTADO_RESERVA.normalizar(nuevoEstado);
         return repo.findById(id).map(r -> {
-            r.setEstado(nuevoEstado);
+            r.setEstado(estado);
             return toDTO(repo.save(r));
         }).orElse(null);
     }
