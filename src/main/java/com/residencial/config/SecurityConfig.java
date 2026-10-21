@@ -107,6 +107,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PUT, "/api/pagos/apartamento/*/simular").access(autenticado())
                 .requestMatchers("/api/pagos", "/api/pagos/**").access(admin())
 
+                // Notificaciones
+                .requestMatchers("/api/notificaciones", "/api/notificaciones/**").access(admin())
+
                 .anyRequest().access(autenticado()));
 
         return http.build();

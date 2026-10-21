@@ -10,6 +10,7 @@ import com.residencial.repository.ApartamentoRepository;
 import com.residencial.repository.ReservaRepository;
 import com.residencial.repository.ZonaComunRepository;
 import com.residencial.security.AccesoService;
+import com.residencial.service.NotificacionService;
 import com.residencial.service.ReservaService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -34,6 +35,7 @@ public class ReservaServiceImpl implements ReservaService {
     private final ApartamentoRepository aptoRepo;
     private final ZonaComunRepository zonaRepo;
     private final AccesoService acceso;
+    private final NotificacionService notificaciones;
     // Cada reserva ocupa la zona este tiempo a partir de su hora de inicio
     private final Duration duracion;
     // Hora de referencia para "fecha pasada": la del conjunto, no la del servidor (Render usa UTC)
@@ -43,6 +45,7 @@ public class ReservaServiceImpl implements ReservaService {
                               ApartamentoRepository aptoRepo,
                               ZonaComunRepository zonaRepo,
                               AccesoService acceso,
+                              NotificacionService notificaciones,
                               @Value("${app.reservas.duracion-horas:2}") long duracionHoras,
                               @Value("${app.zona-horaria:America/Bogota}") String zonaHoraria) {
         if (duracionHoras < 1 || duracionHoras > 24) {
@@ -52,6 +55,7 @@ public class ReservaServiceImpl implements ReservaService {
         this.aptoRepo = aptoRepo;
         this.zonaRepo = zonaRepo;
         this.acceso = acceso;
+        this.notificaciones = notificaciones;
         this.duracion = Duration.ofHours(duracionHoras);
         this.zonaHoraria = ZoneId.of(zonaHoraria);
     }
@@ -99,8 +103,9 @@ public class ReservaServiceImpl implements ReservaService {
         buscarChoque(zona.getId(), dto.getFecha(), dto.getHora(), ESTADOS_QUE_OCUPAN, null)
                 .ifPresent(this::rechazarPorChoque);
 
-        Reserva r = new Reserva(null, dto.getFecha(), dto.getHora(), "PENDIENTE", zona, apto);
-        return toDTO(repo.save(r));
+        Reserva r = repo.save(new Reserva(null, dto.getFecha(), dto.getHora(), "PENDIENTE", zona, apto));
+        notificaciones.avisarNuevaReserva(r);
+        return toDTO(r);
     }
 
     @Override

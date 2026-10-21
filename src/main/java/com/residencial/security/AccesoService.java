@@ -41,6 +41,12 @@ public class AccesoService {
         throw new AccessDeniedException("No tienes permiso sobre este apartamento");
     }
 
+    /** true si la petición actual viene de un administrador con token válido. */
+    public boolean esAdminActual() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && !trustResolver.isAnonymous(auth) && esAdmin(auth);
+    }
+
     private static boolean esAdmin(Authentication auth) {
         return auth.getAuthorities().stream()
                 .anyMatch(a -> ("ROLE_" + TokenService.ROL_ADMIN).equals(a.getAuthority()));

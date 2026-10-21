@@ -8,9 +8,11 @@ import com.residencial.model.Vehiculo;
 import com.residencial.repository.ApartamentoRepository;
 import com.residencial.repository.VehiculoRepository;
 import com.residencial.security.AccesoService;
+import com.residencial.service.NotificacionService;
 import com.residencial.service.VehiculoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -21,6 +23,7 @@ public class VehiculoServiceImpl implements VehiculoService {
     private final VehiculoRepository repo;
     private final ApartamentoRepository aptoRepo;
     private final AccesoService acceso;
+    private final NotificacionService notificaciones;
 
     private VehiculoDTO toDTO(Vehiculo v) {
         return new VehiculoDTO(v.getId(), v.getPlaca(), v.getMarca(),
@@ -35,13 +38,16 @@ public class VehiculoServiceImpl implements VehiculoService {
     }
 
     @Override
+    @Transactional // el vehículo y su notificación se guardan juntos
     public VehiculoDTO guardar(VehiculoDTO dto) {
         acceso.verificarApartamento(dto.getApartamentoId());
         Apartamento apto = aptoRepo.findById(dto.getApartamentoId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Apartamento no encontrado"));
         Vehiculo v = new Vehiculo(null, dto.getPlaca(), dto.getMarca(),
                 dto.getColor(), Catalogo.TIPO_VEHICULO.normalizar(dto.getTipo()), apto);
-        return toDTO(repo.save(v));
+        Vehiculo guardado = repo.save(v);
+        notificaciones.avisarNuevoVehiculo(guardado);
+        return toDTO(guardado);
     }
 
     @Override
