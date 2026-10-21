@@ -1,6 +1,7 @@
 package com.residencial.serviceimpl;
 
 import com.residencial.dto.PersonalObraDTO;
+import com.residencial.exception.RecursoNoEncontradoException;
 import com.residencial.model.Obra;
 import com.residencial.model.PersonalObra;
 import com.residencial.repository.ObraRepository;
@@ -54,7 +55,7 @@ public class PersonalObraServiceImpl implements PersonalObraService {
     @Override
     public PersonalObraDTO guardar(PersonalObraDTO dto) {
         Obra obra = obraRepo.findById(dto.getObraId())
-                .orElseThrow(() -> new RuntimeException("Obra no encontrada: " + dto.getObraId()));
+                .orElseThrow(() -> new RecursoNoEncontradoException("Obra no encontrada: " + dto.getObraId()));
         acceso.verificarApartamento(obra.getApartamento().getId());
         PersonalObra p = new PersonalObra(null, dto.getNombreTrabajador(),
                 dto.getCedula(), dto.getArlEstado(), obra);

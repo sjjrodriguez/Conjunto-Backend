@@ -1,13 +1,18 @@
 package com.residencial.serviceimpl;
 import com.residencial.dto.ObraDTO;
+import com.residencial.exception.RecursoNoEncontradoException;
 import com.residencial.model.Apartamento;
 import com.residencial.model.Obra;
 import com.residencial.repository.ApartamentoRepository;
 import com.residencial.repository.ObraRepository;
+import com.residencial.repository.PersonalObraRepository;
 import com.residencial.security.AccesoService;
 import com.residencial.service.ObraService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 import java.util.stream.Collectors;
 @Service
@@ -15,6 +20,7 @@ import java.util.stream.Collectors;
 public class ObraServiceImpl implements ObraService {
     private final ObraRepository repo;
     private final ApartamentoRepository aptoRepo;
+    private final PersonalObraRepository personalRepo;
     private final AccesoService acceso;
     private ObraDTO toDTO(Obra o) {
         return new ObraDTO(o.getId(), o.getDescripcionAdecuacion(),
@@ -23,7 +29,7 @@ public class ObraServiceImpl implements ObraService {
     }
     private Obra toEntity(ObraDTO dto) {
         Apartamento apto = aptoRepo.findById(dto.getApartamentoId())
-                .orElseThrow(() -> new RuntimeException("Apartamento no encontrado"));
+                .orElseThrow(() -> new RecursoNoEncontradoException("Apartamento no encontrado"));
         Obra o = new Obra();
         o.setDescripcionAdecuacion(dto.getDescripcionAdecuacion());
         o.setFechaInicio(dto.getFechaInicio());
@@ -66,13 +72,19 @@ public class ObraServiceImpl implements ObraService {
     }
     @Override
     public ObraDTO cambiarEstado(Long id, String nuevoEstado) {
+        if (nuevoEstado == null || nuevoEstado.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El estado es obligatorio");
+        }
         return repo.findById(id).map(o -> {
             o.setEstadoObra(nuevoEstado);
             return toDTO(repo.save(o));
         }).orElse(null);
     }
     @Override
+    @Transactional
     public void eliminar(Long id) {
+        // El personal pertenece a la obra: se borra con ella
+        personalRepo.deleteByObraId(id);
         repo.deleteById(id);
     }
 }

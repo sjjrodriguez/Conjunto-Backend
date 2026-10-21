@@ -1,6 +1,7 @@
 package com.residencial.serviceimpl;
 
 import com.residencial.dto.ReservaDTO;
+import com.residencial.exception.RecursoNoEncontradoException;
 import com.residencial.model.Apartamento;
 import com.residencial.model.Reserva;
 import com.residencial.model.ZonaComun;
@@ -46,9 +47,9 @@ public class ReservaServiceImpl implements ReservaService {
     public ReservaDTO guardar(ReservaDTO dto) {
         acceso.verificarApartamento(dto.getApartamentoId());
         Apartamento apto = aptoRepo.findById(dto.getApartamentoId())
-                .orElseThrow(() -> new RuntimeException("Apartamento no encontrado"));
+                .orElseThrow(() -> new RecursoNoEncontradoException("Apartamento no encontrado"));
         ZonaComun zona = zonaRepo.findById(dto.getZonaComunId())
-                .orElseThrow(() -> new RuntimeException("Zona Común no encontrada"));
+                .orElseThrow(() -> new RecursoNoEncontradoException("Zona común no encontrada"));
 
         // Validar conflicto de horario
         boolean ocupada = repo.existsByZonaComunIdAndFechaAndHoraAndEstadoIn(
@@ -71,6 +72,9 @@ public class ReservaServiceImpl implements ReservaService {
 
     @Override
     public ReservaDTO cambiarEstado(Long id, String nuevoEstado) {
+        if (nuevoEstado == null || nuevoEstado.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El estado es obligatorio");
+        }
         return repo.findById(id).map(r -> {
             r.setEstado(nuevoEstado);
             return toDTO(repo.save(r));

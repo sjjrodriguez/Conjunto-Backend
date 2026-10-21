@@ -1,6 +1,7 @@
 package com.residencial.serviceimpl;
 
 import com.residencial.dto.PagoDTO;
+import com.residencial.exception.RecursoNoEncontradoException;
 import com.residencial.model.Apartamento;
 import com.residencial.model.Pago;
 import com.residencial.repository.ApartamentoRepository;
@@ -46,7 +47,7 @@ public class PagoServiceImpl implements PagoService {
     @Override
     public PagoDTO guardar(PagoDTO dto) {
         Apartamento apto = aptoRepo.findById(dto.getApartamentoId())
-                .orElseThrow(() -> new RuntimeException("Apartamento no encontrado"));
+                .orElseThrow(() -> new RecursoNoEncontradoException("Apartamento no encontrado"));
         Pago p = new Pago(null, dto.getSaldoPendiente(), dto.getEstadoCuenta(),
                 dto.getObservaciones(), apto);
         return toDTO(repo.save(p));

@@ -1,6 +1,7 @@
 package com.residencial.serviceimpl;
 
 import com.residencial.dto.ResidenteDTO;
+import com.residencial.exception.RecursoNoEncontradoException;
 import com.residencial.model.Apartamento;
 import com.residencial.model.Residente;
 import com.residencial.repository.ApartamentoRepository;
@@ -28,7 +29,7 @@ public class ResidenteServiceImpl implements ResidenteService {
 
     private Residente toEntity(ResidenteDTO dto) {
         Apartamento apto = aptoRepo.findById(dto.getApartamentoId())
-                .orElseThrow(() -> new RuntimeException("Apartamento no encontrado: " + dto.getApartamentoId()));
+                .orElseThrow(() -> new RecursoNoEncontradoException("Apartamento no encontrado: " + dto.getApartamentoId()));
         Residente r = new Residente();
         r.setNombreCompleto(dto.getNombreCompleto());
         r.setTelefono(dto.getTelefono());
