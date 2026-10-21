@@ -5,6 +5,7 @@ import com.residencial.model.Apartamento;
 import com.residencial.model.Vehiculo;
 import com.residencial.repository.ApartamentoRepository;
 import com.residencial.repository.VehiculoRepository;
+import com.residencial.security.AccesoService;
 import com.residencial.service.VehiculoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,7 @@ public class VehiculoServiceImpl implements VehiculoService {
 
     private final VehiculoRepository repo;
     private final ApartamentoRepository aptoRepo;
+    private final AccesoService acceso;
 
     private VehiculoDTO toDTO(Vehiculo v) {
         return new VehiculoDTO(v.getId(), v.getPlaca(), v.getMarca(),
@@ -25,12 +27,14 @@ public class VehiculoServiceImpl implements VehiculoService {
 
     @Override
     public List<VehiculoDTO> listarPorApartamento(Long apartamentoId) {
+        acceso.verificarApartamento(apartamentoId);
         return repo.findByApartamentoId(apartamentoId).stream()
                 .map(this::toDTO).collect(Collectors.toList());
     }
 
     @Override
     public VehiculoDTO guardar(VehiculoDTO dto) {
+        acceso.verificarApartamento(dto.getApartamentoId());
         Apartamento apto = aptoRepo.findById(dto.getApartamentoId())
                 .orElseThrow(() -> new RuntimeException("Apartamento no encontrado"));
         Vehiculo v = new Vehiculo(null, dto.getPlaca(), dto.getMarca(),
@@ -40,6 +44,9 @@ public class VehiculoServiceImpl implements VehiculoService {
 
     @Override
     public void eliminar(Long id) {
-        repo.deleteById(id);
+        repo.findById(id).ifPresent(v -> {
+            acceso.verificarApartamento(v.getApartamento().getId());
+            repo.delete(v);
+        });
     }
 }

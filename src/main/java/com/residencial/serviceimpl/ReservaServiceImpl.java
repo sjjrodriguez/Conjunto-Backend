@@ -7,6 +7,7 @@ import com.residencial.model.ZonaComun;
 import com.residencial.repository.ApartamentoRepository;
 import com.residencial.repository.ReservaRepository;
 import com.residencial.repository.ZonaComunRepository;
+import com.residencial.security.AccesoService;
 import com.residencial.service.ReservaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -22,6 +23,7 @@ public class ReservaServiceImpl implements ReservaService {
     private final ReservaRepository repo;
     private final ApartamentoRepository aptoRepo;
     private final ZonaComunRepository zonaRepo;
+    private final AccesoService acceso;
 
     private ReservaDTO toDTO(Reserva r) {
         return new ReservaDTO(r.getId(), r.getFecha(), r.getHora(),
@@ -35,12 +37,14 @@ public class ReservaServiceImpl implements ReservaService {
 
     @Override
     public List<ReservaDTO> listarPorApartamento(Long apartamentoId) {
+        acceso.verificarApartamento(apartamentoId);
         return repo.findByApartamentoId(apartamentoId).stream()
                 .map(this::toDTO).collect(Collectors.toList());
     }
 
     @Override
     public ReservaDTO guardar(ReservaDTO dto) {
+        acceso.verificarApartamento(dto.getApartamentoId());
         Apartamento apto = aptoRepo.findById(dto.getApartamentoId())
                 .orElseThrow(() -> new RuntimeException("Apartamento no encontrado"));
         ZonaComun zona = zonaRepo.findById(dto.getZonaComunId())

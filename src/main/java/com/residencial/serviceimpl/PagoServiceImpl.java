@@ -5,6 +5,7 @@ import com.residencial.model.Apartamento;
 import com.residencial.model.Pago;
 import com.residencial.repository.ApartamentoRepository;
 import com.residencial.repository.PagoRepository;
+import com.residencial.security.AccesoService;
 import com.residencial.service.PagoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,6 +16,7 @@ public class PagoServiceImpl implements PagoService {
 
     private final PagoRepository repo;
     private final ApartamentoRepository aptoRepo;
+    private final AccesoService acceso;
 
     private PagoDTO toDTO(Pago p) {
         return new PagoDTO(p.getId(), p.getSaldoPendiente(),
@@ -23,20 +25,22 @@ public class PagoServiceImpl implements PagoService {
 
     @Override
     public PagoDTO consultarPorApartamento(Long apartamentoId) {
+        acceso.verificarApartamento(apartamentoId);
         return repo.findByApartamentoId(apartamentoId).map(this::toDTO).orElse(null);
     }
 
     @Override
     public PagoDTO simularPago(Long apartamentoId) {
+        acceso.verificarApartamento(apartamentoId);
         return repo.findByApartamentoId(apartamentoId).map(p -> {
             if (p.getSaldoPendiente() <= 0) {
-                throw new RuntimeException("El saldo ya está en cero. No hay pago pendiente.");
+                throw new IllegalStateException("El saldo ya está en cero. No hay pago pendiente.");
             }
             p.setSaldoPendiente(0.0);
             p.setEstadoCuenta("Al Día");
             p.setObservaciones("Pago simulado exitosamente.");
             return toDTO(repo.save(p));
-        }).orElseThrow(() -> new RuntimeException("No se encontró cartera para el apartamento."));
+        }).orElseThrow(() -> new IllegalStateException("No se encontró cartera para el apartamento."));
     }
 
     @Override

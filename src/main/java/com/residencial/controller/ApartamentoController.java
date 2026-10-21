@@ -1,7 +1,10 @@
 package com.residencial.controller;
 
-import com.residencial.model.Apartamento;
+import com.residencial.dto.ApartamentoDTO;
+import com.residencial.dto.ApartamentoRequest;
+import com.residencial.dto.CambioContrasenaRequest;
 import com.residencial.service.ApartamentoService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,25 +18,33 @@ public class ApartamentoController {
     private final ApartamentoService service;
 
     @GetMapping
-    public List<Apartamento> listarTodos() {
+    public List<ApartamentoDTO> listarTodos() {
         return service.listarTodos();
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Apartamento> buscarPorId(@PathVariable Long id) {
-        Apartamento a = service.buscarPorId(id);
+    public ResponseEntity<ApartamentoDTO> buscarPorId(@PathVariable Long id) {
+        ApartamentoDTO a = service.buscarPorId(id);
         return a != null ? ResponseEntity.ok(a) : ResponseEntity.notFound().build();
     }
 
     @PostMapping
-    public ResponseEntity<Apartamento> guardar(@RequestBody Apartamento apartamento) {
+    public ResponseEntity<ApartamentoDTO> guardar(@RequestBody ApartamentoRequest apartamento) {
         return ResponseEntity.ok(service.guardar(apartamento));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Apartamento> actualizar(@PathVariable Long id, @RequestBody Apartamento apartamento) {
-        Apartamento updated = service.actualizar(id, apartamento);
+    public ResponseEntity<ApartamentoDTO> actualizar(@PathVariable Long id, @RequestBody ApartamentoRequest apartamento) {
+        ApartamentoDTO updated = service.actualizar(id, apartamento);
         return updated != null ? ResponseEntity.ok(updated) : ResponseEntity.notFound().build();
+    }
+
+    @PutMapping("/{id}/contrasena")
+    public ResponseEntity<Void> cambiarContrasena(@PathVariable Long id,
+                                                  @Valid @RequestBody CambioContrasenaRequest request) {
+        return service.cambiarContrasena(id, request.getNuevaContrasena())
+                ? ResponseEntity.noContent().build()
+                : ResponseEntity.notFound().build();
     }
 
     @DeleteMapping("/{id}")

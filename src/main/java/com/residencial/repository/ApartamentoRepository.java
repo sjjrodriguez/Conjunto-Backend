@@ -2,8 +2,9 @@ package com.residencial.repository;
 
 import com.residencial.model.Apartamento;
 import org.springframework.data.jpa.repository.JpaRepository;
-import java.util.Optional;
+import java.util.List;
 
 public interface ApartamentoRepository extends JpaRepository<Apartamento, Long> {
-    Optional<Apartamento> findByTorreAndAptoAndContrasena(String torre, String apto, String contrasena);
+    // torre + apto no tiene restriccion UNIQUE en la tabla, por eso se devuelve una lista
+    List<Apartamento> findByTorreAndApto(String torre, String apto);
 }

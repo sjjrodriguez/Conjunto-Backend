@@ -4,6 +4,7 @@ import com.residencial.model.Apartamento;
 import com.residencial.model.Obra;
 import com.residencial.repository.ApartamentoRepository;
 import com.residencial.repository.ObraRepository;
+import com.residencial.security.AccesoService;
 import com.residencial.service.ObraService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import java.util.stream.Collectors;
 public class ObraServiceImpl implements ObraService {
     private final ObraRepository repo;
     private final ApartamentoRepository aptoRepo;
+    private final AccesoService acceso;
     private ObraDTO toDTO(Obra o) {
         return new ObraDTO(o.getId(), o.getDescripcionAdecuacion(),
                 o.getFechaInicio(), o.getFechaFinEstimada(),
@@ -32,6 +34,7 @@ public class ObraServiceImpl implements ObraService {
     }
     @Override
     public List<ObraDTO> listarPorApartamento(Long apartamentoId) {
+        acceso.verificarApartamento(apartamentoId);
         return repo.findByApartamentoId(apartamentoId).stream()
                 .map(this::toDTO).collect(Collectors.toList());
     }
@@ -47,11 +50,13 @@ public class ObraServiceImpl implements ObraService {
     }
     @Override
     public ObraDTO guardar(ObraDTO dto) {
+        acceso.verificarApartamento(dto.getApartamentoId());
         return toDTO(repo.save(toEntity(dto)));
     }
     @Override
     public ObraDTO actualizar(Long id, ObraDTO dto) {
         return repo.findById(id).map(o -> {
+            acceso.verificarApartamento(o.getApartamento().getId());
             o.setDescripcionAdecuacion(dto.getDescripcionAdecuacion());
             o.setFechaInicio(dto.getFechaInicio());
             o.setFechaFinEstimada(dto.getFechaFinEstimada());

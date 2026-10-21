@@ -23,7 +23,7 @@ public class PagoController {
     public ResponseEntity<?> simularPago(@PathVariable Long apartamentoId) {
         try {
             return ResponseEntity.ok(service.simularPago(apartamentoId));
-        } catch (RuntimeException e) {
+        } catch (IllegalStateException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }

@@ -1,0 +1,14 @@
+# Configuracion para desarrollo local.
+# 1. Copia este archivo como config/application-local.properties (esta en .gitignore).
+# 2. Rellena los valores.
+# 3. Arranca con el perfil local:  ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+spring.datasource.url=jdbc:postgresql://aws-1-us-east-1.pooler.supabase.com:5432/postgres
+spring.datasource.username=postgres.TU_PROYECTO
+spring.datasource.password=CAMBIAR
+
+# Genera uno con:  openssl rand -base64 48
+app.jwt.secret=CAMBIAR_POR_UN_SECRETO_DE_AL_MENOS_32_CARACTERES
+
+spring.jpa.show-sql=true
+springdoc.api-docs.enabled=true
+springdoc.swagger-ui.enabled=true
