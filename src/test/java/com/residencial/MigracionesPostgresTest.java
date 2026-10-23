@@ -23,10 +23,11 @@ import java.sql.Statement;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * P4 bloque 0: las migraciones de Flyway contra un Postgres real (embebido), como en Supabase.
- * - Base vacía: V1 crea todas las tablas y Hibernate ('validate') confirma que coinciden con
- *   las entidades (si no, la app no arranca).
- * - Base existente sin Flyway (el caso de Supabase): no se ejecuta V1, se marca como versión 1.
+ * P4: las migraciones de Flyway contra un Postgres real (embebido), como en Supabase.
+ * - Base vacía: las migraciones crean todas las tablas y Hibernate ('validate') confirma que
+ *   coinciden con las entidades (si no, la app no arranca).
+ * - Base existente sin Flyway (el caso de Supabase): no se ejecuta V1, se marca como versión 1
+ *   y se aplican solo las siguientes, sin perder datos.
  */
 @SpringBootTest(properties = {
         "spring.flyway.enabled=true",
@@ -62,19 +63,19 @@ class MigracionesPostgresTest {
     }
 
     @Test
-    void enBaseVaciaV1CreaLasTablasYCoincidenConLasEntidades() {
+    void enBaseVaciaLasMigracionesCreanLasTablasYCoincidenConLasEntidades() {
         // Si las tablas no coincidieran con las entidades, el contexto no habría arrancado
         Integer aplicadas = jdbc.queryForObject(
-                "select count(*) from flyway_schema_history where version = '1' and success", Integer.class);
-        assertThat(aplicadas).isEqualTo(1);
+                "select count(*) from flyway_schema_history where success", Integer.class);
+        assertThat(aplicadas).isEqualTo(2);
         Integer tablas = jdbc.queryForObject(
                 "select count(*) from information_schema.tables where table_schema = 'public'"
                         + " and table_name <> 'flyway_schema_history'", Integer.class);
-        assertThat(tablas).isEqualTo(10);
+        assertThat(tablas).isEqualTo(11);
     }
 
     @Test
-    void enBaseExistenteSinFlywayNoEjecutaV1YLaMarcaComoVersion1() throws Exception {
+    void enBaseExistenteSinFlywayNoEjecutaV1YAplicaSoloLasNuevas() throws Exception {
         // Una base aparte con las tablas ya creadas, como estaba Supabase antes de Flyway
         DataSource postgres = POSTGRES.getPostgresDatabase();
         try (Connection c = postgres.getConnection(); Statement st = c.createStatement()) {
@@ -95,10 +96,12 @@ class MigracionesPostgresTest {
                 .load();
         MigrateResult resultado = flyway.migrate();
 
-        assertThat(resultado.migrationsExecuted).isZero();
+        // V1 no corre (la base ya tenía esas tablas): queda como línea base; V2 en adelante sí
+        assertThat(flyway.info().applied()[0].getType().isBaseline()).isTrue();
+        assertThat(flyway.info().applied()[0].getVersion().getVersion()).isEqualTo("1");
+        assertThat(resultado.migrationsExecuted).isEqualTo(flyway.info().applied().length - 1);
         MigrationInfo actual = flyway.info().current();
-        assertThat(actual.getVersion().getVersion()).isEqualTo("1");
-        assertThat(actual.getType().isBaseline()).isTrue();
+        assertThat(actual.getVersion().getVersion()).isEqualTo("2");
         // Los datos siguen ahí
         try (Connection c = existente.getConnection(); Statement st = c.createStatement();
              var rs = st.executeQuery("select count(*) from apartamento")) {

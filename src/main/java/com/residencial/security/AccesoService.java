@@ -6,8 +6,11 @@ import org.springframework.security.authentication.AuthenticationTrustResolver;
 import org.springframework.security.authentication.AuthenticationTrustResolverImpl;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
+
+import java.util.Optional;
 
 /**
  * Comprueba que el usuario autenticado puede actuar sobre un apartamento:
@@ -45,6 +48,12 @@ public class AccesoService {
     public boolean esAdminActual() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         return auth != null && !trustResolver.isAnonymous(auth) && esAdmin(auth);
+    }
+
+    /** El token de la sesión actual; vacío si la petición no trae uno válido. */
+    public Optional<Jwt> tokenActual() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth instanceof JwtAuthenticationToken jwt ? Optional.of(jwt.getToken()) : Optional.empty();
     }
 
     private static boolean esAdmin(Authentication auth) {

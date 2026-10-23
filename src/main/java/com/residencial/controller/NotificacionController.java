@@ -34,6 +34,19 @@ public class NotificacionController {
         return ResponseEntity.noContent().build();
     }
 
+    // Al abrir una notificación (en la lista o desde el aviso del celular)
+    @PutMapping("/{id}/leida")
+    public ResponseEntity<Void> marcarLeida(@PathVariable Long id) {
+        service.marcarLeida(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+        service.eliminar(id);
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping
     public ResponseEntity<Void> eliminarTodas() {
         service.eliminarTodas();

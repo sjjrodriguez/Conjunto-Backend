@@ -111,6 +111,10 @@ public class SecurityConfig {
 
                 // Notificaciones
                 .requestMatchers("/api/notificaciones", "/api/notificaciones/**").access(admin())
+                // Celulares que reciben avisos: cualquiera con sesión (DispositivoServiceImpl la exige).
+                // La baja no pide sesión: se hace al cerrarla y basta con el token, que solo tiene ese celular
+                .requestMatchers(HttpMethod.POST, "/api/dispositivos/baja").permitAll()
+                .requestMatchers("/api/dispositivos", "/api/dispositivos/**").access(autenticado())
 
                 .anyRequest().access(autenticado()));
 

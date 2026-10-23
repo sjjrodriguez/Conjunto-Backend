@@ -14,4 +14,8 @@ public interface NotificacionRepository extends JpaRepository<Notificacion, Long
     @Modifying
     @Query("update Notificacion n set n.leida = true where n.leida = false")
     int marcarTodasLeidas();
+
+    @Modifying
+    @Query("update Notificacion n set n.leida = true where n.id = :id")
+    int marcarLeida(Long id);
 }
