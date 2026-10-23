@@ -12,4 +12,7 @@ public class NotificacionDTO {
     private String mensaje;
     private LocalDateTime fecha;
     private Boolean leida;
+    // A qué pantalla lleva (P4): la reserva o el vehículo, y su apartamento. Pueden ser null.
+    private Long referenciaId;
+    private Long apartamentoId;
 }

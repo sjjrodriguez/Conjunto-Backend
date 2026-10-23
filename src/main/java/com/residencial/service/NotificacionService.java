@@ -10,6 +10,8 @@ public interface NotificacionService {
     long contarNoLeidas();
     void marcarTodasLeidas();
     void eliminarTodas();
+    void marcarLeida(Long id);
+    void eliminar(Long id);
     void avisarNuevaReserva(Reserva reserva);
     void avisarNuevoVehiculo(Vehiculo vehiculo);
 }

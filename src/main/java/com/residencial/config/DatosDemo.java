@@ -73,8 +73,8 @@ public class DatosDemo implements CommandLineRunner {
         vehiculoRepo.saveAll(List.of(
                 new Vehiculo(null, "ABC123", "Mazda", "Rojo", "Carro", t1a101),
                 new Vehiculo(null, "XYZ98F", "Yamaha", "Negro", "Moto", t1a101),
-                new Vehiculo(null, "JKL456", "Renault", "Gris", "Carro", t1a102),
-                new Vehiculo(null, "MNO789", "Chevrolet", "Blanco", "Carro", t2a101)));
+                new Vehiculo(null, "JKL456", "Renault", "Gris", "Carro", t1a102)));
+        Vehiculo chevrolet = vehiculoRepo.save(new Vehiculo(null, "MNO789", "Chevrolet", "Blanco", "Carro", t2a101));
 
         // Cartera variada: al día, en mora y uno sin registro de pago (t2a102 y el último)
         pagoRepo.saveAll(List.of(
@@ -100,8 +100,9 @@ public class DatosDemo implements CommandLineRunner {
         zonaRepo.save(new ZonaComun(null, "Gimnasio", "Regular", "Una caminadora en reparación", true));
         zonaRepo.save(new ZonaComun(null, "Piscina", "En mantenimiento", "Cerrada hasta nuevo aviso", false));
 
+        Reserva bbqPendiente = reservaRepo.save(
+                new Reserva(null, hoy.plusDays(2), LocalTime.of(14, 0), "PENDIENTE", bbq, t1a101));
         reservaRepo.saveAll(List.of(
-                new Reserva(null, hoy.plusDays(2), LocalTime.of(14, 0), "PENDIENTE", bbq, t1a101),
                 new Reserva(null, hoy.plusDays(3), LocalTime.of(18, 0), "APROBADA", salon, t1a102),
                 new Reserva(null, hoy.plusDays(5), LocalTime.of(10, 0), "PENDIENTE", salon, t2a101),
                 new Reserva(null, hoy.minusDays(4), LocalTime.of(16, 0), "RECHAZADA", bbq, t1a201)));
@@ -110,9 +111,11 @@ public class DatosDemo implements CommandLineRunner {
         notificacionRepo.saveAll(List.of(
                 new Notificacion(null, "RESERVA", "Nueva reserva — Zona BBQ el "
                         + hoy.plusDays(2).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
-                        + " a las 14:00 · Torre 1 Apto 101", ahora.minusHours(3), false),
+                        + " a las 14:00 · Torre 1 Apto 101", ahora.minusHours(3), false,
+                        bbqPendiente.getId(), t1a101.getId()),
                 new Notificacion(null, "VEHICULO", "Nuevo vehículo registrado — MNO789 (Carro Chevrolet Blanco)"
-                        + " · Torre 2 Apto 101", ahora.minusDays(1), true)));
+                        + " · Torre 2 Apto 101", ahora.minusDays(1), true,
+                        chevrolet.getId(), t2a101.getId())));
 
         log.warn("PERFIL DEMO activo: base H2 en memoria con datos de ejemplo. No usar en producción.");
     }

@@ -4,7 +4,10 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
 
-/** Aviso para el administrador cuando un propietario reserva o registra un vehículo. */
+/**
+ * Aviso para el administrador cuando un propietario reserva o registra un vehículo.
+ * [referenciaId] y [apartamentoId] dicen a qué pantalla lleva al tocarlo.
+ */
 @Entity
 @Table(name = "notificacion")
 @Data
@@ -28,4 +31,12 @@ public class Notificacion {
 
     @Column(nullable = false)
     private Boolean leida;
+
+    // La reserva o el vehículo del aviso (según el tipo); null en avisos anteriores a P4
+    @Column(name = "referencia_id")
+    private Long referenciaId;
+
+    // Apartamento que originó el aviso
+    @Column(name = "apartamento_id")
+    private Long apartamentoId;
 }
