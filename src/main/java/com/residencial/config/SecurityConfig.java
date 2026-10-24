@@ -143,8 +143,10 @@ public class SecurityConfig {
 
     private BearerTokenResolver bearerTokenResolver() {
         DefaultBearerTokenResolver resolver = new DefaultBearerTokenResolver();
-        // El login nunca necesita token: se ignora aunque llegue uno caducado
-        return req -> req.getRequestURI().startsWith("/api/auth/") ? null : resolver.resolve(req);
+        // El login nunca necesita token: se ignora aunque llegue uno caducado. Las demás rutas de
+        // /api/auth (cambiar la contraseña) sí lo usan
+        return req -> req.getRequestURI().startsWith("/api/auth/") && req.getRequestURI().endsWith("/login")
+                ? null : resolver.resolve(req);
     }
 
     private JwtAuthenticationConverter jwtAuthenticationConverter() {
