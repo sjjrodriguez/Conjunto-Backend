@@ -7,6 +7,7 @@ import com.residencial.repository.ApartamentoRepository;
 import com.residencial.service.AuthService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Optional;
@@ -61,6 +62,26 @@ public class AuthServiceImpl implements AuthService {
         }
         passwordEncoder.matches(contrasena, hashFicticio);
         return null;
+    }
+
+    @Override
+    @Transactional
+    public boolean cambiarContrasena(String sujeto, String actual, String nueva) {
+        if (sujeto == null || vacio(actual) || vacio(nueva)) return false;
+        Long id = Long.valueOf(sujeto.substring(sujeto.indexOf(':') + 1));
+        if (sujeto.startsWith("admin:")) {
+            Administrador admin = adminRepo.findById(id).orElse(null);
+            if (admin == null || !verificar(actual, admin.getContrasena(), h -> {})) return false;
+            admin.setContrasena(passwordEncoder.encode(nueva));
+            adminRepo.save(admin);
+            return true;
+        }
+        // La contraseña del apartamento la comparten sus residentes: cambia para todos
+        Apartamento apto = apartamentoRepo.findById(id).orElse(null);
+        if (apto == null || !verificar(actual, apto.getContrasena(), h -> {})) return false;
+        apto.setContrasena(passwordEncoder.encode(nueva));
+        apartamentoRepo.save(apto);
+        return true;
     }
 
     /**

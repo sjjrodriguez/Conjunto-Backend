@@ -1,16 +1,21 @@
 package com.residencial.controller;
 
+import com.residencial.dto.CambioPropiaContrasenaRequest;
 import com.residencial.dto.LoginDTO;
 import com.residencial.dto.MensajeError;
 import com.residencial.model.Administrador;
 import com.residencial.model.Apartamento;
+import com.residencial.security.AccesoService;
 import com.residencial.security.LimitadorLogin;
 import com.residencial.security.TokenService;
 import com.residencial.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -21,6 +26,7 @@ public class AuthController {
     private final AuthService authService;
     private final TokenService tokenService;
     private final LimitadorLogin limitador;
+    private final AccesoService acceso;
 
     @PostMapping("/admin/login")
     public ResponseEntity<?> loginAdmin(@RequestBody LoginDTO.AdminLoginRequest request, HttpServletRequest http) {
@@ -50,6 +56,29 @@ public class AuthController {
         limitador.registrarFallo(clave);
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(new MensajeError("Torre, apto o contraseña incorrectos"));
+    }
+
+    /**
+     * Cuenta → Perfil: el usuario cambia su propia contraseña confirmando la actual.
+     * Si la actual no coincide responde 400 (no 401: la app trata 401 como sesión vencida).
+     * Mismo límite de intentos que el login, para que no sirva para adivinarla.
+     */
+    @PutMapping("/contrasena")
+    public ResponseEntity<?> cambiarContrasena(@Valid @RequestBody CambioPropiaContrasenaRequest request) {
+        // Aun en modo transición hace falta saber de quién es la cuenta
+        Jwt sesion = acceso.tokenActual()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Debes iniciar sesión"));
+        String clave = "contrasena|" + sesion.getSubject();
+        limitador.verificar(clave);
+        if (request.getContrasenaActual().equals(request.getContrasenaNueva())) {
+            return ResponseEntity.badRequest().body(new MensajeError("La nueva contraseña debe ser distinta de la actual"));
+        }
+        if (!authService.cambiarContrasena(sesion.getSubject(), request.getContrasenaActual(), request.getContrasenaNueva())) {
+            limitador.registrarFallo(clave);
+            return ResponseEntity.badRequest().body(new MensajeError("La contraseña actual no es correcta"));
+        }
+        limitador.limpiar(clave);
+        return ResponseEntity.noContent().build();
     }
 
     private static String normalizar(String valor) {
