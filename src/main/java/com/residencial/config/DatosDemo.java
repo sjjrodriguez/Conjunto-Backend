@@ -99,16 +99,25 @@ public class DatosDemo implements CommandLineRunner {
                 new PersonalObra(null, "Miguel Ángel Ruiz", "1012555666", true, pintura),
                 new PersonalObra(null, "Óscar Beltrán", "79777888", true, bano)));
 
-        ZonaComun bbq = zonaRepo.save(new ZonaComun(null, "Zona BBQ", "Bueno", "Parrilla y 4 mesas", true));
-        ZonaComun salon = zonaRepo.save(new ZonaComun(null, "Salón comunal", "Bueno", "Capacidad 40 personas", true));
-        zonaRepo.save(new ZonaComun(null, "Gimnasio", "Regular", "Una caminadora en reparación", true));
+        // Aforo y horario en que se pueden reservar
+        ZonaComun bbq = zonaRepo.save(new ZonaComun(null, "Zona BBQ", "Bueno", "Parrilla y 4 mesas", true,
+                20, LocalTime.of(9, 0), LocalTime.of(22, 0)));
+        ZonaComun salon = zonaRepo.save(new ZonaComun(null, "Salón comunal", "Bueno", "Mesas, sillas y sonido", true,
+                40, LocalTime.of(8, 0), LocalTime.of(23, 0)));
+        zonaRepo.save(new ZonaComun(null, "Gimnasio", "Regular", "Una caminadora en reparación", true,
+                8, LocalTime.of(5, 0), LocalTime.of(21, 0)));
         zonaRepo.save(new ZonaComun(null, "Piscina", "En mantenimiento", "Cerrada hasta nuevo aviso", false));
 
         Reserva bbqPendiente = reservaRepo.save(
-                new Reserva(null, hoy.plusDays(2), LocalTime.of(14, 0), "PENDIENTE", bbq, t1a101));
+                new Reserva(null, hoy.plusDays(2), LocalTime.of(14, 0), "PENDIENTE", bbq, t1a101,
+                        LocalTime.of(17, 0), 12));
         reservaRepo.saveAll(List.of(
-                new Reserva(null, hoy.plusDays(3), LocalTime.of(18, 0), "APROBADA", salon, t1a102),
-                new Reserva(null, hoy.plusDays(5), LocalTime.of(10, 0), "PENDIENTE", salon, t2a101),
+                new Reserva(null, hoy.plusDays(3), LocalTime.of(18, 0), "APROBADA", salon, t1a102,
+                        LocalTime.of(22, 0), 30),
+                new Reserva(null, hoy.plusDays(5), LocalTime.of(10, 0), "PENDIENTE", salon, t2a101,
+                        LocalTime.of(13, 0), 15),
+                new Reserva(null, hoy.plusDays(2), LocalTime.of(9, 0), "APROBADA", bbq, t2a102,
+                        LocalTime.of(12, 0), 8),
                 new Reserva(null, hoy.minusDays(4), LocalTime.of(16, 0), "RECHAZADA", bbq, t1a201)));
 
         LocalDateTime ahora = LocalDateTime.now(ZoneId.of("America/Bogota"));
