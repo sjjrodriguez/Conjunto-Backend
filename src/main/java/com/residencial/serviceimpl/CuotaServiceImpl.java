@@ -192,6 +192,38 @@ public class CuotaServiceImpl implements CuotaService {
     }
 
     @Override
+    public CuotaDTO actualizar(Long id, CuotaDTO.Cambio cambio) {
+        Cuota c = buscar(id);
+        if (c.pagada()) throw invalido("Una cuota pagada no se puede cambiar");
+        if (cambio.valor() != null) {
+            if (cambio.valor().signum() <= 0) throw invalido("El valor de la cuota debe ser mayor que cero");
+            if (cambio.valor().scale() > 2) throw invalido("El valor admite máximo dos decimales");
+            c.setValor(cambio.valor());
+        }
+        if (cambio.fechaLimite() != null) {
+            if (cambio.fechaLimite().isBefore(YearMonth.parse(c.getPeriodo()).atDay(1))) {
+                throw invalido("La fecha límite no puede ser antes del mes de la cuota");
+            }
+            c.setFechaLimite(cambio.fechaLimite());
+        }
+        Cuota guardada = repo.save(c);
+        recalcular(guardada.getApartamento());
+        return toDTO(guardada);
+    }
+
+    /** Una cuota generada por error. Las pagadas se conservan: son el historial de pagos. */
+    @Override
+    public void eliminar(Long id) {
+        Cuota c = buscar(id);
+        if (c.pagada()) throw invalido("Una cuota pagada no se puede eliminar");
+        Apartamento a = c.getApartamento();
+        if (c.getComprobanteRuta() != null) borrarSinFallar(c.getComprobanteRuta());
+        repo.delete(c);
+        repo.flush();
+        recalcular(a);
+    }
+
+    @Override
     public void recalcularCartera(Long apartamentoId) {
         recalcular(aptoRepo.findById(apartamentoId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Apartamento no encontrado: " + apartamentoId)));

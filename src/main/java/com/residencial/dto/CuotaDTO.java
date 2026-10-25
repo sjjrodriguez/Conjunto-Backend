@@ -39,6 +39,9 @@ public class CuotaDTO {
     /** PUT /api/cuotas/{id}/estado: PAGADA o RECHAZADA (con motivo). */
     public record Revision(String estado, String motivo) {}
 
+    /** PUT /api/cuotas/{id}: corregir el valor o la fecha límite (los dos opcionales). */
+    public record Cambio(BigDecimal valor, LocalDate fechaLimite) {}
+
     /** Enlace temporal para ver el comprobante. */
     public record Enlace(String url, String tipo, LocalDateTime expiraEn) {}
 }

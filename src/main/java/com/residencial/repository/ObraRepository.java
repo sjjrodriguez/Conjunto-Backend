@@ -13,4 +13,6 @@ public interface ObraRepository extends JpaRepository<Obra, Long> {
     // Para cuando se necesitan torre y apto (no solo el id) fuera de una transacción
     @EntityGraph(attributePaths = "apartamento")
     Optional<Obra> findConApartamentoById(Long id);
+
+    boolean existsByApartamentoId(Long apartamentoId);
 }

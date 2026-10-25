@@ -17,4 +17,6 @@ public interface VehiculoRepository extends JpaRepository<Vehiculo, Long> {
 
     /** Cuántos de un tipo ocupan cupo en el apartamento (pendientes y aprobados). */
     long countByApartamentoIdAndTipoAndEstadoIn(Long apartamentoId, String tipo, Collection<String> estados);
+
+    boolean existsByApartamentoId(Long apartamentoId);
 }

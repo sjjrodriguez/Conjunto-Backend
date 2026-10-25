@@ -4,6 +4,7 @@ import com.residencial.dto.CuotaDTO;
 import com.residencial.service.CuotaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -44,6 +45,17 @@ public class CuotaController {
     @GetMapping("/{id}/comprobante")
     public CuotaDTO.Enlace enlaceComprobante(@PathVariable Long id) {
         return service.enlaceComprobante(id);
+    }
+
+    @PutMapping("/{id}")
+    public CuotaDTO actualizar(@PathVariable Long id, @RequestBody CuotaDTO.Cambio cambio) {
+        return service.actualizar(id, cambio);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+        service.eliminar(id);
+        return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/{id}/estado")

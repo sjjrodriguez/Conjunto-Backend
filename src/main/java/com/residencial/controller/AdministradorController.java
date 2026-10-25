@@ -54,18 +54,45 @@ public class AdministradorController {
         return new CuentaDTO(a.getId(), a.getUsuario(), a.getRol(), null);
     }
 
+    /** Cambia el rol y/o la contraseña (los dos opcionales). */
+    @PutMapping("/{id}")
+    @Transactional
+    public CuentaDTO actualizar(@PathVariable Long id, @RequestBody CuentaDTO dto) {
+        Administrador a = repo.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("Cuenta no encontrada: " + id));
+        if (dto.rol() != null) {
+            String rol = Catalogo.ROL_ADMINISTRACION.normalizar(dto.rol());
+            if (!rol.equals(a.getRol()) && Administrador.ADMIN.equals(a.getRol())) {
+                if (esPropia(id)) throw invalido("No puedes quitarte el rol de administrador");
+                if (administradores() <= 1) throw invalido("Debe quedar al menos un administrador");
+            }
+            a.setRol(rol);
+        }
+        if (dto.contrasena() != null && !dto.contrasena().isEmpty()) {
+            if (dto.contrasena().length() < 6) throw invalido("La contraseña debe tener al menos 6 caracteres");
+            a.setContrasena(encoder.encode(dto.contrasena()));
+        }
+        Administrador guardado = repo.save(a);
+        return new CuentaDTO(guardado.getId(), guardado.getUsuario(), guardado.getRol(), null);
+    }
+
     @DeleteMapping("/{id}")
     @Transactional
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
         Administrador a = repo.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("Cuenta no encontrada: " + id));
-        boolean propia = acceso.tokenActual().map(t -> ("admin:" + id).equals(t.getSubject())).orElse(false);
-        if (propia) throw invalido("No puedes eliminar tu propia cuenta");
-        if (Administrador.ADMIN.equals(a.getRol())
-                && repo.findAll().stream().filter(x -> Administrador.ADMIN.equals(x.getRol())).count() <= 1) {
+        if (esPropia(id)) throw invalido("No puedes eliminar tu propia cuenta");
+        if (Administrador.ADMIN.equals(a.getRol()) && administradores() <= 1) {
             throw invalido("Debe quedar al menos un administrador");
         }
         repo.delete(a);
         return ResponseEntity.noContent().build();
+    }
+
+    private boolean esPropia(Long id) {
+        return acceso.tokenActual().map(t -> ("admin:" + id).equals(t.getSubject())).orElse(false);
+    }
+
+    private long administradores() {
+        return repo.findAll().stream().filter(x -> Administrador.ADMIN.equals(x.getRol())).count();
     }
 
     private static ResponseStatusException invalido(String mensaje) {

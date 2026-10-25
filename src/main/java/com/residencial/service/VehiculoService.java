@@ -7,6 +7,8 @@ import java.util.List;
 public interface VehiculoService {
     List<VehiculoDTO> listarPorApartamento(Long apartamentoId);
     VehiculoDTO guardar(VehiculoDTO dto);
+    /** El residente edita el suyo (vuelve a esperar aprobación); el administrador, cualquiera. */
+    VehiculoDTO actualizar(Long id, VehiculoDTO dto);
     void eliminar(Long id);
 
     /** Todos los vehículos en un estado (el administrador revisa los PENDIENTE). */

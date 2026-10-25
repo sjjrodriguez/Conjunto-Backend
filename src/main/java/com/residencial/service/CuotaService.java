@@ -13,6 +13,8 @@ public interface CuotaService {
     CuotaDTO subirComprobante(Long id, MultipartFile archivo);
     CuotaDTO.Enlace enlaceComprobante(Long id);
     CuotaDTO revisar(Long id, String estado, String motivo);
+    CuotaDTO actualizar(Long id, CuotaDTO.Cambio cambio);
+    void eliminar(Long id);
     /** Recalcula el resumen de cartera (tabla pago) del apartamento con sus cuotas. */
     void recalcularCartera(Long apartamentoId);
 }
