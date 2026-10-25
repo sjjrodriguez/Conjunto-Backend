@@ -18,6 +18,8 @@ import java.time.Instant;
 public class TokenService {
 
     public static final String ROL_ADMIN = "ADMIN";
+    // Entra por "Administración" pero solo maneja la cartera y la facturación (P4 bloque 7)
+    public static final String ROL_CONTADOR = "CONTADOR";
     public static final String ROL_PROPIETARIO = "PROPIETARIO";
     public static final String ROL_ARRENDATARIO = "ARRENDATARIO";
     public static final String CLAIM_ROL = "rol";
@@ -34,11 +36,12 @@ public class TokenService {
 
     public LoginResponse paraAdmin(Administrador admin) {
         Instant expira = Instant.now().plus(duracion);
-        JwtClaimsSet claims = base("admin:" + admin.getId(), ROL_ADMIN, expira).build();
+        String rol = ROL_CONTADOR.equals(admin.getRol()) ? ROL_CONTADOR : ROL_ADMIN;
+        JwtClaimsSet claims = base("admin:" + admin.getId(), rol, expira).build();
         return LoginResponse.builder()
                 .token(firmar(claims))
                 .expiraEn(expira)
-                .rol(ROL_ADMIN)
+                .rol(rol)
                 .id(admin.getId())
                 .usuario(admin.getUsuario())
                 .build();

@@ -75,6 +75,8 @@ public class SecurityConfig {
 
                 // Apartamentos
                 .requestMatchers(HttpMethod.GET, "/api/apartamentos/*").access(autenticado())
+                // La lista también la usa el contador (cartera)
+                .requestMatchers(HttpMethod.GET, "/api/apartamentos").access(cartera())
                 .requestMatchers("/api/apartamentos", "/api/apartamentos/**").access(admin())
 
                 // Residentes: el propietario ve los de su apartamento y agrega o quita arrendatarios
@@ -114,7 +116,18 @@ public class SecurityConfig {
                 // Pagos
                 .requestMatchers(HttpMethod.GET, "/api/pagos/apartamento/*").access(autenticado())
                 .requestMatchers(HttpMethod.PUT, "/api/pagos/apartamento/*/simular").access(autenticado())
-                .requestMatchers("/api/pagos", "/api/pagos/**").access(admin())
+                .requestMatchers("/api/pagos", "/api/pagos/**").access(cartera())
+
+                // Cuotas mensuales (P4 bloque 7): el residente ve las suyas y sube el comprobante
+                // (CuotaServiceImpl comprueba el apartamento); generar y revisar es del contador
+                .requestMatchers(HttpMethod.GET, "/api/cuotas/apartamento/*", "/api/cuotas/*/comprobante").access(autenticado())
+                .requestMatchers(HttpMethod.POST, "/api/cuotas/*/comprobante").access(autenticado())
+                .requestMatchers("/api/cuotas", "/api/cuotas/**").access(cartera())
+                // Enlaces firmados del almacenamiento local (demo): la firma hace de permiso
+                .requestMatchers(HttpMethod.GET, "/api/archivos/local").permitAll()
+
+                // Cuentas de la administración (administradores y contador)
+                .requestMatchers("/api/administradores", "/api/administradores/**").access(admin())
 
                 // Notificaciones
                 // Cada uno ve las suyas: el administrador, las suyas; un residente, las de su apartamento
@@ -131,6 +144,10 @@ public class SecurityConfig {
 
     private AuthorizationManager<RequestAuthorizationContext> admin() {
         return regla(AuthorityAuthorizationManager.hasRole(TokenService.ROL_ADMIN));
+    }
+
+    private AuthorizationManager<RequestAuthorizationContext> cartera() {
+        return regla(AuthorityAuthorizationManager.hasAnyRole(TokenService.ROL_ADMIN, TokenService.ROL_CONTADOR));
     }
 
     private AuthorizationManager<RequestAuthorizationContext> autenticado() {

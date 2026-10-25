@@ -14,6 +14,7 @@ public interface DispositivoRepository extends JpaRepository<Dispositivo, Long> 
     Optional<Dispositivo> findByToken(String token);
 
     List<Dispositivo> findByRol(String rol);
+    List<Dispositivo> findByRolIn(Collection<String> roles);
 
     /** Celulares de los residentes de un apartamento (sus avisos). */
     List<Dispositivo> findByApartamentoId(Long apartamentoId);

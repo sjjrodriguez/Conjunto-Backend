@@ -5,7 +5,9 @@ import com.residencial.exception.RecursoNoEncontradoException;
 import com.residencial.model.Apartamento;
 import com.residencial.model.Catalogo;
 import com.residencial.model.Pago;
+import com.residencial.model.Cuota;
 import com.residencial.repository.ApartamentoRepository;
+import com.residencial.repository.CuotaRepository;
 import com.residencial.repository.PagoRepository;
 import com.residencial.security.AccesoService;
 import com.residencial.service.PagoService;
@@ -20,6 +22,7 @@ public class PagoServiceImpl implements PagoService {
 
     private final PagoRepository repo;
     private final ApartamentoRepository aptoRepo;
+    private final CuotaRepository cuotaRepo;
     private final AccesoService acceso;
 
     private PagoDTO toDTO(Pago p) {
@@ -35,7 +38,7 @@ public class PagoServiceImpl implements PagoService {
 
     @Override
     public PagoDTO consultarPorApartamento(Long apartamentoId) {
-        acceso.verificarApartamento(apartamentoId);
+        acceso.verificarApartamentoOCartera(apartamentoId);
         return repo.findByApartamentoId(apartamentoId).map(this::toDTO).orElse(null);
     }
 
@@ -49,6 +52,12 @@ public class PagoServiceImpl implements PagoService {
             p.setSaldoPendiente(0.0);
             p.setEstadoCuenta("Al Día");
             p.setObservaciones("Pago simulado exitosamente.");
+            // Con facturación mensual (P4), las cuotas pendientes quedan pagadas también
+            cuotaRepo.findByApartamentoIdOrderByPeriodoDesc(apartamentoId).stream().filter(c -> !c.pagada()).forEach(c -> {
+                c.setEstado(Cuota.PAGADA);
+                c.setPagadaEn(java.time.LocalDateTime.now());
+                cuotaRepo.save(c);
+            });
             return toDTO(repo.save(p));
         }).orElseThrow(() -> new IllegalStateException("No se encontró cartera para el apartamento."));
     }

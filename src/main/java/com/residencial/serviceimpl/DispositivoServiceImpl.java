@@ -45,7 +45,7 @@ public class DispositivoServiceImpl implements DispositivoService {
         Dispositivo d = repo.findByToken(token).orElseGet(Dispositivo::new);
         d.setToken(token);
         d.setRol(rol);
-        d.setApartamento(TokenService.ROL_ADMIN.equals(rol) ? null
+        d.setApartamento(TokenService.ROL_ADMIN.equals(rol) || TokenService.ROL_CONTADOR.equals(rol) ? null
                 : sesion.getClaim(TokenService.CLAIM_APARTAMENTO) instanceof Number id
                         ? apartamentos.getReferenceById(id.longValue()) : null);
         d.setActualizado(LocalDateTime.now(zonaHoraria));
