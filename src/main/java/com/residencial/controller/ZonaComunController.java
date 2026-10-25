@@ -1,10 +1,14 @@
 package com.residencial.controller;
 
+import com.residencial.dto.DisponibilidadDTO;
 import com.residencial.dto.ZonaComunDTO;
+import com.residencial.service.ReservaService;
 import com.residencial.service.ZonaComunService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -13,6 +17,18 @@ import java.util.List;
 public class ZonaComunController {
 
     private final ZonaComunService service;
+    private final ReservaService reservas;
+
+    /**
+     * Lo ocupado de la zona día por día entre dos fechas (máximo 62 días), para el calendario
+     * de reservas. Las franjas de otros apartamentos no dicen de quién son.
+     */
+    @GetMapping("/{id}/disponibilidad")
+    public DisponibilidadDTO disponibilidad(@PathVariable Long id,
+                                            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+                                            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return reservas.disponibilidad(id, desde, hasta);
+    }
 
     @GetMapping
     public List<ZonaComunDTO> listarTodas() {
