@@ -100,7 +100,7 @@ public class SecurityConfig {
 
                 // Personal de obra
                 .requestMatchers(HttpMethod.GET, "/api/personal-obra").access(admin())
-                .requestMatchers(HttpMethod.DELETE, "/api/personal-obra/*").access(admin())
+                // Borrar: el administrador o el residente dueño de la obra (PersonalObraServiceImpl)
                 .requestMatchers("/api/personal-obra", "/api/personal-obra/**").access(autenticado())
 
                 // Zonas comunes
@@ -110,7 +110,7 @@ public class SecurityConfig {
                 // Reservas
                 .requestMatchers(HttpMethod.GET, "/api/reservas").access(admin())
                 .requestMatchers(HttpMethod.PUT, "/api/reservas/*/estado").access(admin())
-                .requestMatchers(HttpMethod.DELETE, "/api/reservas/*").access(admin())
+                // Borrar: el administrador cualquiera; el residente cancela la suya si no ha empezado
                 .requestMatchers("/api/reservas", "/api/reservas/**").access(autenticado())
 
                 // Pagos

@@ -77,6 +77,34 @@ public class VehiculoServiceImpl implements VehiculoService {
         return toDTO(guardado);
     }
 
+    @Override
+    @Transactional
+    public VehiculoDTO actualizar(Long id, VehiculoDTO dto) {
+        Vehiculo v = repo.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("Vehículo no encontrado: " + id));
+        acceso.verificarApartamento(v.getApartamento().getId());
+        String tipo = Catalogo.TIPO_VEHICULO.normalizar(dto.getTipo());
+        String placa = vacioANull(dto.getPlaca());
+        if (placa == null && CON_PLACA.contains(tipo)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "La placa es obligatoria para " + tipo.toLowerCase(Locale.ROOT));
+        }
+        boolean esAdmin = acceso.esAdminActual();
+        // Si cambia de tipo ocupa un cupo de otro tipo
+        if (!esAdmin && !tipo.equals(v.getTipo())) verificarCupo(v.getApartamento().getId(), tipo);
+        v.setTipo(tipo);
+        v.setPlaca(placa == null ? null : placa.toUpperCase(Locale.ROOT));
+        v.setMarca(vacioANull(dto.getMarca()));
+        v.setColor(vacioANull(dto.getColor()));
+        if (!esAdmin) {
+            // Lo que cambia el residente lo vuelve a revisar la administración
+            v.setEstado(Vehiculo.PENDIENTE);
+            v.setMotivoRechazo(null);
+        }
+        Vehiculo guardado = repo.save(v);
+        notificaciones.avisarNuevoVehiculo(guardado);
+        return toDTO(guardado);
+    }
+
     private void verificarCupo(Long apartamentoId, String tipo) {
         int maximo = maximo(tipo);
         long ocupados = repo.countByApartamentoIdAndTipoAndEstadoIn(apartamentoId, tipo, OCUPAN_CUPO);

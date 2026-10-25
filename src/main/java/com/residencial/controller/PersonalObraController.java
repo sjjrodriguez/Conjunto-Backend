@@ -28,6 +28,11 @@ public class PersonalObraController {
         return ResponseEntity.ok(service.guardar(dto));
     }
 
+    @PutMapping("/{id}")
+    public PersonalObraDTO actualizar(@PathVariable Long id, @RequestBody PersonalObraDTO dto) {
+        return service.actualizar(id, dto);
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
         service.eliminar(id);

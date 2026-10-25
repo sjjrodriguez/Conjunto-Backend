@@ -193,7 +193,14 @@ public class ReservaServiceImpl implements ReservaService {
 
     @Override
     public void eliminar(Long id) {
-        repo.deleteById(id);
+        Reserva r = repo.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("Reserva no encontrada: " + id));
+        if (!acceso.esAdminActual()) {
+            acceso.verificarApartamento(r.getApartamento().getId());
+            if (!LocalDateTime.of(r.getFecha(), r.getHora()).isAfter(LocalDateTime.now(zonaHoraria))) {
+                throw error("Solo puedes cancelar una reserva que aún no empieza");
+            }
+        }
+        repo.delete(r);
     }
 
     @Override

@@ -17,4 +17,6 @@ public interface ResidenteRepository extends JpaRepository<Residente, Long> {
     List<Residente> findByEstadoOrderByIdAsc(String estado);
 
     boolean existsByApartamentoIdAndIdentificacion(Long apartamentoId, String identificacion);
+
+    boolean existsByApartamentoId(Long apartamentoId);
 }

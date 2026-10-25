@@ -82,10 +82,11 @@ class ErroresIntegrationTest {
 
     @Test
     void borrarApartamentoConDatosDevuelve409() throws Exception {
-        pagoRepo.save(new Pago(null, 1000.0, "En Mora", null, apto));
+        // P4 bloque 8: la cartera se borra con él; los residentes no
+        residenteRepo.save(new Residente(null, "Ana", null, "1", "PROPIETARIO", apto));
         mvc.perform(delete("/api/apartamentos/" + apto.getId()).header("Authorization", admin))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.mensaje").value("No se puede eliminar: tiene registros asociados"));
+                .andExpect(jsonPath("$.mensaje").value("Primero quita sus residentes, vehículos, obras y reservas"));
         assertThat(aptoRepo.existsById(apto.getId())).isTrue();
     }
 
