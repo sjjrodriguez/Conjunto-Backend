@@ -127,7 +127,8 @@ class EstadosIntegrationTest {
         enviar(post("/api/vehiculos"), vehiculo("MOTO"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tipo").value("Moto"));
-        enviar(post("/api/vehiculos"), vehiculo("bicicleta"))
+        // P4: bicicleta ya es un tipo válido; uno inventado no
+        enviar(post("/api/vehiculos"), vehiculo("avion"))
                 .andExpect(status().isBadRequest());
     }
 

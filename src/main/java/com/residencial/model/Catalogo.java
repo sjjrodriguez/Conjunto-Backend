@@ -16,7 +16,9 @@ public enum Catalogo {
     ESTADO_RESERVA("El estado de la reserva", List.of("PENDIENTE", "APROBADA", "RECHAZADA")),
     ESTADO_OBRA("El estado de la obra", List.of("EN_PROCESO", "FINALIZADA")),
     TIPO_HABITANTE("El tipo de habitante", List.of("PROPIETARIO", "ARRENDATARIO")),
-    TIPO_VEHICULO("El tipo de vehículo", List.of("Carro", "Moto")),
+    TIPO_VEHICULO("El tipo de vehículo",
+            List.of("Carro", "Moto", "Bicicleta", "Patineta", "Patineta eléctrica", "Otro")),
+    ESTADO_VEHICULO("El estado del vehículo", List.of("PENDIENTE", "APROBADO", "RECHAZADO")),
     ESTADO_CUENTA("El estado de cuenta", List.of("Al Día", "En Mora"));
 
     private final String campo;

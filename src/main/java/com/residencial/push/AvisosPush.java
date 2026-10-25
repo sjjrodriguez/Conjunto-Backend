@@ -16,9 +16,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Cuando se guarda una notificación para el administrador, la envía a sus celulares.
- * Espera a que la transacción termine bien (si la reserva falla, no hay aviso) y corre en
- * segundo plano.
+ * Cuando se guarda una notificación, la envía a los celulares de quien la recibe: los del
+ * administrador o los de los residentes del apartamento. Espera a que la transacción termine
+ * bien (si la reserva falla, no hay aviso) y corre en segundo plano.
  */
 @Slf4j
 @Component
@@ -28,14 +28,26 @@ public class AvisosPush {
     /** Se publica al guardar una notificación (NotificacionServiceImpl). */
     public record NotificacionCreada(Notificacion notificacion) {}
 
+    // Título del aviso en el celular según el tipo de notificación
+    private static final Map<String, String> TITULOS = Map.of(
+            "RESERVA", "Nueva reserva",
+            "VEHICULO", "Nuevo vehículo por aprobar",
+            "VEHICULO_APROBADO", "Vehículo aprobado",
+            "VEHICULO_RECHAZADO", "Vehículo rechazado",
+            "RESERVA_APROBADA", "Reserva aprobada",
+            "RESERVA_RECHAZADA", "Reserva rechazada");
+
     private final DispositivoRepository dispositivos;
     private final EnviadorPush enviador;
 
     @Async
     @TransactionalEventListener(fallbackExecution = true)
     public void alCrear(NotificacionCreada evento) {
-        List<String> tokens = dispositivos.findByRol(TokenService.ROL_ADMIN).stream()
-                .map(Dispositivo::getToken).toList();
+        Long destinatario = evento.notificacion().getDestinatarioApartamentoId();
+        List<Dispositivo> celulares = destinatario == null
+                ? dispositivos.findByRol(TokenService.ROL_ADMIN)
+                : dispositivos.findByApartamentoId(destinatario);
+        List<String> tokens = celulares.stream().map(Dispositivo::getToken).toList();
         if (tokens.isEmpty()) return;
         Set<String> invalidos = enviador.enviar(tokens, datos(evento.notificacion()));
         if (!invalidos.isEmpty()) {
@@ -49,7 +61,7 @@ public class AvisosPush {
         Map<String, String> datos = new HashMap<>();
         datos.put("notificacionId", String.valueOf(n.getId()));
         datos.put("tipo", n.getTipo());
-        datos.put("titulo", "VEHICULO".equals(n.getTipo()) ? "Nuevo vehículo" : "Nueva reserva");
+        datos.put("titulo", TITULOS.getOrDefault(n.getTipo(), "MiConjunto"));
         datos.put("mensaje", n.getMensaje());
         if (n.getReferenciaId() != null) datos.put("referenciaId", String.valueOf(n.getReferenciaId()));
         if (n.getApartamentoId() != null) datos.put("apartamentoId", String.valueOf(n.getApartamentoId()));

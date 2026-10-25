@@ -1,7 +1,10 @@
 package com.residencial.controller;
 
+import com.residencial.dto.CupoVehiculoDTO;
+import com.residencial.dto.EstadoVehiculoRequest;
 import com.residencial.dto.VehiculoDTO;
 import com.residencial.service.VehiculoService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -28,5 +31,28 @@ public class VehiculoController {
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
         service.eliminar(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // Administrador: los vehículos en un estado (por defecto, los que esperan aprobación)
+    @GetMapping
+    public List<VehiculoDTO> listarPorEstado(@RequestParam(defaultValue = "PENDIENTE") String estado) {
+        return service.listarPorEstado(estado);
+    }
+
+    // Administrador: aprobar o rechazar (con motivo opcional)
+    @PutMapping("/{id}/estado")
+    public VehiculoDTO cambiarEstado(@PathVariable Long id, @Valid @RequestBody EstadoVehiculoRequest request) {
+        return service.cambiarEstado(id, request.getEstado(), request.getMotivo());
+    }
+
+    // Cuántos vehículos de cada tipo puede tener un apartamento (lo ven todos; lo edita el admin)
+    @GetMapping("/cupos")
+    public List<CupoVehiculoDTO> cupos() {
+        return service.cupos();
+    }
+
+    @PutMapping("/cupos")
+    public List<CupoVehiculoDTO> guardarCupos(@RequestBody List<CupoVehiculoDTO> cupos) {
+        return service.guardarCupos(cupos);
     }
 }

@@ -81,6 +81,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/residentes/**").access(admin())
 
                 // Vehículos (el propietario solo los suyos)
+                // Aprobación y cupos: solo el administrador (los cupos los puede ver cualquiera)
+                .requestMatchers(HttpMethod.GET, "/api/vehiculos").access(admin())
+                .requestMatchers(HttpMethod.PUT, "/api/vehiculos/*/estado", "/api/vehiculos/cupos").access(admin())
                 .requestMatchers("/api/vehiculos/**").access(autenticado())
 
                 // Obras
@@ -110,7 +113,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/pagos", "/api/pagos/**").access(admin())
 
                 // Notificaciones
-                .requestMatchers("/api/notificaciones", "/api/notificaciones/**").access(admin())
+                // Cada uno ve las suyas: el administrador, las suyas; un residente, las de su apartamento
+                .requestMatchers("/api/notificaciones", "/api/notificaciones/**").access(autenticado())
                 // Celulares que reciben avisos: cualquiera con sesión (DispositivoServiceImpl la exige).
                 // La baja no pide sesión: se hace al cerrarla y basta con el token, que solo tiene ese celular
                 .requestMatchers(HttpMethod.POST, "/api/dispositivos/baja").permitAll()

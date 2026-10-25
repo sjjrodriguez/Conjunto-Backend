@@ -75,6 +75,10 @@ public class DatosDemo implements CommandLineRunner {
                 new Vehiculo(null, "XYZ98F", "Yamaha", "Negro", "Moto", t1a101),
                 new Vehiculo(null, "JKL456", "Renault", "Gris", "Carro", t1a102)));
         Vehiculo chevrolet = vehiculoRepo.save(new Vehiculo(null, "MNO789", "Chevrolet", "Blanco", "Carro", t2a101));
+        // Uno esperando aprobación del administrador y una bicicleta (sin placa)
+        vehiculoRepo.saveAll(List.of(
+                new Vehiculo(null, "QRS321", "Kia", "Azul", "Carro", t1a201, Vehiculo.PENDIENTE, null),
+                new Vehiculo(null, null, "GW", "Negra", "Bicicleta", t1a101)));
 
         // Cartera variada: al día, en mora y uno sin registro de pago (t2a102 y el último)
         pagoRepo.saveAll(List.of(

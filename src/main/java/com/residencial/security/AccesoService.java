@@ -50,6 +50,15 @@ public class AccesoService {
         return auth != null && !trustResolver.isAnonymous(auth) && esAdmin(auth);
     }
 
+    /** El apartamento de la sesión si es de un residente; vacío para el administrador o sin sesión. */
+    public Optional<Long> apartamentoActual() {
+        return tokenActual()
+                .filter(t -> !TokenService.ROL_ADMIN.equals(t.getClaimAsString(TokenService.CLAIM_ROL)))
+                .map(t -> t.getClaim(TokenService.CLAIM_APARTAMENTO))
+                .filter(Number.class::isInstance)
+                .map(n -> ((Number) n).longValue());
+    }
+
     /** El token de la sesión actual; vacío si la petición no trae uno válido. */
     public Optional<Jwt> tokenActual() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();

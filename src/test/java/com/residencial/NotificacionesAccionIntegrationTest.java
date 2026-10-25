@@ -138,11 +138,13 @@ class NotificacionesAccionIntegrationTest {
     }
 
     @Test
-    void elResidenteNoPuedeAbrirNiBorrarNotificaciones() throws Exception {
+    void elResidenteNoPuedeAbrirNiBorrarLasDelAdmin() throws Exception {
+        // P4: el residente tiene sus propias notificaciones; las del admin le responden como si no
+        // existieran (404), sin revelar que existen
         mvc.perform(put("/api/notificaciones/1/leida").header("Authorization", propietario))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());
         mvc.perform(delete("/api/notificaciones/1").header("Authorization", propietario))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -159,7 +161,7 @@ class NotificacionesAccionIntegrationTest {
         assertThat(envio.tokens()).containsExactly("celular-admin");
         assertThat(envio.datos())
                 .containsEntry("tipo", "VEHICULO")
-                .containsEntry("titulo", "Nuevo vehículo")
+                .containsEntry("titulo", "Nuevo vehículo por aprobar")
                 .containsEntry("referenciaId", String.valueOf(vehiculoId))
                 .containsEntry("apartamentoId", String.valueOf(apto.getId()))
                 .containsKey("notificacionId");
