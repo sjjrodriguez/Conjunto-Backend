@@ -4,6 +4,7 @@ import com.residencial.dto.NotificacionDTO;
 import com.residencial.model.Apartamento;
 import com.residencial.model.Notificacion;
 import com.residencial.model.Reserva;
+import com.residencial.model.Residente;
 import com.residencial.model.Vehiculo;
 import com.residencial.exception.RecursoNoEncontradoException;
 import com.residencial.push.AvisosPush;
@@ -31,6 +32,9 @@ public class NotificacionServiceImpl implements NotificacionService {
     public static final String TIPO_VEHICULO_RECHAZADO = "VEHICULO_RECHAZADO";
     public static final String TIPO_RESERVA_APROBADA = "RESERVA_APROBADA";
     public static final String TIPO_RESERVA_RECHAZADA = "RESERVA_RECHAZADA";
+    public static final String TIPO_RESIDENTE = "RESIDENTE";
+    public static final String TIPO_RESIDENTE_APROBADO = "RESIDENTE_APROBADO";
+    public static final String TIPO_RESIDENTE_RECHAZADO = "RESIDENTE_RECHAZADO";
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter HORA = DateTimeFormatter.ofPattern("HH:mm");
 
@@ -135,6 +139,21 @@ public class NotificacionServiceImpl implements NotificacionService {
         boolean aprobada = "APROBADA".equals(r.getEstado());
         crear(aprobada ? TIPO_RESERVA_APROBADA : TIPO_RESERVA_RECHAZADA,
                 (aprobada ? "Reserva aprobada — " : "Reserva rechazada — ") + cuando(r),
+                r.getId(), r.getApartamento().getId(), r.getApartamento().getId());
+    }
+
+    @Override
+    public void avisarNuevoResidente(Residente r) {
+        crear(TIPO_RESIDENTE, "Nuevo arrendatario por aprobar — " + r.getNombreCompleto() + " · " + torreApto(r.getApartamento()),
+                r.getId(), r.getApartamento().getId(), null);
+    }
+
+    @Override
+    public void avisarResidenteRevisado(Residente r, String motivo) {
+        boolean aprobado = Residente.APROBADO.equals(r.getEstado());
+        crear(aprobado ? TIPO_RESIDENTE_APROBADO : TIPO_RESIDENTE_RECHAZADO,
+                (aprobado ? "Arrendatario aprobado — " + r.getNombreCompleto() + " ya puede entrar con su documento"
+                        : "Arrendatario rechazado — " + r.getNombreCompleto() + (motivo == null ? "" : ". Motivo: " + motivo)),
                 r.getId(), r.getApartamento().getId(), r.getApartamento().getId());
     }
 
