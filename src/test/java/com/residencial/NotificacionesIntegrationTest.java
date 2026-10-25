@@ -130,13 +130,20 @@ class NotificacionesIntegrationTest {
     }
 
     @Test
-    void soloElAdminVeLasNotificaciones() throws Exception {
+    void elResidenteNoVeNiBorraLasDelAdmin() throws Exception {
+        // P4: el residente tiene sus propias notificaciones; las del admin no le aparecen
+        enviar(post("/api/vehiculos"), propietario,
+                "{\"placa\":\"CCC333\",\"tipo\":\"Carro\",\"apartamentoId\":" + apto.getId() + "}");
         mvc.perform(get("/api/notificaciones").header("Authorization", propietario))
-                .andExpect(status().isForbidden());
-        mvc.perform(delete("/api/notificaciones").header("Authorization", propietario))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
         mvc.perform(get("/api/notificaciones/no-leidas").header("Authorization", propietario))
-                .andExpect(status().isForbidden());
+                .andExpect(jsonPath("$.total").value(0));
+        // "Borrar todas" del residente solo borra las suyas
+        mvc.perform(delete("/api/notificaciones").header("Authorization", propietario))
+                .andExpect(status().isNoContent());
+        mvc.perform(get("/api/notificaciones").header("Authorization", admin))
+                .andExpect(jsonPath("$.length()").value(1));
         mvc.perform(get("/api/notificaciones"))
                 .andExpect(status().isUnauthorized());
     }

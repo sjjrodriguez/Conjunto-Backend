@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-/** Solo para el administrador (ver SecurityConfig). */
+/** Las de la sesión: el administrador ve las suyas y cada residente las de su apartamento. */
 @RestController
 @RequestMapping("/api/notificaciones")
 @RequiredArgsConstructor

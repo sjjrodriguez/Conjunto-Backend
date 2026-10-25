@@ -15,6 +15,9 @@ public interface DispositivoRepository extends JpaRepository<Dispositivo, Long> 
 
     List<Dispositivo> findByRol(String rol);
 
+    /** Celulares de los residentes de un apartamento (sus avisos). */
+    List<Dispositivo> findByApartamentoId(Long apartamentoId);
+
     @Transactional
     @Modifying
     @Query("delete from Dispositivo d where d.token in :tokens")

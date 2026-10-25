@@ -119,8 +119,12 @@ public class ReservaServiceImpl implements ReservaService {
                 buscarChoque(r.getZonaComun().getId(), r.getFecha(), r.getHora(), List.of("APROBADA"), r.getId())
                         .ifPresent(this::rechazarPorChoque);
             }
+            boolean cambio = !estado.equals(r.getEstado());
             r.setEstado(estado);
-            return toDTO(repo.save(r));
+            Reserva guardada = repo.save(r);
+            // El residente se entera de que su reserva fue aprobada o rechazada
+            if (cambio && !"PENDIENTE".equals(estado)) notificaciones.avisarReservaRevisada(guardada);
+            return toDTO(guardada);
         }).orElse(null);
     }
 

@@ -25,7 +25,7 @@ class CatalogoTest {
         assertThatThrownBy(() -> Catalogo.ESTADO_RESERVA.normalizar("cancelada"))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("PENDIENTE, APROBADA, RECHAZADA");
-        assertThatThrownBy(() -> Catalogo.TIPO_VEHICULO.normalizar("bicicleta"))
+        assertThatThrownBy(() -> Catalogo.TIPO_VEHICULO.normalizar("avion"))
                 .isInstanceOf(ResponseStatusException.class);
     }
 
