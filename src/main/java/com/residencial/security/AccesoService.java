@@ -44,6 +44,16 @@ public class AccesoService {
         throw new AccessDeniedException("No tienes permiso sobre este apartamento");
     }
 
+    /**
+     * Como {@link #verificarApartamento}, pero también deja pasar al contador: la cartera y
+     * las cuotas de cualquier apartamento son su trabajo.
+     */
+    public void verificarApartamentoOCartera(Long apartamentoId) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && !trustResolver.isAnonymous(auth) && tieneRol(auth, TokenService.ROL_CONTADOR)) return;
+        verificarApartamento(apartamentoId);
+    }
+
     /** true si la petición actual viene de un administrador con token válido. */
     public boolean esAdminActual() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -66,7 +76,10 @@ public class AccesoService {
     }
 
     private static boolean esAdmin(Authentication auth) {
-        return auth.getAuthorities().stream()
-                .anyMatch(a -> ("ROLE_" + TokenService.ROL_ADMIN).equals(a.getAuthority()));
+        return tieneRol(auth, TokenService.ROL_ADMIN);
+    }
+
+    private static boolean tieneRol(Authentication auth, String rol) {
+        return auth.getAuthorities().stream().anyMatch(a -> ("ROLE_" + rol).equals(a.getAuthority()));
     }
 }

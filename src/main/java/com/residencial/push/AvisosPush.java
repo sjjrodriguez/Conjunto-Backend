@@ -29,16 +29,20 @@ public class AvisosPush {
     public record NotificacionCreada(Notificacion notificacion) {}
 
     // Título del aviso en el celular según el tipo de notificación
-    private static final Map<String, String> TITULOS = Map.of(
-            "RESERVA", "Nueva reserva",
-            "VEHICULO", "Nuevo vehículo por aprobar",
-            "VEHICULO_APROBADO", "Vehículo aprobado",
-            "VEHICULO_RECHAZADO", "Vehículo rechazado",
-            "RESERVA_APROBADA", "Reserva aprobada",
-            "RESERVA_RECHAZADA", "Reserva rechazada",
-            "RESIDENTE", "Nuevo arrendatario por aprobar",
-            "RESIDENTE_APROBADO", "Arrendatario aprobado",
-            "RESIDENTE_RECHAZADO", "Arrendatario rechazado");
+    private static final Map<String, String> TITULOS = Map.ofEntries(
+            Map.entry("RESERVA", "Nueva reserva"),
+            Map.entry("VEHICULO", "Nuevo vehículo por aprobar"),
+            Map.entry("VEHICULO_APROBADO", "Vehículo aprobado"),
+            Map.entry("VEHICULO_RECHAZADO", "Vehículo rechazado"),
+            Map.entry("RESERVA_APROBADA", "Reserva aprobada"),
+            Map.entry("RESERVA_RECHAZADA", "Reserva rechazada"),
+            Map.entry("RESIDENTE", "Nuevo arrendatario por aprobar"),
+            Map.entry("RESIDENTE_APROBADO", "Arrendatario aprobado"),
+            Map.entry("RESIDENTE_RECHAZADO", "Arrendatario rechazado"),
+            Map.entry("CUOTA", "Nueva cuota de administración"),
+            Map.entry("COMPROBANTE", "Comprobante por revisar"),
+            Map.entry("CUOTA_PAGADA", "Pago confirmado"),
+            Map.entry("CUOTA_RECHAZADA", "Comprobante rechazado"));
 
     private final DispositivoRepository dispositivos;
     private final EnviadorPush enviador;
@@ -48,7 +52,8 @@ public class AvisosPush {
     public void alCrear(NotificacionCreada evento) {
         Long destinatario = evento.notificacion().getDestinatarioApartamentoId();
         List<Dispositivo> celulares = destinatario == null
-                ? dispositivos.findByRol(TokenService.ROL_ADMIN)
+                // Las de la administración llegan al administrador y al contador
+                ? dispositivos.findByRolIn(List.of(TokenService.ROL_ADMIN, TokenService.ROL_CONTADOR))
                 : dispositivos.findByApartamentoId(destinatario);
         List<String> tokens = celulares.stream().map(Dispositivo::getToken).toList();
         if (tokens.isEmpty()) return;

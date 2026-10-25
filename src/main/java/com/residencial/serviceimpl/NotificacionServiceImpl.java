@@ -2,6 +2,7 @@ package com.residencial.serviceimpl;
 
 import com.residencial.dto.NotificacionDTO;
 import com.residencial.model.Apartamento;
+import com.residencial.model.Cuota;
 import com.residencial.model.Notificacion;
 import com.residencial.model.Reserva;
 import com.residencial.model.Residente;
@@ -15,10 +16,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -35,6 +38,10 @@ public class NotificacionServiceImpl implements NotificacionService {
     public static final String TIPO_RESIDENTE = "RESIDENTE";
     public static final String TIPO_RESIDENTE_APROBADO = "RESIDENTE_APROBADO";
     public static final String TIPO_RESIDENTE_RECHAZADO = "RESIDENTE_RECHAZADO";
+    public static final String TIPO_CUOTA = "CUOTA";
+    public static final String TIPO_COMPROBANTE = "COMPROBANTE";
+    public static final String TIPO_CUOTA_PAGADA = "CUOTA_PAGADA";
+    public static final String TIPO_CUOTA_RECHAZADA = "CUOTA_RECHAZADA";
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter HORA = DateTimeFormatter.ofPattern("HH:mm");
 
@@ -155,6 +162,34 @@ public class NotificacionServiceImpl implements NotificacionService {
                 (aprobado ? "Arrendatario aprobado — " + r.getNombreCompleto() + " ya puede entrar con su documento"
                         : "Arrendatario rechazado — " + r.getNombreCompleto() + (motivo == null ? "" : ". Motivo: " + motivo)),
                 r.getId(), r.getApartamento().getId(), r.getApartamento().getId());
+    }
+
+    @Override
+    public void avisarCuotaNueva(Cuota c, String mes) {
+        crear(TIPO_CUOTA, "Cuota de administración de " + mes + " — " + pesos(c) + ", vence el "
+                        + c.getFechaLimite().format(FECHA),
+                c.getId(), c.getApartamento().getId(), c.getApartamento().getId());
+    }
+
+    @Override
+    public void avisarComprobante(Cuota c, String mes) {
+        crear(TIPO_COMPROBANTE, "Comprobante por revisar — cuota de " + mes + " · " + torreApto(c.getApartamento()),
+                c.getId(), c.getApartamento().getId(), null);
+    }
+
+    @Override
+    public void avisarCuotaRevisada(Cuota c, String mes) {
+        boolean pagada = c.pagada();
+        String motivo = c.getMotivoRechazo() == null ? "" : ". Motivo: " + c.getMotivoRechazo();
+        crear(pagada ? TIPO_CUOTA_PAGADA : TIPO_CUOTA_RECHAZADA,
+                pagada ? "Pago confirmado — cuota de " + mes + " (" + pesos(c) + ")"
+                        : "Comprobante rechazado — cuota de " + mes + motivo,
+                c.getId(), c.getApartamento().getId(), c.getApartamento().getId());
+    }
+
+    // "$350.000"
+    private static String pesos(Cuota c) {
+        return "$" + NumberFormat.getIntegerInstance(Locale.forLanguageTag("es-CO")).format(c.getValor());
     }
 
     // Al guardarla también sale el aviso a los celulares de quien la recibe (AvisosPush)

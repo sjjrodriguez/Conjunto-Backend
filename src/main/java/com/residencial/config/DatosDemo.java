@@ -2,6 +2,7 @@ package com.residencial.config;
 
 import com.residencial.model.*;
 import com.residencial.repository.*;
+import com.residencial.service.CuotaService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,9 +11,11 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -32,6 +35,11 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DatosDemo implements CommandLineRunner {
 
+    private static void marcarPagada(Cuota c) {
+        c.setEstado(Cuota.PAGADA);
+        c.setPagadaEn(c.getFechaLimite().atTime(9, 0).minusDays(2));
+    }
+
     private static final Logger log = LoggerFactory.getLogger(DatosDemo.class);
     private static final String CLAVE_APARTAMENTOS = "demo1234";
 
@@ -46,12 +54,15 @@ public class DatosDemo implements CommandLineRunner {
     private final ReservaRepository reservaRepo;
     private final NotificacionRepository notificacionRepo;
     private final PasswordEncoder encoder;
+    private final CuotaRepository cuotaRepo;
+    private final CuotaService cuotaService;
 
     @Override
     public void run(String... args) {
         LocalDate hoy = LocalDate.now(ZoneId.of("America/Bogota"));
 
         adminRepo.save(new Administrador(null, "admin", encoder.encode("admin-demo")));
+        adminRepo.save(new Administrador(null, "contador", encoder.encode("contador-demo"), Administrador.CONTADOR));
 
         String clave = encoder.encode(CLAVE_APARTAMENTOS);
         List<Apartamento> aptos = new ArrayList<>();
@@ -82,12 +93,18 @@ public class DatosDemo implements CommandLineRunner {
                 new Vehiculo(null, "QRS321", "Kia", "Azul", "Carro", t1a201, Vehiculo.PENDIENTE, null),
                 new Vehiculo(null, null, "GW", "Negra", "Bicicleta", t1a101)));
 
-        // Cartera variada: al día, en mora y uno sin registro de pago (t2a102 y el último)
-        pagoRepo.saveAll(List.of(
-                new Pago(null, 0.0, "Al Día", "Administración de octubre pagada", t1a101),
-                new Pago(null, 350000.0, "En Mora", "Debe septiembre y octubre", t1a102),
-                new Pago(null, 175000.0, "En Mora", "Debe octubre", t1a201),
-                new Pago(null, 0.0, "Al Día", null, t2a101)));
+        // Cuotas del mes pasado y de este: al día, en mora y pendiente sin vencer.
+        // La cartera (tabla pago) sale de ellas
+        YearMonth mes = YearMonth.from(hoy);
+        BigDecimal valor = new BigDecimal("175000");
+        for (Apartamento a : aptos) {
+            Cuota anterior = new Cuota(a, mes.minusMonths(1).toString(), valor, mes.minusMonths(1).atDay(10));
+            Cuota actual = new Cuota(a, mes.toString(), valor, mes.atEndOfMonth());
+            if (a != t1a102) marcarPagada(anterior);
+            if (a == t1a101 || a == t2a101) marcarPagada(actual);
+            cuotaRepo.saveAll(List.of(anterior, actual));
+            cuotaService.recalcularCartera(a.getId());
+        }
 
         Obra cocina = obraRepo.save(new Obra(null, "Remodelación de cocina: cambio de mesón y enchape",
                 hoy.minusDays(5), hoy.plusDays(10), "EN_PROCESO", t1a101));
@@ -132,6 +149,7 @@ public class DatosDemo implements CommandLineRunner {
                         + " · Torre 2 Apto 101", ahora.minusDays(1), true,
                         chevrolet.getId(), t2a101.getId())));
 
+        log.info("Demo: contador / contador-demo entra por Administración (solo cartera y facturación)");
         log.warn("PERFIL DEMO activo: base H2 en memoria con datos de ejemplo. No usar en producción.");
     }
 }

@@ -1,6 +1,7 @@
 package com.residencial.service;
 
 import com.residencial.dto.NotificacionDTO;
+import com.residencial.model.Cuota;
 import com.residencial.model.Reserva;
 import com.residencial.model.Residente;
 import com.residencial.model.Vehiculo;
@@ -28,4 +29,8 @@ public interface NotificacionService {
     // P4 bloque 6: arrendatario que agrega el propietario (al administrador) y su revisión (al apartamento)
     void avisarNuevoResidente(Residente residente);
     void avisarResidenteRevisado(Residente residente, String motivo);
+    // P4 bloque 7: cuota nueva y su revisión (al apartamento), comprobante subido (a la administración)
+    void avisarCuotaNueva(Cuota cuota, String mes);
+    void avisarComprobante(Cuota cuota, String mes);
+    void avisarCuotaRevisada(Cuota cuota, String mes);
 }

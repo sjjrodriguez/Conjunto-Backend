@@ -14,7 +14,7 @@ import java.time.Instant;
 public class LoginResponse {
     private String token;
     private Instant expiraEn;
-    private String rol;      // "ADMIN", "PROPIETARIO" o "ARRENDATARIO"
+    private String rol;      // "ADMIN", "CONTADOR", "PROPIETARIO" o "ARRENDATARIO"
     private Long id;
     private String usuario;  // solo admin
     private String torre;    // solo propietario
