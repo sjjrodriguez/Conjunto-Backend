@@ -10,6 +10,7 @@ import com.residencial.security.AccesoService;
 import com.residencial.service.PersonalObraService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -64,7 +65,27 @@ public class PersonalObraServiceImpl implements PersonalObraService {
     }
 
     @Override
+    @Transactional
+    public PersonalObraDTO actualizar(Long id, PersonalObraDTO dto) {
+        PersonalObra p = buscar(id);
+        Obra obra = obraRepo.findConApartamentoById(p.getObra().getId())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Obra no encontrada"));
+        acceso.verificarApartamento(obra.getApartamento().getId());
+        p.setNombreTrabajador(dto.getNombreTrabajador());
+        p.setCedula(dto.getCedula());
+        p.setArlEstado(dto.getArlEstado());
+        p.setObra(obra);
+        return toDTO(repo.save(p));
+    }
+
+    @Override
     public void eliminar(Long id) {
-        repo.deleteById(id);
+        PersonalObra p = buscar(id);
+        obraRepo.findById(p.getObra().getId()).ifPresent(o -> acceso.verificarApartamento(o.getApartamento().getId()));
+        repo.delete(p);
+    }
+
+    private PersonalObra buscar(Long id) {
+        return repo.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("Trabajador no encontrado: " + id));
     }
 }

@@ -10,6 +10,9 @@ import lombok.*;
 @AllArgsConstructor
 public class Administrador {
 
+    public static final String ADMIN = "ADMIN";
+    public static final String CONTADOR = "CONTADOR";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -19,4 +22,12 @@ public class Administrador {
 
     @Column(nullable = false)
     private String contrasena;
+
+    // ADMIN (todo) o CONTADOR (solo cartera y facturación), P4 bloque 7
+    @Column(nullable = false, length = 20)
+    private String rol = ADMIN;
+
+    public Administrador(Long id, String usuario, String contrasena) {
+        this(id, usuario, contrasena, ADMIN);
+    }
 }

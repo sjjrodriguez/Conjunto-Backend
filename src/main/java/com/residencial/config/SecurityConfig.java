@@ -75,12 +75,21 @@ public class SecurityConfig {
 
                 // Apartamentos
                 .requestMatchers(HttpMethod.GET, "/api/apartamentos/*").access(autenticado())
+                // La lista también la usa el contador (cartera)
+                .requestMatchers(HttpMethod.GET, "/api/apartamentos").access(cartera())
                 .requestMatchers("/api/apartamentos", "/api/apartamentos/**").access(admin())
 
-                // Residentes
-                .requestMatchers("/api/residentes/**").access(admin())
+                // Residentes: el propietario ve los de su apartamento y agrega o quita arrendatarios
+                // (ResidenteServiceImpl lo comprueba); aprobar, dar acceso y editar es del administrador
+                .requestMatchers(HttpMethod.GET, "/api/residentes/apartamento/*").access(autenticado())
+                .requestMatchers(HttpMethod.POST, "/api/residentes").access(autenticado())
+                .requestMatchers(HttpMethod.DELETE, "/api/residentes/*").access(autenticado())
+                .requestMatchers("/api/residentes", "/api/residentes/**").access(admin())
 
                 // Vehículos (el propietario solo los suyos)
+                // Aprobación y cupos: solo el administrador (los cupos los puede ver cualquiera)
+                .requestMatchers(HttpMethod.GET, "/api/vehiculos").access(admin())
+                .requestMatchers(HttpMethod.PUT, "/api/vehiculos/*/estado", "/api/vehiculos/cupos").access(admin())
                 .requestMatchers("/api/vehiculos/**").access(autenticado())
 
                 // Obras
@@ -91,7 +100,7 @@ public class SecurityConfig {
 
                 // Personal de obra
                 .requestMatchers(HttpMethod.GET, "/api/personal-obra").access(admin())
-                .requestMatchers(HttpMethod.DELETE, "/api/personal-obra/*").access(admin())
+                // Borrar: el administrador o el residente dueño de la obra (PersonalObraServiceImpl)
                 .requestMatchers("/api/personal-obra", "/api/personal-obra/**").access(autenticado())
 
                 // Zonas comunes
@@ -101,16 +110,32 @@ public class SecurityConfig {
                 // Reservas
                 .requestMatchers(HttpMethod.GET, "/api/reservas").access(admin())
                 .requestMatchers(HttpMethod.PUT, "/api/reservas/*/estado").access(admin())
-                .requestMatchers(HttpMethod.DELETE, "/api/reservas/*").access(admin())
+                // Borrar: el administrador cualquiera; el residente cancela la suya si no ha empezado
                 .requestMatchers("/api/reservas", "/api/reservas/**").access(autenticado())
 
                 // Pagos
                 .requestMatchers(HttpMethod.GET, "/api/pagos/apartamento/*").access(autenticado())
                 .requestMatchers(HttpMethod.PUT, "/api/pagos/apartamento/*/simular").access(autenticado())
-                .requestMatchers("/api/pagos", "/api/pagos/**").access(admin())
+                .requestMatchers("/api/pagos", "/api/pagos/**").access(cartera())
+
+                // Cuotas mensuales (P4 bloque 7): el residente ve las suyas y sube el comprobante
+                // (CuotaServiceImpl comprueba el apartamento); generar y revisar es del contador
+                .requestMatchers(HttpMethod.GET, "/api/cuotas/apartamento/*", "/api/cuotas/*/comprobante").access(autenticado())
+                .requestMatchers(HttpMethod.POST, "/api/cuotas/*/comprobante").access(autenticado())
+                .requestMatchers("/api/cuotas", "/api/cuotas/**").access(cartera())
+                // Enlaces firmados del almacenamiento local (demo): la firma hace de permiso
+                .requestMatchers(HttpMethod.GET, "/api/archivos/local").permitAll()
+
+                // Cuentas de la administración (administradores y contador)
+                .requestMatchers("/api/administradores", "/api/administradores/**").access(admin())
 
                 // Notificaciones
-                .requestMatchers("/api/notificaciones", "/api/notificaciones/**").access(admin())
+                // Cada uno ve las suyas: el administrador, las suyas; un residente, las de su apartamento
+                .requestMatchers("/api/notificaciones", "/api/notificaciones/**").access(autenticado())
+                // Celulares que reciben avisos: cualquiera con sesión (DispositivoServiceImpl la exige).
+                // La baja no pide sesión: se hace al cerrarla y basta con el token, que solo tiene ese celular
+                .requestMatchers(HttpMethod.POST, "/api/dispositivos/baja").permitAll()
+                .requestMatchers("/api/dispositivos", "/api/dispositivos/**").access(autenticado())
 
                 .anyRequest().access(autenticado()));
 
@@ -119,6 +144,10 @@ public class SecurityConfig {
 
     private AuthorizationManager<RequestAuthorizationContext> admin() {
         return regla(AuthorityAuthorizationManager.hasRole(TokenService.ROL_ADMIN));
+    }
+
+    private AuthorizationManager<RequestAuthorizationContext> cartera() {
+        return regla(AuthorityAuthorizationManager.hasAnyRole(TokenService.ROL_ADMIN, TokenService.ROL_CONTADOR));
     }
 
     private AuthorizationManager<RequestAuthorizationContext> autenticado() {
@@ -139,8 +168,10 @@ public class SecurityConfig {
 
     private BearerTokenResolver bearerTokenResolver() {
         DefaultBearerTokenResolver resolver = new DefaultBearerTokenResolver();
-        // El login nunca necesita token: se ignora aunque llegue uno caducado
-        return req -> req.getRequestURI().startsWith("/api/auth/") ? null : resolver.resolve(req);
+        // El login nunca necesita token: se ignora aunque llegue uno caducado. Las demás rutas de
+        // /api/auth (cambiar la contraseña) sí lo usan
+        return req -> req.getRequestURI().startsWith("/api/auth/") && req.getRequestURI().endsWith("/login")
+                ? null : resolver.resolve(req);
     }
 
     private JwtAuthenticationConverter jwtAuthenticationConverter() {

@@ -23,6 +23,7 @@ public class Reserva {
     @Column(nullable = false)
     private LocalDate fecha;
 
+    // Hora de inicio
     @Column(nullable = false)
     private LocalTime hora;
 
@@ -36,4 +37,16 @@ public class Reserva {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "apartamento_id", nullable = false)
     private Apartamento apartamento;
+
+    // Hasta dónde va (P4). Null en las anteriores: duran app.reservas.duracion-horas
+    @Column(name = "hora_fin")
+    private LocalTime horaFin;
+
+    // Cuántas personas asisten (P4); no puede pasar el aforo de la zona
+    private Integer asistentes;
+
+    /** Reserva como antes de P4: sin hora de fin ni asistentes. */
+    public Reserva(Long id, LocalDate fecha, LocalTime hora, String estado, ZonaComun zonaComun, Apartamento apartamento) {
+        this(id, fecha, hora, estado, zonaComun, apartamento, null, null);
+    }
 }

@@ -18,4 +18,10 @@ public class LoginDTO {
         private String apto;
         private String contrasena;
     }
+
+    @Data @NoArgsConstructor @AllArgsConstructor
+    public static class ResidenteLoginRequest {
+        private String documento;
+        private String contrasena;
+    }
 }

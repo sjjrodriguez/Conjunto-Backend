@@ -55,6 +55,20 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Firebase: avisos en el celular (solo se usa si FIREBASE_CREDENTIALS está configurado) -->
+        <dependency>
+            <groupId>com.google.firebase</groupId>
+            <artifactId>firebase-admin</artifactId>
+            <version>9.3.0</version>
+        </dependency>
+
+        <!-- Flyway: los cambios de tablas van en src/main/resources/db/migration (V2__..., V3__...)
+             y se aplican solos al arrancar, en orden y una sola vez. Version la de Spring Boot. -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -75,6 +89,13 @@
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Postgres real (embebido) para probar las migraciones tal como corren en Supabase -->
+        <dependency>
+            <groupId>io.zonky.test</groupId>
+            <artifactId>embedded-postgres</artifactId>
+            <version>2.0.7</version>
             <scope>test</scope>
         </dependency>
         <!-- H2: base en memoria para los tests y para el perfil "demo" (desarrollo local).

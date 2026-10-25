@@ -13,4 +13,6 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
     List<Reserva> findByZonaComunIdAndFechaBetweenAndEstadoIn(
             Long zonaComunId, LocalDate desde, LocalDate hasta, List<String> estados
     );
+
+    boolean existsByApartamentoId(Long apartamentoId);
 }
