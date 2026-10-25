@@ -2,6 +2,7 @@ package com.residencial.service;
 
 import com.residencial.dto.NotificacionDTO;
 import com.residencial.model.Reserva;
+import com.residencial.model.Residente;
 import com.residencial.model.Vehiculo;
 import java.util.List;
 
@@ -24,4 +25,7 @@ public interface NotificacionService {
     // Para los residentes del apartamento
     void avisarVehiculoRevisado(Vehiculo vehiculo);
     void avisarReservaRevisada(Reserva reserva);
+    // P4 bloque 6: arrendatario que agrega el propietario (al administrador) y su revisión (al apartamento)
+    void avisarNuevoResidente(Residente residente);
+    void avisarResidenteRevisado(Residente residente, String motivo);
 }

@@ -5,6 +5,7 @@ import com.residencial.dto.LoginDTO;
 import com.residencial.dto.MensajeError;
 import com.residencial.model.Administrador;
 import com.residencial.model.Apartamento;
+import com.residencial.model.Residente;
 import com.residencial.security.AccesoService;
 import com.residencial.security.LimitadorLogin;
 import com.residencial.security.TokenService;
@@ -56,6 +57,22 @@ public class AuthController {
         limitador.registrarFallo(clave);
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(new MensajeError("Torre, apto o contraseña incorrectos"));
+    }
+
+    /** Cada residente con su documento y su contraseña (P4 bloque 6). */
+    @PostMapping("/residente/login")
+    public ResponseEntity<?> loginResidente(@RequestBody LoginDTO.ResidenteLoginRequest request,
+                                            HttpServletRequest http) {
+        String clave = http.getRemoteAddr() + "|residente|" + normalizar(request.getDocumento());
+        limitador.verificar(clave);
+        Residente residente = authService.loginResidente(request.getDocumento(), request.getContrasena());
+        if (residente != null) {
+            limitador.limpiar(clave);
+            return ResponseEntity.ok(tokenService.paraResidente(residente));
+        }
+        limitador.registrarFallo(clave);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new MensajeError("Documento o contraseña incorrectos"));
     }
 
     /**

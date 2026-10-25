@@ -63,10 +63,12 @@ public class DatosDemo implements CommandLineRunner {
         Apartamento t1a101 = aptos.get(0), t1a102 = aptos.get(1), t1a201 = aptos.get(2),
                 t2a101 = aptos.get(3), t2a102 = aptos.get(4);
 
+        // Laura y Camila entran también con su documento y la clave demo; Mateo espera aprobación
         residenteRepo.saveAll(List.of(
-                new Residente(null, "Laura Martínez Gómez", "3001234567", "1010101010", "PROPIETARIO", t1a101),
+                new Residente(null, "Laura Martínez Gómez", "3001234567", "1010101010", "PROPIETARIO", t1a101, clave, Residente.APROBADO),
                 new Residente(null, "Andrés Martínez Gómez", "3007654321", "1020202020", "PROPIETARIO", t1a101),
-                new Residente(null, "Camila Rojas Pérez", "3109876543", "1030303030", "ARRENDATARIO", t1a102),
+                new Residente(null, "Camila Rojas Pérez", "3109876543", "1030303030", "ARRENDATARIO", t1a102, clave, Residente.APROBADO),
+                new Residente(null, "Mateo Ruiz Salas", "3115556677", "1060606060", "ARRENDATARIO", t1a101, clave, Residente.PENDIENTE),
                 new Residente(null, "Jorge Castro Díaz", "3204567890", "1040404040", "PROPIETARIO", t1a201),
                 new Residente(null, "Paula Herrera León", "3152223344", "1050505050", "PROPIETARIO", t2a101)));
 

@@ -19,6 +19,7 @@ public enum Catalogo {
     TIPO_VEHICULO("El tipo de vehículo",
             List.of("Carro", "Moto", "Bicicleta", "Patineta", "Patineta eléctrica", "Otro")),
     ESTADO_VEHICULO("El estado del vehículo", List.of("PENDIENTE", "APROBADO", "RECHAZADO")),
+    ESTADO_RESIDENTE("El estado del residente", List.of("PENDIENTE", "APROBADO", "RECHAZADO")),
     ESTADO_CUENTA("El estado de cuenta", List.of("Al Día", "En Mora"));
 
     private final String campo;

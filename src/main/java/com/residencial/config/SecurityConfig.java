@@ -77,8 +77,12 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/apartamentos/*").access(autenticado())
                 .requestMatchers("/api/apartamentos", "/api/apartamentos/**").access(admin())
 
-                // Residentes
-                .requestMatchers("/api/residentes/**").access(admin())
+                // Residentes: el propietario ve los de su apartamento y agrega o quita arrendatarios
+                // (ResidenteServiceImpl lo comprueba); aprobar, dar acceso y editar es del administrador
+                .requestMatchers(HttpMethod.GET, "/api/residentes/apartamento/*").access(autenticado())
+                .requestMatchers(HttpMethod.POST, "/api/residentes").access(autenticado())
+                .requestMatchers(HttpMethod.DELETE, "/api/residentes/*").access(autenticado())
+                .requestMatchers("/api/residentes", "/api/residentes/**").access(admin())
 
                 // Vehículos (el propietario solo los suyos)
                 // Aprobación y cupos: solo el administrador (los cupos los puede ver cualquiera)

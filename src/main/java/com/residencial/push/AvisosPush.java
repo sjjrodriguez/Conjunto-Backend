@@ -35,7 +35,10 @@ public class AvisosPush {
             "VEHICULO_APROBADO", "Vehículo aprobado",
             "VEHICULO_RECHAZADO", "Vehículo rechazado",
             "RESERVA_APROBADA", "Reserva aprobada",
-            "RESERVA_RECHAZADA", "Reserva rechazada");
+            "RESERVA_RECHAZADA", "Reserva rechazada",
+            "RESIDENTE", "Nuevo arrendatario por aprobar",
+            "RESIDENTE_APROBADO", "Arrendatario aprobado",
+            "RESIDENTE_RECHAZADO", "Arrendatario rechazado");
 
     private final DispositivoRepository dispositivos;
     private final EnviadorPush enviador;

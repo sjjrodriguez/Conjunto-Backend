@@ -2,8 +2,10 @@ package com.residencial.serviceimpl;
 
 import com.residencial.model.Administrador;
 import com.residencial.model.Apartamento;
+import com.residencial.model.Residente;
 import com.residencial.repository.AdministradorRepository;
 import com.residencial.repository.ApartamentoRepository;
+import com.residencial.repository.ResidenteRepository;
 import com.residencial.service.AuthService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,7 @@ public class AuthServiceImpl implements AuthService {
 
     private final AdministradorRepository adminRepo;
     private final ApartamentoRepository apartamentoRepo;
+    private final ResidenteRepository residenteRepo;
     private final PasswordEncoder passwordEncoder;
     // Se compara contra este hash cuando el usuario no existe, para que la
     // respuesta tarde lo mismo y no revele qué usuarios existen
@@ -28,9 +31,11 @@ public class AuthServiceImpl implements AuthService {
 
     public AuthServiceImpl(AdministradorRepository adminRepo,
                            ApartamentoRepository apartamentoRepo,
+                           ResidenteRepository residenteRepo,
                            PasswordEncoder passwordEncoder) {
         this.adminRepo = adminRepo;
         this.apartamentoRepo = apartamentoRepo;
+        this.residenteRepo = residenteRepo;
         this.passwordEncoder = passwordEncoder;
         this.hashFicticio = passwordEncoder.encode("contrasena-ficticia");
     }
@@ -65,6 +70,19 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    public Residente loginResidente(String documento, String contrasena) {
+        if (vacio(documento) || vacio(contrasena)) return null;
+        // El mismo documento puede estar en dos apartamentos: entra al que tenga esa contraseña
+        for (Residente r : residenteRepo.findByIdentificacion(documento.trim())) {
+            if (Residente.APROBADO.equals(r.getEstado()) && verificar(contrasena, r.getContrasena(), h -> {})) {
+                return r;
+            }
+        }
+        passwordEncoder.matches(contrasena, hashFicticio);
+        return null;
+    }
+
+    @Override
     @Transactional
     public boolean cambiarContrasena(String sujeto, String actual, String nueva) {
         if (sujeto == null || vacio(actual) || vacio(nueva)) return false;
@@ -74,6 +92,13 @@ public class AuthServiceImpl implements AuthService {
             if (admin == null || !verificar(actual, admin.getContrasena(), h -> {})) return false;
             admin.setContrasena(passwordEncoder.encode(nueva));
             adminRepo.save(admin);
+            return true;
+        }
+        if (sujeto.startsWith("residente:")) {
+            Residente residente = residenteRepo.findById(id).orElse(null);
+            if (residente == null || !verificar(actual, residente.getContrasena(), h -> {})) return false;
+            residente.setContrasena(passwordEncoder.encode(nueva));
+            residenteRepo.save(residente);
             return true;
         }
         // La contraseña del apartamento la comparten sus residentes: cambia para todos
