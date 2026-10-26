@@ -39,6 +39,8 @@ public class NotificacionServiceImpl implements NotificacionService {
     public static final String TIPO_RESIDENTE_APROBADO = "RESIDENTE_APROBADO";
     public static final String TIPO_RESIDENTE_RECHAZADO = "RESIDENTE_RECHAZADO";
     public static final String TIPO_CUOTA = "CUOTA";
+    public static final String TIPO_REGISTRO = "REGISTRO";
+    public static final String TIPO_SOLICITUD_ARRENDATARIO = "SOLICITUD_ARRENDATARIO";
     public static final String TIPO_COMPROBANTE = "COMPROBANTE";
     public static final String TIPO_CUOTA_PAGADA = "CUOTA_PAGADA";
     public static final String TIPO_CUOTA_RECHAZADA = "CUOTA_RECHAZADA";
@@ -190,6 +192,18 @@ public class NotificacionServiceImpl implements NotificacionService {
     // "$350.000"
     private static String pesos(Cuota c) {
         return "$" + NumberFormat.getIntegerInstance(Locale.forLanguageTag("es-CO")).format(c.getValor());
+    }
+
+    @Override
+    public void avisarNuevoRegistro(Residente r) {
+        String quien = r.getNombreCompleto() + " (" + (r.esArrendatario() ? "arrendatario" : "propietario") + ")";
+        crear(TIPO_REGISTRO, "Nuevo registro por aprobar — " + quien + " · " + torreApto(r.getApartamento()),
+                r.getId(), r.getApartamento().getId(), null);
+        if (r.esArrendatario()) {
+            crear(TIPO_SOLICITUD_ARRENDATARIO, "Solicitud de arrendatario — " + r.getNombreCompleto()
+                            + " quiere registrarse como arrendatario de tu apartamento",
+                    r.getId(), r.getApartamento().getId(), r.getApartamento().getId());
+        }
     }
 
     // Al guardarla también sale el aviso a los celulares de quien la recibe (AvisosPush)

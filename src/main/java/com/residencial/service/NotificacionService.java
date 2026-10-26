@@ -29,6 +29,8 @@ public interface NotificacionService {
     // P4 bloque 6: arrendatario que agrega el propietario (al administrador) y su revisión (al apartamento)
     void avisarNuevoResidente(Residente residente);
     void avisarResidenteRevisado(Residente residente, String motivo);
+    // P5 bloque 1: registro desde la app (a la administración y, si es arrendatario, al propietario)
+    void avisarNuevoRegistro(Residente titular);
     // P4 bloque 7: cuota nueva y su revisión (al apartamento), comprobante subido (a la administración)
     void avisarCuotaNueva(Cuota cuota, String mes);
     void avisarComprobante(Cuota cuota, String mes);

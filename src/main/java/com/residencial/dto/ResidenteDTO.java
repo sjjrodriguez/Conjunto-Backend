@@ -26,9 +26,14 @@ public class ResidenteDTO {
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String contrasena;
 
+    // P5 (solo respuesta): datos del titular que se registró desde la app
+    private String correo;
+    private Boolean titular;
+    private Boolean aprobadoPropietario; // arrendatarios: si ya lo aprobó el propietario
+
     public ResidenteDTO(Long id, String nombreCompleto, String telefono, String identificacion,
                         String tipoHabitante, Long apartamentoId) {
         this(id, nombreCompleto, telefono, identificacion, tipoHabitante, apartamentoId,
-                null, null, null, null, null);
+                null, null, null, null, null, null, null, null);
     }
 }

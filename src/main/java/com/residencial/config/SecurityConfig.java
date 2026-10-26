@@ -170,7 +170,8 @@ public class SecurityConfig {
         DefaultBearerTokenResolver resolver = new DefaultBearerTokenResolver();
         // El login nunca necesita token: se ignora aunque llegue uno caducado. Las demás rutas de
         // /api/auth (cambiar la contraseña) sí lo usan
-        return req -> req.getRequestURI().startsWith("/api/auth/") && req.getRequestURI().endsWith("/login")
+        return req -> req.getRequestURI().startsWith("/api/auth/")
+                && (req.getRequestURI().endsWith("/login") || req.getRequestURI().startsWith("/api/auth/registro"))
                 ? null : resolver.resolve(req);
     }
 

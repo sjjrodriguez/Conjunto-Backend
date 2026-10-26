@@ -1,5 +1,7 @@
 package com.residencial.serviceimpl;
 
+import com.residencial.correo.Correo;
+import com.residencial.correo.Plantillas;
 import com.residencial.dto.ResidenteDTO;
 import com.residencial.exception.RecursoNoEncontradoException;
 import com.residencial.model.Apartamento;
@@ -39,13 +41,15 @@ public class ResidenteServiceImpl implements ResidenteService {
     private final AccesoService acceso;
     private final NotificacionService notificaciones;
     private final PasswordEncoder passwordEncoder;
+    private final Correo correo;
 
     private ResidenteDTO toDTO(Residente r) {
         Apartamento a = r.getApartamento();
         return new ResidenteDTO(
             r.getId(), r.getNombreCompleto(), r.getTelefono(),
             r.getIdentificacion(), r.getTipoHabitante(), a.getId(),
-            r.getEstado(), r.getContrasena() != null, a.getTorre(), a.getApto(), null
+            r.getEstado(), r.getContrasena() != null, a.getTorre(), a.getApto(), null,
+            r.getCorreo(), r.isTitular(), r.getAprobadoPropietario()
         );
     }
 
@@ -78,7 +82,10 @@ public class ResidenteServiceImpl implements ResidenteService {
         }
         if (porAdministrador) {
             r.setEstado(Residente.APROBADO);
-            if (dto.getContrasena() != null && !dto.getContrasena().isBlank()) r.setContrasena(cifrar(dto.getContrasena()));
+            if (dto.getContrasena() != null && !dto.getContrasena().isBlank()) {
+                r.setContrasena(cifrar(dto.getContrasena()));
+                r.setTitular(true);
+            }
         } else {
             if (!"ARRENDATARIO".equals(r.getTipoHabitante())) {
                 throw invalido("Solo puedes agregar arrendatarios; los propietarios los registra la administración");
@@ -86,6 +93,9 @@ public class ResidenteServiceImpl implements ResidenteService {
             // Con esta contraseña entrará cuando la administración lo apruebe
             r.setContrasena(cifrar(dto.getContrasena()));
             r.setEstado(Residente.PENDIENTE);
+            // Titular arrendatario que agrega el propietario: ya cuenta con su aprobación
+            r.setTitular(true);
+            r.setAprobadoPropietario(Boolean.TRUE);
         }
         Residente guardado = repo.save(r);
         if (!porAdministrador) notificaciones.avisarNuevoResidente(guardado);
@@ -116,7 +126,8 @@ public class ResidenteServiceImpl implements ResidenteService {
     @Override
     @Transactional(readOnly = true)
     public List<ResidenteDTO> pendientes() {
-        return repo.findByEstadoOrderByIdAsc(Residente.PENDIENTE).stream().map(this::toDTO).toList();
+        // Solo los titulares: las personas de su hogar se aprueban junto con ellos
+        return repo.findByEstadoAndTitularTrueOrderByIdAsc(Residente.PENDIENTE).stream().map(this::toDTO).toList();
     }
 
     @Override
@@ -126,7 +137,21 @@ public class ResidenteServiceImpl implements ResidenteService {
         Residente r = buscar(id);
         r.setEstado(nuevo);
         Residente guardado = repo.save(r);
-        notificaciones.avisarResidenteRevisado(guardado, motivo == null || motivo.isBlank() ? null : motivo.trim());
+        String razon = motivo == null || motivo.isBlank() ? null : motivo.trim();
+        if (guardado.isTitular()) {
+            // Las personas que registró con él siguen su suerte
+            repo.findByApartamentoIdOrderByIdAsc(guardado.getApartamento().getId()).stream()
+                    .filter(p -> !p.isTitular() && Residente.PENDIENTE.equals(p.getEstado())
+                            && p.getTipoHabitante().equals(guardado.getTipoHabitante()))
+                    .forEach(p -> { p.setEstado(nuevo); repo.save(p); });
+            if (guardado.getCorreo() != null) {
+                boolean aprobado = Residente.APROBADO.equals(nuevo);
+                correo.enviar(guardado.getCorreo(), guardado.getNombreCompleto(),
+                        aprobado ? Plantillas.asuntoAprobado() : Plantillas.asuntoRechazado(),
+                        aprobado ? Plantillas.aprobado(guardado) : Plantillas.rechazado(guardado, razon));
+            }
+        }
+        notificaciones.avisarResidenteRevisado(guardado, razon);
         return toDTO(guardado);
     }
 
@@ -135,6 +160,7 @@ public class ResidenteServiceImpl implements ResidenteService {
     public ResidenteDTO cambiarAcceso(Long id, String contrasena) {
         Residente r = buscar(id);
         r.setContrasena(contrasena == null || contrasena.isBlank() ? null : cifrar(contrasena));
+        r.setTitular(r.getContrasena() != null);
         return toDTO(repo.save(r));
     }
 
