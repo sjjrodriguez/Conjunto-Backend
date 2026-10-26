@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 import java.nio.file.Path;
 
@@ -15,6 +16,7 @@ public class ConfiguracionAlmacen {
     private static final Logger log = LoggerFactory.getLogger(ConfiguracionAlmacen.class);
 
     @Bean
+    @Primary
     public AlmacenArchivos almacenArchivos(@Value("${app.storage.supabase.url:}") String url,
                                            @Value("${app.storage.supabase.service-key:}") String clave,
                                            @Value("${app.storage.bucket:comprobantes}") String bucket,
@@ -28,5 +30,18 @@ public class ConfiguracionAlmacen {
                 : Path.of(directorio);
         log.warn("Comprobantes en la carpeta local {} (sin SUPABASE_URL/SUPABASE_SERVICE_KEY)", carpeta);
         return new AlmacenLocal(carpeta);
+    }
+
+    /**
+     * Imágenes y archivos del feed (P5): bucket privado "publicaciones". En local es la misma
+     * carpeta (las rutas empiezan por publicaciones/) para que los enlaces firmados sirvan igual.
+     */
+    @Bean
+    public AlmacenArchivos almacenPublicaciones(AlmacenArchivos almacenArchivos,
+                                                @Value("${app.storage.supabase.url:}") String url,
+                                                @Value("${app.storage.supabase.service-key:}") String clave,
+                                                @Value("${app.storage.bucket-publicaciones:publicaciones}") String bucket) {
+        if (!url.isBlank() && !clave.isBlank()) return new AlmacenSupabase(url, clave, bucket);
+        return almacenArchivos;
     }
 }

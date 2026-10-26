@@ -41,6 +41,7 @@ public class AvisosPush {
             Map.entry("RESIDENTE_RECHAZADO", "Arrendatario rechazado"),
             Map.entry("CUOTA", "Nueva cuota de administración"),
             Map.entry("REGISTRO", "Nuevo registro por aprobar"),
+            Map.entry("PUBLICACION", "Nueva publicación"),
             Map.entry("SOLICITUD_ARRENDATARIO", "Solicitud de arrendatario"),
             Map.entry("COMPROBANTE", "Comprobante por revisar"),
             Map.entry("CUOTA_PAGADA", "Pago confirmado"),

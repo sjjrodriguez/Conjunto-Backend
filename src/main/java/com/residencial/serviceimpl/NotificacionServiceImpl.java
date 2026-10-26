@@ -40,6 +40,7 @@ public class NotificacionServiceImpl implements NotificacionService {
     public static final String TIPO_RESIDENTE_RECHAZADO = "RESIDENTE_RECHAZADO";
     public static final String TIPO_CUOTA = "CUOTA";
     public static final String TIPO_REGISTRO = "REGISTRO";
+    public static final String TIPO_PUBLICACION = "PUBLICACION";
     public static final String TIPO_SOLICITUD_ARRENDATARIO = "SOLICITUD_ARRENDATARIO";
     public static final String TIPO_COMPROBANTE = "COMPROBANTE";
     public static final String TIPO_CUOTA_PAGADA = "CUOTA_PAGADA";
@@ -213,6 +214,13 @@ public class NotificacionServiceImpl implements NotificacionService {
                         + r.getNombreCompleto() + " · " + torreApto(r.getApartamento())
                         + (aprobado || motivo == null ? "" : ". Motivo: " + motivo),
                 r.getId(), r.getApartamento().getId(), null);
+    }
+
+    @Override
+    public void avisarPublicacion(com.residencial.model.Publicacion p, java.util.List<Long> apartamentos) {
+        String texto = p.getTexto().isBlank() ? "Nueva publicación con adjuntos" : p.getTexto().replaceAll("\\s+", " ");
+        String resumen = "Nueva publicación de la administración — " + (texto.length() > 90 ? texto.substring(0, 90) + "…" : texto);
+        for (Long apto : apartamentos) crear(TIPO_PUBLICACION, resumen, p.getId(), apto, apto);
     }
 
     // Al guardarla también sale el aviso a los celulares de quien la recibe (AvisosPush)

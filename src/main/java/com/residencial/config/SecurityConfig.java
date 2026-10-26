@@ -141,6 +141,9 @@ public class SecurityConfig {
                 // La baja no pide sesión: se hace al cerrarla y basta con el token, que solo tiene ese celular
                 .requestMatchers(HttpMethod.POST, "/api/dispositivos/baja").permitAll()
                 .requestMatchers("/api/dispositivos", "/api/dispositivos/**").access(autenticado())
+                // Feed (P5): lo ven todos; publica, edita y borra la administración
+                .requestMatchers(HttpMethod.GET, "/api/publicaciones").access(autenticado())
+                .requestMatchers("/api/publicaciones", "/api/publicaciones/**").access(admin())
                 // Visitantes frecuentes: cada apartamento los suyos (VisitanteController lo comprueba)
                 .requestMatchers("/api/visitantes", "/api/visitantes/**").access(autenticado())
 
