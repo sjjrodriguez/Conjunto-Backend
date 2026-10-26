@@ -9,7 +9,9 @@ import com.residencial.model.Catalogo;
 import com.residencial.model.Residente;
 import com.residencial.repository.ApartamentoRepository;
 import com.residencial.repository.ResidenteRepository;
+import com.residencial.repository.DispositivoRepository;
 import com.residencial.security.AccesoService;
+import com.residencial.security.EstadoApartamento;
 import com.residencial.security.TokenService;
 import com.residencial.service.NotificacionService;
 import com.residencial.service.ResidenteService;
@@ -42,6 +44,8 @@ public class ResidenteServiceImpl implements ResidenteService {
     private final NotificacionService notificaciones;
     private final PasswordEncoder passwordEncoder;
     private final Correo correo;
+    private final EstadoApartamento estado;
+    private final DispositivoRepository dispositivos;
 
     private ResidenteDTO toDTO(Residente r) {
         Apartamento a = r.getApartamento();
@@ -64,17 +68,28 @@ public class ResidenteServiceImpl implements ResidenteService {
     public ResidenteDTO guardar(ResidenteDTO dto) {
         if (dto.getApartamentoId() == null) throw invalido("El apartamento es obligatorio");
         boolean porAdministrador = esAdministracion();
+        boolean conCuenta = dto.getContrasena() != null && !dto.getContrasena().isBlank();
+        String rol = rolActual();
         if (!porAdministrador) {
-            // El propietario solo agrega arrendatarios a su propio apartamento
-            if (!TokenService.ROL_PROPIETARIO.equals(rolActual())) {
-                throw new AccessDeniedException("Solo el propietario puede agregar residentes");
-            }
             acceso.verificarApartamento(dto.getApartamentoId());
+            if (conCuenta) {
+                // Solo el propietario agrega a su arrendatario (titular con contraseña)
+                if (!TokenService.ROL_PROPIETARIO.equals(rol)) {
+                    throw new AccessDeniedException("Solo el propietario puede agregar residentes");
+                }
+            } else {
+                // Persona del hogar: la agrega quien vive en el apartamento (P5)
+                if (!TokenService.ROL_PROPIETARIO.equals(rol) && !TokenService.ROL_ARRENDATARIO.equals(rol)) {
+                    throw new AccessDeniedException("Solo los residentes pueden agregar personas a su hogar");
+                }
+                estado.exigirQueViva(dto.getApartamentoId());
+            }
         }
         Apartamento apto = aptoRepo.findById(dto.getApartamentoId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Apartamento no encontrado: " + dto.getApartamentoId()));
 
         Residente r = new Residente();
+        if (!porAdministrador && !conCuenta) dto.setTipoHabitante(rol);
         copiarDatos(dto, r);
         r.setApartamento(apto);
         if (repo.existsByApartamentoIdAndIdentificacion(apto.getId(), r.getIdentificacion())) {
@@ -82,11 +97,11 @@ public class ResidenteServiceImpl implements ResidenteService {
         }
         if (porAdministrador) {
             r.setEstado(Residente.APROBADO);
-            if (dto.getContrasena() != null && !dto.getContrasena().isBlank()) {
+            if (conCuenta) {
                 r.setContrasena(cifrar(dto.getContrasena()));
                 r.setTitular(true);
             }
-        } else {
+        } else if (conCuenta) {
             if (!"ARRENDATARIO".equals(r.getTipoHabitante())) {
                 throw invalido("Solo puedes agregar arrendatarios; los propietarios los registra la administración");
             }
@@ -96,31 +111,99 @@ public class ResidenteServiceImpl implements ResidenteService {
             // Titular arrendatario que agrega el propietario: ya cuenta con su aprobación
             r.setTitular(true);
             r.setAprobadoPropietario(Boolean.TRUE);
+        } else {
+            r.setEstado(Residente.APROBADO);
         }
         Residente guardado = repo.save(r);
-        if (!porAdministrador) notificaciones.avisarNuevoResidente(guardado);
+        if (!porAdministrador && conCuenta) notificaciones.avisarNuevoResidente(guardado);
         return toDTO(guardado);
     }
 
     @Override
     public ResidenteDTO actualizar(Long id, ResidenteDTO dto) {
-        return repo.findById(id).map(r -> {
-            copiarDatos(dto, r);
-            return toDTO(repo.save(r));
-        }).orElse(null);
+        Residente r = repo.findById(id).orElse(null);
+        if (r == null) return null;
+        if (!esAdministracion()) {
+            // El residente edita a las personas de su hogar, no a los titulares
+            if (r.isTitular()) throw new AccessDeniedException("Los datos del titular los cambia la administración");
+            acceso.verificarApartamento(r.getApartamento().getId());
+            estado.exigirQueViva(r.getApartamento().getId());
+            dto.setTipoHabitante(r.getTipoHabitante());
+        }
+        copiarDatos(dto, r);
+        return toDTO(repo.save(r));
     }
 
     @Override
     public void eliminar(Long id) {
         Residente r = buscar(id);
         if (!esAdministracion()) {
-            // El propietario puede quitar a sus arrendatarios, no a otros propietarios
-            if (!TokenService.ROL_PROPIETARIO.equals(rolActual()) || !"ARRENDATARIO".equals(r.getTipoHabitante())) {
-                throw new AccessDeniedException("Solo puedes quitar arrendatarios de tu apartamento");
-            }
+            String rol = rolActual();
             acceso.verificarApartamento(r.getApartamento().getId());
+            boolean esSuArrendatario = TokenService.ROL_PROPIETARIO.equals(rol) && r.esArrendatario();
+            if (r.isTitular()) {
+                // El propietario quita a su arrendatario y recupera el apartamento
+                if (!esSuArrendatario) throw new AccessDeniedException("Solo puedes quitar arrendatarios de tu apartamento");
+            } else {
+                estado.exigirQueViva(r.getApartamento().getId());
+                if (!r.getTipoHabitante().equals(rol) && !esSuArrendatario) {
+                    throw new AccessDeniedException("Solo puedes quitar personas de tu hogar");
+                }
+            }
         }
+        if (r.isTitular() && r.esArrendatario()) quitarHogarDelArrendatario(r.getApartamento().getId());
         repo.delete(r);
+    }
+
+    /** Se fue el arrendatario: con él, las personas de su hogar y sus celulares registrados. */
+    private void quitarHogarDelArrendatario(Long apartamentoId) {
+        repo.findByApartamentoIdOrderByIdAsc(apartamentoId).stream()
+                .filter(p -> !p.isTitular() && p.esArrendatario())
+                .forEach(repo::delete);
+        dispositivos.deleteAll(dispositivos.findByApartamentoId(apartamentoId).stream()
+                .filter(d -> TokenService.ROL_ARRENDATARIO.equals(d.getRol())).toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ResidenteDTO arrendatarioDe(Long apartamentoId) {
+        acceso.verificarApartamento(apartamentoId);
+        return repo.findTitulares(apartamentoId, Residente.ARRENDATARIO).stream()
+                .filter(r -> !Residente.RECHAZADO.equals(r.getEstado()))
+                .reduce((a, b) -> b).map(this::toDTO).orElse(null);
+    }
+
+    /** El propietario acepta o rechaza al arrendatario que se registró en su apartamento. */
+    @Override
+    public ResidenteDTO aprobarComoPropietario(Long id, boolean aprobado, String motivo) {
+        Residente r = buscar(id);
+        if (!TokenService.ROL_PROPIETARIO.equals(rolActual())) {
+            throw new AccessDeniedException("Solo el propietario aprueba a su arrendatario");
+        }
+        acceso.verificarApartamento(r.getApartamento().getId());
+        if (!r.isTitular() || !r.esArrendatario() || Residente.RECHAZADO.equals(r.getEstado())
+                || !Boolean.FALSE.equals(r.getAprobadoPropietario())) {
+            throw invalido("Esta solicitud ya fue revisada");
+        }
+        String razon = motivo == null || motivo.isBlank() ? null : motivo.trim();
+        r.setAprobadoPropietario(aprobado);
+        if (!aprobado) r.setEstado(Residente.RECHAZADO);
+        Residente guardado = repo.save(r);
+        repo.findByApartamentoIdOrderByIdAsc(r.getApartamento().getId()).stream()
+                .filter(p -> !p.isTitular() && p.esArrendatario() && !Residente.RECHAZADO.equals(p.getEstado()))
+                .forEach(p -> {
+                    p.setAprobadoPropietario(aprobado);
+                    if (!aprobado) p.setEstado(Residente.RECHAZADO);
+                    repo.save(p);
+                });
+        notificaciones.avisarRevisionDelPropietario(guardado, razon);
+        if (guardado.getCorreo() != null && (!aprobado || guardado.puedeEntrar())) {
+            correo.enviar(guardado.getCorreo(), guardado.getNombreCompleto(),
+                    aprobado ? Plantillas.asuntoAprobado() : Plantillas.asuntoRechazado(),
+                    aprobado ? Plantillas.aprobado(guardado)
+                            : Plantillas.rechazado(guardado, razon == null ? "El propietario no aprobó la solicitud" : razon));
+        }
+        return toDTO(guardado);
     }
 
     @Override
@@ -159,8 +242,16 @@ public class ResidenteServiceImpl implements ResidenteService {
     @Override
     public ResidenteDTO cambiarAcceso(Long id, String contrasena) {
         Residente r = buscar(id);
+        if (!esAdministracion()) {
+            // El propietario administra el acceso de su arrendatario (P5)
+            if (!TokenService.ROL_PROPIETARIO.equals(rolActual()) || !r.isTitular() || !r.esArrendatario()) {
+                throw new AccessDeniedException("Solo puedes cambiar el acceso de tu arrendatario");
+            }
+            acceso.verificarApartamento(r.getApartamento().getId());
+            if (contrasena == null || contrasena.isBlank()) throw invalido("Escribe la nueva contraseña");
+        }
         r.setContrasena(contrasena == null || contrasena.isBlank() ? null : cifrar(contrasena));
-        r.setTitular(r.getContrasena() != null);
+        r.setTitular(r.getContrasena() != null || (r.isTitular() && r.esArrendatario()));
         return toDTO(repo.save(r));
     }
 

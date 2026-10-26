@@ -29,4 +29,10 @@ public interface ResidenteRepository extends JpaRepository<Residente, Long> {
 
     @EntityGraph(attributePaths = "apartamento")
     List<Residente> findByEstadoAndTitularTrueOrderByIdAsc(String estado);
+
+    /** Apartamentos arrendados: con arrendatario titular que ya puede entrar (ver Residente.puedeEntrar). */
+    @Query("select distinct r.apartamento.id from Residente r where r.titular = true and r.tipoHabitante = 'ARRENDATARIO' "
+            + "and r.estado = 'APROBADO' and r.contrasena is not null "
+            + "and (r.aprobadoPropietario is null or r.aprobadoPropietario = true)")
+    java.util.Set<Long> apartamentosArrendados();
 }

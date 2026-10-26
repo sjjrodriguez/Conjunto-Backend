@@ -206,6 +206,15 @@ public class NotificacionServiceImpl implements NotificacionService {
         }
     }
 
+    @Override
+    public void avisarRevisionDelPropietario(Residente r, String motivo) {
+        boolean aprobado = Boolean.TRUE.equals(r.getAprobadoPropietario());
+        crear(TIPO_REGISTRO, (aprobado ? "El propietario aprobó al arrendatario " : "El propietario rechazó al arrendatario ")
+                        + r.getNombreCompleto() + " · " + torreApto(r.getApartamento())
+                        + (aprobado || motivo == null ? "" : ". Motivo: " + motivo),
+                r.getId(), r.getApartamento().getId(), null);
+    }
+
     // Al guardarla también sale el aviso a los celulares de quien la recibe (AvisosPush)
     private void crear(String tipo, String mensaje, Long referenciaId, Long apartamentoId, Long destinatario) {
         Notificacion n = repo.save(new Notificacion(null, tipo, mensaje, LocalDateTime.now(zonaHoraria), false,

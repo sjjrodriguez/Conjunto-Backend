@@ -77,11 +77,16 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/apartamentos/*").access(autenticado())
                 // La lista también la usa el contador (cartera)
                 .requestMatchers(HttpMethod.GET, "/api/apartamentos").access(cartera())
+                // Citófonos: quien vive en el apartamento (ApartamentoServiceImpl lo comprueba)
+                .requestMatchers(HttpMethod.PUT, "/api/apartamentos/*/citofonos").access(autenticado())
                 .requestMatchers("/api/apartamentos", "/api/apartamentos/**").access(admin())
 
                 // Residentes: el propietario ve los de su apartamento y agrega o quita arrendatarios
                 // (ResidenteServiceImpl lo comprueba); aprobar, dar acceso y editar es del administrador
-                .requestMatchers(HttpMethod.GET, "/api/residentes/apartamento/*").access(autenticado())
+                .requestMatchers(HttpMethod.GET, "/api/residentes/apartamento/*", "/api/residentes/apartamento/*/arrendatario").access(autenticado())
+                // P5: personas del hogar, acceso y aprobación del arrendatario por su propietario
+                .requestMatchers(HttpMethod.PUT, "/api/residentes/*", "/api/residentes/*/acceso",
+                        "/api/residentes/*/aprobacion-propietario").access(autenticado())
                 .requestMatchers(HttpMethod.POST, "/api/residentes").access(autenticado())
                 .requestMatchers(HttpMethod.DELETE, "/api/residentes/*").access(autenticado())
                 .requestMatchers("/api/residentes", "/api/residentes/**").access(admin())
@@ -136,6 +141,8 @@ public class SecurityConfig {
                 // La baja no pide sesión: se hace al cerrarla y basta con el token, que solo tiene ese celular
                 .requestMatchers(HttpMethod.POST, "/api/dispositivos/baja").permitAll()
                 .requestMatchers("/api/dispositivos", "/api/dispositivos/**").access(autenticado())
+                // Visitantes frecuentes: cada apartamento los suyos (VisitanteController lo comprueba)
+                .requestMatchers("/api/visitantes", "/api/visitantes/**").access(autenticado())
 
                 .anyRequest().access(autenticado()));
 

@@ -39,6 +39,14 @@ public class ApartamentoController {
         return updated != null ? ResponseEntity.ok(updated) : ResponseEntity.notFound().build();
     }
 
+    public record Citofonos(String citofono1, String citofono2) {}
+
+    /** Los dos teléfonos del citófono: los cambia quien vive en el apartamento (o el administrador). */
+    @PutMapping("/{id}/citofonos")
+    public ApartamentoDTO cambiarCitofonos(@PathVariable Long id, @RequestBody Citofonos citofonos) {
+        return service.cambiarCitofonos(id, citofonos.citofono1(), citofonos.citofono2());
+    }
+
     @PutMapping("/{id}/contrasena")
     public ResponseEntity<Void> cambiarContrasena(@PathVariable Long id,
                                                   @Valid @RequestBody CambioContrasenaRequest request) {

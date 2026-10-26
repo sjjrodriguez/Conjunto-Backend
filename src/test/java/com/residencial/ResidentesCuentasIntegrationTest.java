@@ -143,7 +143,8 @@ class ResidentesCuentasIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.mensaje").value(containsString("al menos 6")));
 
-        Residente dueno = residenteRepo.save(new Residente(null, "Dueño", null, "100", "PROPIETARIO", apto));
+        // Un titular propietario no lo quita el propietario desde la app (sí a las personas de su hogar)
+        Residente dueno = residenteRepo.save(new Residente(null, "Dueño", null, "100", "PROPIETARIO", apto, encoder.encode("dueno123"), Residente.APROBADO));
         mvc.perform(delete("/api/residentes/" + dueno.getId()).header("Authorization", propietario))
                 .andExpect(status().isForbidden());
 

@@ -67,7 +67,7 @@ class MigracionesPostgresTest {
         // Si las tablas no coincidieran con las entidades, el contexto no habría arrancado
         Integer aplicadas = jdbc.queryForObject(
                 "select count(*) from flyway_schema_history where success", Integer.class);
-        assertThat(aplicadas).isEqualTo(7);
+        assertThat(aplicadas).isEqualTo(8);
         Integer tablas = jdbc.queryForObject(
                 "select count(*) from information_schema.tables where table_schema = 'public'"
                         + " and table_name <> 'flyway_schema_history'", Integer.class);
@@ -101,7 +101,7 @@ class MigracionesPostgresTest {
         assertThat(flyway.info().applied()[0].getVersion().getVersion()).isEqualTo("1");
         assertThat(resultado.migrationsExecuted).isEqualTo(flyway.info().applied().length - 1);
         MigrationInfo actual = flyway.info().current();
-        assertThat(actual.getVersion().getVersion()).isEqualTo("7");
+        assertThat(actual.getVersion().getVersion()).isEqualTo("8");
         // Los datos siguen ahí
         try (Connection c = existente.getConnection(); Statement st = c.createStatement();
              var rs = st.executeQuery("select count(*) from apartamento")) {

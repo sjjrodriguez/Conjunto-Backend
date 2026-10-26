@@ -11,6 +11,7 @@ import com.residencial.repository.ApartamentoRepository;
 import com.residencial.repository.CupoVehiculoRepository;
 import com.residencial.repository.VehiculoRepository;
 import com.residencial.security.AccesoService;
+import com.residencial.security.EstadoApartamento;
 import com.residencial.service.NotificacionService;
 import com.residencial.service.VehiculoService;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +40,7 @@ public class VehiculoServiceImpl implements VehiculoService {
     private final CupoVehiculoRepository cupoRepo;
     private final AccesoService acceso;
     private final NotificacionService notificaciones;
+    private final EstadoApartamento estado;
 
     private VehiculoDTO toDTO(Vehiculo v) {
         Apartamento a = v.getApartamento();
@@ -57,6 +59,7 @@ public class VehiculoServiceImpl implements VehiculoService {
     @Transactional // el vehículo y su notificación se guardan juntos
     public VehiculoDTO guardar(VehiculoDTO dto) {
         acceso.verificarApartamento(dto.getApartamentoId());
+        if (dto.getApartamentoId() != null) estado.exigirQueViva(dto.getApartamentoId());
         Apartamento apto = aptoRepo.findById(dto.getApartamentoId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Apartamento no encontrado"));
         String tipo = Catalogo.TIPO_VEHICULO.normalizar(dto.getTipo());
@@ -82,6 +85,7 @@ public class VehiculoServiceImpl implements VehiculoService {
     public VehiculoDTO actualizar(Long id, VehiculoDTO dto) {
         Vehiculo v = repo.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("Vehículo no encontrado: " + id));
         acceso.verificarApartamento(v.getApartamento().getId());
+        estado.exigirQueViva(v.getApartamento().getId());
         String tipo = Catalogo.TIPO_VEHICULO.normalizar(dto.getTipo());
         String placa = vacioANull(dto.getPlaca());
         if (placa == null && CON_PLACA.contains(tipo)) {
@@ -121,6 +125,7 @@ public class VehiculoServiceImpl implements VehiculoService {
     public void eliminar(Long id) {
         repo.findById(id).ifPresent(v -> {
             acceso.verificarApartamento(v.getApartamento().getId());
+            estado.exigirQueViva(v.getApartamento().getId());
             repo.delete(v);
         });
     }

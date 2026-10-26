@@ -11,6 +11,7 @@ import com.residencial.repository.ApartamentoRepository;
 import com.residencial.repository.ReservaRepository;
 import com.residencial.repository.ZonaComunRepository;
 import com.residencial.security.AccesoService;
+import com.residencial.security.EstadoApartamento;
 import com.residencial.service.NotificacionService;
 import com.residencial.service.ReservaService;
 import org.springframework.beans.factory.annotation.Value;
@@ -44,6 +45,7 @@ public class ReservaServiceImpl implements ReservaService {
     private final ZonaComunRepository zonaRepo;
     private final AccesoService acceso;
     private final NotificacionService notificaciones;
+    private final EstadoApartamento estado;
     // Lo que dura una reserva que no dice hora de fin (las de la app anterior a P4)
     private final Duration duracion;
     // Lo máximo que puede durar una reserva con hora de fin
@@ -56,6 +58,7 @@ public class ReservaServiceImpl implements ReservaService {
                               ZonaComunRepository zonaRepo,
                               AccesoService acceso,
                               NotificacionService notificaciones,
+                              EstadoApartamento estado,
                               @Value("${app.reservas.duracion-horas:2}") long duracionHoras,
                               @Value("${app.reservas.duracion-maxima-horas:8}") long duracionMaximaHoras,
                               @Value("${app.zona-horaria:America/Bogota}") String zonaHoraria) {
@@ -70,6 +73,7 @@ public class ReservaServiceImpl implements ReservaService {
         this.zonaRepo = zonaRepo;
         this.acceso = acceso;
         this.notificaciones = notificaciones;
+        this.estado = estado;
         this.duracion = Duration.ofHours(duracionHoras);
         this.duracionMaxima = Duration.ofHours(duracionMaximaHoras);
         this.zonaHoraria = ZoneId.of(zonaHoraria);
@@ -114,6 +118,7 @@ public class ReservaServiceImpl implements ReservaService {
     @Transactional
     public ReservaDTO guardar(ReservaDTO dto) {
         acceso.verificarApartamento(dto.getApartamentoId());
+        if (dto.getApartamentoId() != null) estado.exigirQueViva(dto.getApartamentoId());
         if (dto.getApartamentoId() == null || dto.getZonaComunId() == null
                 || dto.getFecha() == null || dto.getHora() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
