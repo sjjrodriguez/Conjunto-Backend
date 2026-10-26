@@ -94,7 +94,10 @@ public class SecurityConfig {
                 // Vehículos (el propietario solo los suyos)
                 // Aprobación y cupos: solo el administrador (los cupos los puede ver cualquiera)
                 .requestMatchers(HttpMethod.GET, "/api/vehiculos").access(admin())
-                .requestMatchers(HttpMethod.PUT, "/api/vehiculos/*/estado", "/api/vehiculos/cupos").access(admin())
+                .requestMatchers(HttpMethod.PUT, "/api/vehiculos/*/estado", "/api/vehiculos/cupos",
+                        "/api/vehiculos/cupos/apartamento/*").access(admin())
+                // Parqueaderos (P5): solo el administrador
+                .requestMatchers("/api/parqueaderos", "/api/parqueaderos/**").access(admin())
                 .requestMatchers("/api/vehiculos/**").access(autenticado())
 
                 // Obras

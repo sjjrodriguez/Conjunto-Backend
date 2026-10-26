@@ -18,9 +18,12 @@ public class VehiculoDTO {
     private String motivoRechazo;
     private String torre;
     private String apto;
+    // P5: el parqueadero asignado (null = sin parqueadero)
+    private Long parqueaderoId;
+    private String parqueadero;
 
     /** Lo que enviaba la app antes de P4 (y lo que basta para registrar uno). */
     public VehiculoDTO(Long id, String placa, String marca, String color, String tipo, Long apartamentoId) {
-        this(id, placa, marca, color, tipo, apartamentoId, null, null, null, null);
+        this(id, placa, marca, color, tipo, apartamentoId, null, null, null, null, null, null);
     }
 }

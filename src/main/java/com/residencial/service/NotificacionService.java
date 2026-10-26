@@ -24,7 +24,7 @@ public interface NotificacionService {
     void avisarNuevoVehiculo(Vehiculo vehiculo);
 
     // Para los residentes del apartamento
-    void avisarVehiculoRevisado(Vehiculo vehiculo);
+    void avisarVehiculoRevisado(Vehiculo vehiculo, String parqueadero);
     void avisarReservaRevisada(Reserva reserva);
     // P4 bloque 6: arrendatario que agrega el propietario (al administrador) y su revisión (al apartamento)
     void avisarNuevoResidente(Residente residente);

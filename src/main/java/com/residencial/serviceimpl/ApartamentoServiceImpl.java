@@ -35,6 +35,7 @@ public class ApartamentoServiceImpl implements ApartamentoService {
     private final PagoRepository pagos;
     private final DispositivoRepository dispositivos;
     private final EstadoApartamento estado;
+    private final CupoApartamentoRepository cuposApto;
 
     private ApartamentoDTO toDTO(Apartamento a) {
         return new ApartamentoDTO(a.getId(), a.getTorre(), a.getApto());
@@ -135,6 +136,7 @@ public class ApartamentoServiceImpl implements ApartamentoService {
         cuotas.deleteAll(cuotas.findByApartamentoIdOrderByPeriodoDesc(id));
         pagos.findByApartamentoId(id).ifPresent(pagos::delete);
         dispositivos.deleteAll(dispositivos.findByApartamentoId(id));
+        cuposApto.deleteAll(cuposApto.findByApartamentoId(id));
         repo.delete(a);
     }
 }

@@ -15,4 +15,10 @@ public class CupoVehiculoDTO {
     private String tipo;
     private Integer maximo;
     private Boolean requierePlaca;
+    // P5: true si es el cupo propio del apartamento (no el general)
+    private Boolean personalizado;
+
+    public CupoVehiculoDTO(String tipo, Integer maximo, Boolean requierePlaca) {
+        this(tipo, maximo, requierePlaca, null);
+    }
 }

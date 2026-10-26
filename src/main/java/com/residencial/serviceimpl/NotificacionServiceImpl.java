@@ -136,11 +136,12 @@ public class NotificacionServiceImpl implements NotificacionService {
     }
 
     @Override
-    public void avisarVehiculoRevisado(Vehiculo v) {
+    public void avisarVehiculoRevisado(Vehiculo v, String parqueadero) {
         boolean aprobado = Vehiculo.APROBADO.equals(v.getEstado());
         String motivo = v.getMotivoRechazo() == null ? "" : ". Motivo: " + v.getMotivoRechazo();
+        String extra = aprobado ? (parqueadero == null ? "" : " · Parqueadero " + parqueadero) : motivo;
         crear(aprobado ? TIPO_VEHICULO_APROBADO : TIPO_VEHICULO_RECHAZADO,
-                (aprobado ? "Vehículo aprobado — " : "Vehículo rechazado — ") + descripcion(v) + (aprobado ? "" : motivo),
+                (aprobado ? "Vehículo aprobado — " : "Vehículo rechazado — ") + descripcion(v) + extra,
                 v.getId(), v.getApartamento().getId(), v.getApartamento().getId());
     }
 

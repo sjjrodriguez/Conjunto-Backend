@@ -10,6 +10,9 @@ import com.residencial.model.Vehiculo;
 import com.residencial.repository.ApartamentoRepository;
 import com.residencial.repository.CupoVehiculoRepository;
 import com.residencial.repository.VehiculoRepository;
+import com.residencial.model.CupoApartamento;
+import com.residencial.model.Parqueadero;
+import com.residencial.repository.CupoApartamentoRepository;
 import com.residencial.security.AccesoService;
 import com.residencial.security.EstadoApartamento;
 import com.residencial.service.NotificacionService;
@@ -40,19 +43,31 @@ public class VehiculoServiceImpl implements VehiculoService {
     private final CupoVehiculoRepository cupoRepo;
     private final AccesoService acceso;
     private final NotificacionService notificaciones;
+    private final ParqueaderoServiceImpl parqueaderos;
+    private final CupoApartamentoRepository cuposApto;
     private final EstadoApartamento estado;
 
     private VehiculoDTO toDTO(Vehiculo v) {
+        return toDTO(v, parqueaderos.deVehiculos(List.of(v.getId())).get(v.getId()));
+    }
+
+    private VehiculoDTO toDTO(Vehiculo v, Parqueadero p) {
         Apartamento a = v.getApartamento();
         return new VehiculoDTO(v.getId(), v.getPlaca(), v.getMarca(), v.getColor(), v.getTipo(), a.getId(),
-                v.getEstado(), v.getMotivoRechazo(), a.getTorre(), a.getApto());
+                v.getEstado(), v.getMotivoRechazo(), a.getTorre(), a.getApto(),
+                p == null ? null : p.getId(), p == null ? null : p.getNumero());
+    }
+
+    /** Con el parqueadero de cada uno, en una sola consulta. */
+    private List<VehiculoDTO> toDTOs(List<Vehiculo> lista) {
+        Map<Long, Parqueadero> deCada = parqueaderos.deVehiculos(lista.stream().map(Vehiculo::getId).toList());
+        return lista.stream().map(v -> toDTO(v, deCada.get(v.getId()))).toList();
     }
 
     @Override
     public List<VehiculoDTO> listarPorApartamento(Long apartamentoId) {
         acceso.verificarApartamento(apartamentoId);
-        return repo.findByApartamentoId(apartamentoId).stream()
-                .map(this::toDTO).collect(Collectors.toList());
+        return toDTOs(repo.findByApartamentoId(apartamentoId));
     }
 
     @Override
@@ -110,7 +125,8 @@ public class VehiculoServiceImpl implements VehiculoService {
     }
 
     private void verificarCupo(Long apartamentoId, String tipo) {
-        int maximo = maximo(tipo);
+        int maximo = cuposApto.findById(new CupoApartamento.Clave(apartamentoId, tipo))
+                .map(CupoApartamento::getMaximo).orElseGet(() -> maximo(tipo));
         long ocupados = repo.countByApartamentoIdAndTipoAndEstadoIn(apartamentoId, tipo, OCUPAN_CUPO);
         if (ocupados >= maximo) {
             String nombre = tipo.toLowerCase(Locale.ROOT);
@@ -126,29 +142,39 @@ public class VehiculoServiceImpl implements VehiculoService {
         repo.findById(id).ifPresent(v -> {
             acceso.verificarApartamento(v.getApartamento().getId());
             estado.exigirQueViva(v.getApartamento().getId());
+            parqueaderos.liberarDe(v.getId());
             repo.delete(v);
         });
     }
 
     @Override
     public List<VehiculoDTO> listarPorEstado(String estado) {
-        return repo.findByEstadoOrderByIdAsc(Catalogo.ESTADO_VEHICULO.normalizar(estado)).stream()
-                .map(this::toDTO).collect(Collectors.toList());
+        return toDTOs(repo.findByEstadoOrderByIdAsc(Catalogo.ESTADO_VEHICULO.normalizar(estado)));
     }
 
     @Override
     @Transactional // el cambio y la notificación al residente van juntos
     public VehiculoDTO cambiarEstado(Long id, String estado, String motivo) {
+        return cambiarEstado(id, estado, motivo, null);
+    }
+
+    /** Aprobar (con el parqueadero que se le asigna, si hay) o rechazar (libera el que tuviera). */
+    @Override
+    @Transactional
+    public VehiculoDTO cambiarEstado(Long id, String estado, String motivo, Long parqueaderoId) {
         String nuevo = Catalogo.ESTADO_VEHICULO.normalizar(estado);
         if (Vehiculo.PENDIENTE.equals(nuevo)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El vehículo solo se puede aprobar o rechazar");
         }
         Vehiculo v = repo.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("Vehículo no encontrado"));
-        if (nuevo.equals(v.getEstado())) return toDTO(v);
+        if (nuevo.equals(v.getEstado()) && parqueaderoId == null) return toDTO(v);
         v.setEstado(nuevo);
         v.setMotivoRechazo(Vehiculo.RECHAZADO.equals(nuevo) ? vacioANull(motivo) : null);
         Vehiculo guardado = repo.save(v);
-        notificaciones.avisarVehiculoRevisado(guardado);
+        String parqueadero = null;
+        if (Vehiculo.APROBADO.equals(nuevo)) parqueadero = parqueaderos.asignarAlAprobar(guardado, parqueaderoId);
+        else parqueaderos.liberarDe(guardado.getId());
+        notificaciones.avisarVehiculoRevisado(guardado, parqueadero);
         return toDTO(guardado);
     }
 
@@ -160,6 +186,38 @@ public class VehiculoServiceImpl implements VehiculoService {
                 .map(e -> new CupoVehiculoDTO(e.getKey(), guardados.getOrDefault(e.getKey(), e.getValue()),
                         CON_PLACA.contains(e.getKey())))
                 .collect(Collectors.toList());
+    }
+
+    /** Los cupos que rigen para un apartamento: los suyos o, si no tiene, los generales. */
+    @Override
+    @Transactional(readOnly = true)
+    public List<CupoVehiculoDTO> cuposDe(Long apartamentoId) {
+        acceso.verificarApartamentoOCartera(apartamentoId);
+        Map<String, Integer> propios = cuposApto.findByApartamentoId(apartamentoId).stream()
+                .collect(Collectors.toMap(CupoApartamento::getTipo, CupoApartamento::getMaximo));
+        return cupos().stream().map(c -> propios.containsKey(c.getTipo())
+                ? new CupoVehiculoDTO(c.getTipo(), propios.get(c.getTipo()), c.getRequierePlaca(), true)
+                : new CupoVehiculoDTO(c.getTipo(), c.getMaximo(), c.getRequierePlaca(), false)).toList();
+    }
+
+    /** Administrador: cupos propios del apartamento; maximo null vuelve al cupo general. */
+    @Override
+    @Transactional
+    public List<CupoVehiculoDTO> guardarCuposDe(Long apartamentoId, List<CupoVehiculoDTO> cupos) {
+        if (!aptoRepo.existsById(apartamentoId)) throw new RecursoNoEncontradoException("Apartamento no encontrado");
+        for (CupoVehiculoDTO c : cupos) {
+            String tipo = Catalogo.TIPO_VEHICULO.normalizar(c.getTipo());
+            if (c.getMaximo() == null) {
+                cuposApto.deleteById(new CupoApartamento.Clave(apartamentoId, tipo));
+                continue;
+            }
+            if (c.getMaximo() < 0 || c.getMaximo() > MAXIMO_CUPO) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "El cupo de " + tipo.toLowerCase(Locale.ROOT) + " debe estar entre 0 y " + MAXIMO_CUPO);
+            }
+            cuposApto.save(new CupoApartamento(apartamentoId, tipo, c.getMaximo()));
+        }
+        return cuposDe(apartamentoId);
     }
 
     @Override

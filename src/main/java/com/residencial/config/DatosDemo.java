@@ -55,6 +55,7 @@ public class DatosDemo implements CommandLineRunner {
     private final NotificacionRepository notificacionRepo;
     private final PasswordEncoder encoder;
     private final CuotaRepository cuotaRepo;
+    private final ParqueaderoRepository parqueaderoRepo;
     private final CuotaService cuotaService;
 
     @Override
@@ -83,11 +84,20 @@ public class DatosDemo implements CommandLineRunner {
                 new Residente(null, "Jorge Castro Díaz", "3204567890", "1040404040", "PROPIETARIO", t1a201),
                 new Residente(null, "Paula Herrera León", "3152223344", "1050505050", "PROPIETARIO", t2a101)));
 
-        vehiculoRepo.saveAll(List.of(
+        List<Vehiculo> aprobados = vehiculoRepo.saveAll(List.of(
                 new Vehiculo(null, "ABC123", "Mazda", "Rojo", "Carro", t1a101),
                 new Vehiculo(null, "XYZ98F", "Yamaha", "Negro", "Moto", t1a101),
                 new Vehiculo(null, "JKL456", "Renault", "Gris", "Carro", t1a102)));
         Vehiculo chevrolet = vehiculoRepo.save(new Vehiculo(null, "MNO789", "Chevrolet", "Blanco", "Carro", t2a101));
+        // Parqueaderos: 8 de carro, 4 de moto, 2 de invitados; el Mazda y la Yamaha ya tienen el suyo
+        List<Parqueadero> parqueaderos = new ArrayList<>();
+        for (int i = 1; i <= 8; i++) parqueaderos.add(new Parqueadero(null, String.format("C-%02d", i), "Carro", null));
+        for (int i = 1; i <= 4; i++) parqueaderos.add(new Parqueadero(null, String.format("M-%02d", i), "Moto", null));
+        for (int i = 1; i <= 2; i++) parqueaderos.add(new Parqueadero(null, String.format("INV-%02d", i), Parqueadero.INVITADOS, null));
+        parqueaderos.get(0).setVehiculo(aprobados.get(0));
+        parqueaderos.get(8).setVehiculo(aprobados.get(1));
+        parqueaderoRepo.saveAll(parqueaderos);
+
         // Uno esperando aprobación del administrador y una bicicleta (sin placa)
         vehiculoRepo.saveAll(List.of(
                 new Vehiculo(null, "QRS321", "Kia", "Azul", "Carro", t1a201, Vehiculo.PENDIENTE, null),

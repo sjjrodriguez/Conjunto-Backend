@@ -16,7 +16,11 @@ public interface VehiculoService {
 
     /** El administrador aprueba o rechaza; el residente recibe una notificación. */
     VehiculoDTO cambiarEstado(Long id, String estado, String motivo);
+    VehiculoDTO cambiarEstado(Long id, String estado, String motivo, Long parqueaderoId);
 
     List<CupoVehiculoDTO> cupos();
     List<CupoVehiculoDTO> guardarCupos(List<CupoVehiculoDTO> cupos);
+    // P5: cupos propios de cada apartamento
+    List<CupoVehiculoDTO> cuposDe(Long apartamentoId);
+    List<CupoVehiculoDTO> guardarCuposDe(Long apartamentoId, List<CupoVehiculoDTO> cupos);
 }

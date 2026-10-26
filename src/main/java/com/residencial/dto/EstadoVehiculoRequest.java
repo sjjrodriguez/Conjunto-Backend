@@ -14,4 +14,7 @@ public class EstadoVehiculoRequest {
 
     @Size(max = 300, message = "El motivo puede tener máximo 300 caracteres")
     private String motivo;
+
+    // P5: al aprobar, el parqueadero que se le asigna (opcional)
+    private Long parqueaderoId;
 }
