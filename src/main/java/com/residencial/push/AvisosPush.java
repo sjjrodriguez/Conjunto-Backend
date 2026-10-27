@@ -28,6 +28,12 @@ public class AvisosPush {
     /** Se publica al guardar una notificación (NotificacionServiceImpl). */
     public record NotificacionCreada(Notificacion notificacion) {}
 
+    /**
+     * P5: mensaje de chat. apartamentoId null = va a la administración (no al contador); si no,
+     * a los celulares de ese apartamento con el rol del participante. No se guarda como notificación.
+     */
+    public record MensajeChatNuevo(Long conversacionId, Long apartamentoId, String participante, String mensaje) {}
+
     // Título del aviso en el celular según el tipo de notificación
     private static final Map<String, String> TITULOS = Map.ofEntries(
             Map.entry("RESERVA", "Nueva reserva"),
@@ -72,6 +78,24 @@ public class AvisosPush {
             dispositivos.borrarTokens(invalidos);
             log.info("Se borraron {} tokens de celulares que ya no reciben avisos", invalidos.size());
         }
+    }
+
+    @Async
+    @TransactionalEventListener(fallbackExecution = true)
+    public void alEscribir(MensajeChatNuevo evento) {
+        List<Dispositivo> celulares = evento.apartamentoId() == null
+                ? dispositivos.findByRol(TokenService.ROL_ADMIN)
+                : dispositivos.findByApartamentoId(evento.apartamentoId()).stream()
+                        .filter(d -> evento.participante().equals(d.getRol())).toList();
+        List<String> tokens = celulares.stream().map(Dispositivo::getToken).toList();
+        if (tokens.isEmpty()) return;
+        Map<String, String> datos = new HashMap<>();
+        datos.put("tipo", "CHAT");
+        datos.put("titulo", "Chat");
+        datos.put("mensaje", evento.mensaje());
+        datos.put("referenciaId", String.valueOf(evento.conversacionId()));
+        Set<String> invalidos = enviador.enviar(tokens, datos);
+        if (!invalidos.isEmpty()) dispositivos.borrarTokens(invalidos);
     }
 
     /** Lo que recibe la app: texto del aviso y a qué pantalla llevar al tocarlo. */

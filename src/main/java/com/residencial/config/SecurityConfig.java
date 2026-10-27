@@ -143,6 +143,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PUT, "/api/cartera/solicitudes/*").access(admin())
                 .requestMatchers("/api/cartera", "/api/cartera/**").access(cartera())
 
+                // Chat (P5): ChatService decide quién ve qué conversación; el contador no entra
+                .requestMatchers("/api/chat", "/api/chat/**").access(autenticado())
+
                 // Notificaciones
                 // Cada uno ve las suyas: el administrador, las suyas; un residente, las de su apartamento
                 .requestMatchers("/api/notificaciones", "/api/notificaciones/**").access(autenticado())
