@@ -1,5 +1,9 @@
 package com.residencial.serviceimpl;
 
+import java.util.Set;
+import com.residencial.security.TokenService;
+import com.residencial.repository.SolicitudContableRepository;
+import com.residencial.model.SolicitudContable;
 import com.residencial.almacen.AlmacenArchivos;
 import com.residencial.dto.CuotaDTO;
 import com.residencial.exception.RecursoNoEncontradoException;
@@ -55,10 +59,13 @@ public class CuotaServiceImpl implements CuotaService {
     private final NotificacionService notificaciones;
     private final AlmacenArchivos almacen;
     private final ZoneId zonaHoraria;
+    private final SolicitudContableRepository solicitudes;
 
     public CuotaServiceImpl(CuotaRepository repo, ApartamentoRepository aptoRepo, PagoRepository pagoRepo,
                             AccesoService acceso, NotificacionService notificaciones, AlmacenArchivos almacen,
-                            @Value("${app.zona-horaria:America/Bogota}") String zonaHoraria) {
+                            @Value("${app.zona-horaria:America/Bogota}") String zonaHoraria,
+                            SolicitudContableRepository solicitudes) {
+        this.solicitudes = solicitudes;
         this.repo = repo;
         this.aptoRepo = aptoRepo;
         this.pagoRepo = pagoRepo;
@@ -85,11 +92,16 @@ public class CuotaServiceImpl implements CuotaService {
         else if (mes != null) cuotas = repo.findByPeriodo(mes);
         else if (est != null) cuotas = repo.findByEstado(est);
         else throw invalido("Indica el mes (periodo=2026-11) o el estado");
+        Set<Long> porAprobar = solicitudes.cuotasConPagoPorAprobar();
         return cuotas.stream()
                 .sorted(Comparator.comparing(Cuota::getPeriodo).reversed()
                         .thenComparing(c -> c.getApartamento().getTorre(), CuotaServiceImpl::natural)
                         .thenComparing(c -> c.getApartamento().getApto(), CuotaServiceImpl::natural))
-                .map(this::toDTO).toList();
+                .map(c -> {
+                    CuotaDTO dto = toDTO(c);
+                    if (porAprobar.contains(c.getId())) dto.setPagoPorAprobar(true);
+                    return dto;
+                }).toList();
     }
 
     @Override
@@ -109,11 +121,32 @@ public class CuotaServiceImpl implements CuotaService {
         LocalDate limite = s.fechaLimite() != null ? s.fechaLimite() : mes.atDay(DIA_LIMITE_POR_DEFECTO);
         if (limite.isBefore(mes.atDay(1))) throw invalido("La fecha límite no puede ser antes del mes de la cuota");
 
+        // P5: la del contador espera al administrador
+        if (esContador()) {
+            if (solicitudes.existsByTipoAndEstadoAndPeriodo(SolicitudContable.FACTURACION, SolicitudContable.PENDIENTE, periodo)) {
+                throw invalido("La facturación de ese mes ya está esperando la aprobación del administrador");
+            }
+            SolicitudContable sol = new SolicitudContable();
+            sol.setTipo(SolicitudContable.FACTURACION);
+            sol.setPeriodo(periodo);
+            sol.setValor(s.valor());
+            sol.setFechaLimite(limite);
+            sol.setSolicitadaPor(usuarioActual());
+            sol.setCreadaEn(LocalDateTime.now(zonaHoraria));
+            SolicitudContable guardada = solicitudes.save(sol);
+            notificaciones.avisarSolicitudContable(guardada, "Facturación de " + nombreMes(periodo) + " — "
+                    + pesos(s.valor()) + " por apartamento");
+            return new CuotaDTO.Generadas(periodo, 0, repo.apartamentosConPeriodo(periodo).size(), true, guardada.getId());
+        }
+        return generarAhora(periodo, s.valor(), limite);
+    }
+
+    private CuotaDTO.Generadas generarAhora(String periodo, BigDecimal valor, LocalDate limite) {
         // Los que ya la tienen se dejan como están: generar dos veces no duplica
         Set<Long> yaTienen = repo.apartamentosConPeriodo(periodo);
         List<Cuota> nuevas = aptoRepo.findAll().stream()
                 .filter(a -> !yaTienen.contains(a.getId()))
-                .map(a -> new Cuota(a, periodo, s.valor(), limite))
+                .map(a -> new Cuota(a, periodo, valor, limite))
                 .toList();
         repo.saveAll(nuevas);
         for (Cuota c : nuevas) {
@@ -172,7 +205,9 @@ public class CuotaServiceImpl implements CuotaService {
         String razon = motivo == null || motivo.isBlank() ? null : motivo.trim();
         switch (nuevo) {
             case Cuota.PAGADA -> {
-                // También sin comprobante: pagos en efectivo o en la oficina
+                // También sin comprobante: pagos en efectivo o en la oficina. P5: el del contador sin
+                // comprobante espera al administrador; la cuota no cambia hasta entonces
+                if (esContador() && c.getComprobanteRuta() == null && !c.pagada()) return pagoPorAprobar(c);
                 c.setPagadaEn(LocalDateTime.now(zonaHoraria));
                 c.setMotivoRechazo(null);
             }
@@ -223,6 +258,105 @@ public class CuotaServiceImpl implements CuotaService {
         recalcular(a);
     }
 
+    private CuotaDTO pagoPorAprobar(Cuota c) {
+        if (solicitudes.cuotasConPagoPorAprobar().contains(c.getId())) {
+            throw invalido("Ese pago ya está esperando la aprobación del administrador");
+        }
+        SolicitudContable sol = new SolicitudContable();
+        sol.setTipo(SolicitudContable.PAGO_MANUAL);
+        sol.setCuota(c);
+        sol.setPeriodo(c.getPeriodo());
+        sol.setValor(c.getValor());
+        sol.setSolicitadaPor(usuarioActual());
+        sol.setCreadaEn(LocalDateTime.now(zonaHoraria));
+        SolicitudContable guardada = solicitudes.save(sol);
+        notificaciones.avisarSolicitudContable(guardada, "Pago en efectivo de " + nombreMes(c.getPeriodo()) + " — "
+                + pesos(c.getValor()) + " · Torre " + c.getApartamento().getTorre() + " Apto " + c.getApartamento().getApto());
+        CuotaDTO dto = toDTO(c);
+        dto.setPagoPorAprobar(true);
+        return dto;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CuotaDTO.Solicitud> listarSolicitudes(String estado) {
+        String est = estado == null || estado.isBlank() ? null : estado.trim().toUpperCase(Locale.ROOT);
+        List<SolicitudContable> lista = est == null ? solicitudes.findAllByOrderByCreadaEnDesc()
+                : solicitudes.findByEstadoOrderByCreadaEnDesc(est);
+        return lista.stream().map(this::solicitudDTO).toList();
+    }
+
+    /** Administrador: aprobar ejecuta lo que pidió el contador (generar el mes o marcar la cuota pagada). */
+    @Override
+    public CuotaDTO.Solicitud revisarSolicitud(Long id, boolean aprobada, String motivo) {
+        SolicitudContable sol = solicitudes.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Solicitud no encontrada: " + id));
+        if (!SolicitudContable.PENDIENTE.equals(sol.getEstado())) throw invalido("Esa solicitud ya fue revisada");
+        if (aprobada) {
+            if (SolicitudContable.FACTURACION.equals(sol.getTipo())) {
+                generarAhora(sol.getPeriodo(), sol.getValor(), sol.getFechaLimite());
+            } else {
+                Cuota c = sol.getCuota();
+                if (c == null) throw invalido("La cuota de esa solicitud ya no existe");
+                if (!c.pagada()) {
+                    c.setPagadaEn(LocalDateTime.now(zonaHoraria));
+                    c.setMotivoRechazo(null);
+                    c.setEstado(Cuota.PAGADA);
+                    Cuota guardada = repo.save(c);
+                    recalcular(guardada.getApartamento());
+                    notificaciones.avisarCuotaRevisada(guardada, nombreMes(guardada.getPeriodo()));
+                }
+            }
+        }
+        sol.setEstado(aprobada ? SolicitudContable.APROBADA : SolicitudContable.RECHAZADA);
+        sol.setMotivoRechazo(aprobada || motivo == null || motivo.isBlank() ? null : motivo.trim());
+        sol.setRevisadaEn(LocalDateTime.now(zonaHoraria));
+        return solicitudDTO(solicitudes.save(sol));
+    }
+
+    /** Cuotas del mes por estado, lo facturado y lo recaudado, y cómo está la cartera de cada apartamento. */
+    @Override
+    @Transactional(readOnly = true)
+    public CuotaDTO.Estadisticas estadisticas(String periodo) {
+        String mes = periodo == null || periodo.isBlank() ? YearMonth.now(zonaHoraria).toString() : validarPeriodo(periodo);
+        List<Cuota> cuotas = repo.findByPeriodo(mes);
+        int pagadas = (int) cuotas.stream().filter(Cuota::pagada).count();
+        int enRevision = (int) cuotas.stream().filter(c -> Cuota.EN_REVISION.equals(c.getEstado())).count();
+        int rechazadas = (int) cuotas.stream().filter(c -> Cuota.RECHAZADA.equals(c.getEstado())).count();
+        int vencidas = (int) cuotas.stream().filter(this::vencida).count();
+        BigDecimal facturado = cuotas.stream().map(Cuota::getValor).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal recaudado = cuotas.stream().filter(Cuota::pagada).map(Cuota::getValor).reduce(BigDecimal.ZERO, BigDecimal::add);
+        int porcentaje = facturado.signum() == 0 ? 0
+                : recaudado.multiply(BigDecimal.valueOf(100)).divide(facturado, 0, java.math.RoundingMode.DOWN).intValue();
+        List<Pago> pagos = pagoRepo.findAll();
+        int apartamentos = (int) aptoRepo.count();
+        int enMora = (int) pagos.stream().filter(p -> "En Mora".equals(p.getEstadoCuenta())).count();
+        BigDecimal cartera = pagos.stream().map(p -> BigDecimal.valueOf(p.getSaldoPendiente() == null ? 0 : p.getSaldoPendiente()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, java.math.RoundingMode.HALF_UP);
+        return new CuotaDTO.Estadisticas(mes, cuotas.size(), pagadas, enRevision, cuotas.size() - pagadas - enRevision - rechazadas,
+                vencidas, rechazadas, facturado, recaudado, facturado.subtract(recaudado), porcentaje,
+                apartamentos, apartamentos - enMora, enMora, cartera, solicitudes.countByEstado(SolicitudContable.PENDIENTE));
+    }
+
+    private CuotaDTO.Solicitud solicitudDTO(SolicitudContable s) {
+        Cuota c = s.getCuota();
+        return new CuotaDTO.Solicitud(s.getId(), s.getTipo(), s.getEstado(), s.getPeriodo(), s.getValor(), s.getFechaLimite(),
+                c == null ? null : c.getId(), c == null ? null : c.getApartamento().getTorre(),
+                c == null ? null : c.getApartamento().getApto(), s.getSolicitadaPor(), s.getCreadaEn(), s.getRevisadaEn(),
+                s.getMotivoRechazo());
+    }
+
+    private boolean esContador() {
+        return acceso.tokenActual().map(t -> TokenService.ROL_CONTADOR.equals(t.getClaimAsString(TokenService.CLAIM_ROL))).orElse(false);
+    }
+
+    private String usuarioActual() {
+        return acceso.tokenActual().map(t -> {
+            String u = t.getClaimAsString("usuario");
+            return u != null ? u : t.getSubject();
+        }).orElse("contador");
+    }
+
     @Override
     public void recalcularCartera(Long apartamentoId) {
         recalcular(aptoRepo.findById(apartamentoId)
@@ -267,6 +401,10 @@ public class CuotaServiceImpl implements CuotaService {
     }
 
     /** "2026-11" → "noviembre 2026". */
+    private static String pesos(BigDecimal valor) {
+        return "$" + java.text.NumberFormat.getIntegerInstance(ESPANOL).format(valor);
+    }
+
     static String nombreMes(String periodo) {
         YearMonth m = YearMonth.parse(periodo);
         return m.getMonth().getDisplayName(TextStyle.FULL, ESPANOL) + " " + m.getYear();

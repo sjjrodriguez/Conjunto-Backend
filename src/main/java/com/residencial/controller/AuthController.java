@@ -3,9 +3,12 @@ package com.residencial.controller;
 import com.residencial.dto.CambioPropiaContrasenaRequest;
 import com.residencial.dto.LoginDTO;
 import com.residencial.dto.MensajeError;
+import com.residencial.dto.LoginResponse;
 import com.residencial.model.Administrador;
 import com.residencial.model.Apartamento;
 import com.residencial.model.Residente;
+import com.residencial.dto.RegistroDTO;
+import com.residencial.service.RegistroService;
 import com.residencial.security.AccesoService;
 import com.residencial.security.LimitadorLogin;
 import com.residencial.security.TokenService;
@@ -28,6 +31,8 @@ public class AuthController {
     private final TokenService tokenService;
     private final LimitadorLogin limitador;
     private final AccesoService acceso;
+    private final RegistroService registro;
+    private final com.residencial.repository.AdministradorRepository adminRepo;
 
     @PostMapping("/admin/login")
     public ResponseEntity<?> loginAdmin(@RequestBody LoginDTO.AdminLoginRequest request, HttpServletRequest http) {
@@ -36,7 +41,9 @@ public class AuthController {
         Administrador admin = authService.loginAdmin(request.getUsuario(), request.getContrasena());
         if (admin != null) {
             limitador.limpiar(clave);
-            return ResponseEntity.ok(tokenService.paraAdmin(admin));
+            LoginResponse respuesta = tokenService.paraAdmin(admin);
+            if (Administrador.ADMIN.equals(admin.getRol())) respuesta.setPrincipal(adminRepo.esPrincipal(admin));
+            return ResponseEntity.ok(respuesta);
         }
         limitador.registrarFallo(clave);
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new MensajeError("Credenciales incorrectas"));
@@ -63,16 +70,35 @@ public class AuthController {
     @PostMapping("/residente/login")
     public ResponseEntity<?> loginResidente(@RequestBody LoginDTO.ResidenteLoginRequest request,
                                             HttpServletRequest http) {
-        String clave = http.getRemoteAddr() + "|residente|" + normalizar(request.getDocumento());
+        boolean porDocumento = request.getDocumento() != null && !request.getDocumento().isBlank();
+        String clave = http.getRemoteAddr() + "|residente|" + (porDocumento ? normalizar(request.getDocumento())
+                : normalizar(request.getTorre()) + "-" + normalizar(request.getApto()) + "-" + normalizar(request.getRol()));
         limitador.verificar(clave);
-        Residente residente = authService.loginResidente(request.getDocumento(), request.getContrasena());
+        Residente residente = porDocumento
+                ? authService.loginResidente(request.getDocumento(), request.getContrasena())
+                : registro.login(request.getTorre(), request.getApto(), request.getRol(), request.getContrasena());
         if (residente != null) {
             limitador.limpiar(clave);
             return ResponseEntity.ok(tokenService.paraResidente(residente));
         }
         limitador.registrarFallo(clave);
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(new MensajeError("Documento o contraseña incorrectos"));
+                .body(new MensajeError(porDocumento ? "Documento o contraseña incorrectos" : "Torre, apto o contraseña incorrectos"));
+    }
+
+    /** Registro paso 1: con qué rol quedaría quien se registra en ese apartamento. */
+    @PostMapping("/registro/verificar")
+    public RegistroDTO.Verificado verificarRegistro(@RequestBody RegistroDTO.Verificar solicitud, HttpServletRequest http) {
+        String clave = http.getRemoteAddr() + "|registro";
+        limitador.verificar(clave);
+        limitador.registrarFallo(clave); // cuenta cada consulta: evita recorrer todos los apartamentos
+        return registro.verificar(solicitud);
+    }
+
+    /** Registro completo: queda pendiente de aprobación (y del propietario, si es arrendatario). */
+    @PostMapping("/registro")
+    public ResponseEntity<RegistroDTO.Recibido> registrar(@RequestBody RegistroDTO.Solicitud solicitud) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(registro.registrar(solicitud));
     }
 
     /**

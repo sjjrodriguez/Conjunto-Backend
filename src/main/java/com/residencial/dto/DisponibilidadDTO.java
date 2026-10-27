@@ -28,6 +28,15 @@ public class DisponibilidadDTO {
     public static class Dia {
         private LocalDate fecha;
         private List<Franja> ocupadas;
+        // P5: si se puede reservar ese día y de qué hora a qué hora (horario semanal o general)
+        private Boolean abierta;
+        private LocalTime apertura;
+        private LocalTime cierre;
+        private String motivo; // por qué está cerrada (fecha bloqueada, no abre ese día)
+
+        public Dia(LocalDate fecha, List<Franja> ocupadas) {
+            this(fecha, ocupadas, true, null, null, null);
+        }
     }
 
     /** [inicio, fin) de un día; fin 23:59:59 si la reserva sigue al día siguiente. */

@@ -47,13 +47,20 @@ public class VehiculoController {
     // Administrador: aprobar o rechazar (con motivo opcional)
     @PutMapping("/{id}/estado")
     public VehiculoDTO cambiarEstado(@PathVariable Long id, @Valid @RequestBody EstadoVehiculoRequest request) {
-        return service.cambiarEstado(id, request.getEstado(), request.getMotivo());
+        return service.cambiarEstado(id, request.getEstado(), request.getMotivo(), request.getParqueaderoId());
     }
 
     // Cuántos vehículos de cada tipo puede tener un apartamento (lo ven todos; lo edita el admin)
+    // Con apartamentoId: los que rigen para ese apartamento (los suyos o los generales)
     @GetMapping("/cupos")
-    public List<CupoVehiculoDTO> cupos() {
-        return service.cupos();
+    public List<CupoVehiculoDTO> cupos(@RequestParam(required = false) Long apartamentoId) {
+        return apartamentoId == null ? service.cupos() : service.cuposDe(apartamentoId);
+    }
+
+    // Administrador: cupos propios del apartamento (maximo null = vuelve al general)
+    @PutMapping("/cupos/apartamento/{apartamentoId}")
+    public List<CupoVehiculoDTO> guardarCuposDe(@PathVariable Long apartamentoId, @RequestBody List<CupoVehiculoDTO> cupos) {
+        return service.guardarCuposDe(apartamentoId, cupos);
     }
 
     @PutMapping("/cupos")

@@ -7,7 +7,6 @@ import lombok.*;
 @Table(name = "administrador")
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
 public class Administrador {
 
     public static final String ADMIN = "ADMIN";
@@ -27,7 +26,30 @@ public class Administrador {
     @Column(nullable = false, length = 20)
     private String rol = ADMIN;
 
+    // P5 bloque 7: el principal maneja el equipo; los demás ADMIN son asistentes
+    @Column(nullable = false)
+    private boolean principal;
+
+    @Column(name = "nombre_completo", length = 150)
+    private String nombreCompleto;
+
+    @Column(length = 30)
+    private String documento;
+
+    @Column(length = 30)
+    private String telefono;
+
+    @Column(length = 150)
+    private String correo;
+
     public Administrador(Long id, String usuario, String contrasena) {
         this(id, usuario, contrasena, ADMIN);
+    }
+
+    public Administrador(Long id, String usuario, String contrasena, String rol) {
+        this.id = id;
+        this.usuario = usuario;
+        this.contrasena = contrasena;
+        this.rol = rol;
     }
 }

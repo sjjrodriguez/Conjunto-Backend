@@ -58,6 +58,25 @@ public class AlmacenSupabase implements AlmacenArchivos {
     }
 
     @Override
+    public java.util.Map<String, String> enlaces(java.util.Collection<String> rutas, Duration vigencia) {
+        java.util.Map<String, String> r = new java.util.LinkedHashMap<>();
+        if (rutas.isEmpty()) return r;
+        try {
+            String cuerpo = json.writeValueAsString(java.util.Map.of("expiresIn", vigencia.toSeconds(), "paths", rutas));
+            String respuesta = enviar(peticion("/object/sign/" + bucket)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(cuerpo)).build());
+            // [{"path": "...", "signedURL": "/object/sign/...", "error": null}, ...]
+            for (JsonNode n : json.readTree(respuesta)) {
+                if (n.hasNonNull("signedURL")) r.put(n.path("path").asText(), base + n.path("signedURL").asText());
+            }
+        } catch (IOException e) {
+            throw fallo();
+        }
+        return r;
+    }
+
+    @Override
     public void borrar(String ruta) {
         enviar(peticion("/object/" + bucket + "/" + codificar(ruta)).DELETE().build());
     }

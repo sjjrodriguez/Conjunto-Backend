@@ -39,9 +39,19 @@ public class NotificacionServiceImpl implements NotificacionService {
     public static final String TIPO_RESIDENTE_APROBADO = "RESIDENTE_APROBADO";
     public static final String TIPO_RESIDENTE_RECHAZADO = "RESIDENTE_RECHAZADO";
     public static final String TIPO_CUOTA = "CUOTA";
+    public static final String TIPO_REGISTRO = "REGISTRO";
+    public static final String TIPO_PUBLICACION = "PUBLICACION";
+    public static final String TIPO_SOLICITUD_ARRENDATARIO = "SOLICITUD_ARRENDATARIO";
     public static final String TIPO_COMPROBANTE = "COMPROBANTE";
     public static final String TIPO_CUOTA_PAGADA = "CUOTA_PAGADA";
     public static final String TIPO_CUOTA_RECHAZADA = "CUOTA_RECHAZADA";
+    public static final String TIPO_SOLICITUD_CONTABLE = "SOLICITUD_CONTABLE";
+    public static final String TIPO_OBRA = "OBRA";
+    public static final String TIPO_OBRA_APROBADA = "OBRA_APROBADA";
+    public static final String TIPO_OBRA_RECHAZADA = "OBRA_RECHAZADA";
+    public static final String TIPO_PERSONAL = "PERSONAL_OBRA";
+    public static final String TIPO_PERSONAL_APROBADO = "PERSONAL_OBRA_APROBADO";
+    public static final String TIPO_PERSONAL_RECHAZADO = "PERSONAL_OBRA_RECHAZADO";
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter HORA = DateTimeFormatter.ofPattern("HH:mm");
 
@@ -133,11 +143,12 @@ public class NotificacionServiceImpl implements NotificacionService {
     }
 
     @Override
-    public void avisarVehiculoRevisado(Vehiculo v) {
+    public void avisarVehiculoRevisado(Vehiculo v, String parqueadero) {
         boolean aprobado = Vehiculo.APROBADO.equals(v.getEstado());
         String motivo = v.getMotivoRechazo() == null ? "" : ". Motivo: " + v.getMotivoRechazo();
+        String extra = aprobado ? (parqueadero == null ? "" : " · Parqueadero " + parqueadero) : motivo;
         crear(aprobado ? TIPO_VEHICULO_APROBADO : TIPO_VEHICULO_RECHAZADO,
-                (aprobado ? "Vehículo aprobado — " : "Vehículo rechazado — ") + descripcion(v) + (aprobado ? "" : motivo),
+                (aprobado ? "Vehículo aprobado — " : "Vehículo rechazado — ") + descripcion(v) + extra,
                 v.getId(), v.getApartamento().getId(), v.getApartamento().getId());
     }
 
@@ -192,7 +203,73 @@ public class NotificacionServiceImpl implements NotificacionService {
         return "$" + NumberFormat.getIntegerInstance(Locale.forLanguageTag("es-CO")).format(c.getValor());
     }
 
+    @Override
+    public void avisarNuevoRegistro(Residente r) {
+        String quien = r.getNombreCompleto() + " (" + (r.esArrendatario() ? "arrendatario" : "propietario") + ")";
+        crear(TIPO_REGISTRO, "Nuevo registro por aprobar — " + quien + " · " + torreApto(r.getApartamento()),
+                r.getId(), r.getApartamento().getId(), null);
+        if (r.esArrendatario()) {
+            crear(TIPO_SOLICITUD_ARRENDATARIO, "Solicitud de arrendatario — " + r.getNombreCompleto()
+                            + " quiere registrarse como arrendatario de tu apartamento",
+                    r.getId(), r.getApartamento().getId(), r.getApartamento().getId());
+        }
+    }
+
+    @Override
+    public void avisarRevisionDelPropietario(Residente r, String motivo) {
+        boolean aprobado = Boolean.TRUE.equals(r.getAprobadoPropietario());
+        crear(TIPO_REGISTRO, (aprobado ? "El propietario aprobó al arrendatario " : "El propietario rechazó al arrendatario ")
+                        + r.getNombreCompleto() + " · " + torreApto(r.getApartamento())
+                        + (aprobado || motivo == null ? "" : ". Motivo: " + motivo),
+                r.getId(), r.getApartamento().getId(), null);
+    }
+
+    @Override
+    public void avisarPublicacion(com.residencial.model.Publicacion p, java.util.List<Long> apartamentos) {
+        String texto = p.getTexto().isBlank() ? "Nueva publicación con adjuntos" : p.getTexto().replaceAll("\\s+", " ");
+        String resumen = "Nueva publicación de la administración — " + (texto.length() > 90 ? texto.substring(0, 90) + "…" : texto);
+        for (Long apto : apartamentos) crear(TIPO_PUBLICACION, resumen, p.getId(), apto, apto);
+    }
+
     // Al guardarla también sale el aviso a los celulares de quien la recibe (AvisosPush)
+    @Override
+    public void avisarSolicitudContable(com.residencial.model.SolicitudContable s, String resumen) {
+        Long apto = s.getCuota() == null ? null : s.getCuota().getApartamento().getId();
+        crear(TIPO_SOLICITUD_CONTABLE, "Por aprobar — " + resumen, s.getId(), apto, null);
+    }
+
+    @Override
+    public void avisarObraNueva(com.residencial.model.Obra o) {
+        crear(TIPO_OBRA, "Obra por aprobar — " + o.getDescripcionAdecuacion() + " · " + torreApto(o.getApartamento()),
+                o.getId(), o.apartamentoId(), null);
+    }
+
+    @Override
+    public void avisarObraRevisada(com.residencial.model.Obra o) {
+        boolean aprobada = com.residencial.model.Obra.APROBADA.equals(o.getAprobacion());
+        String motivo = aprobada || o.getMotivoRechazo() == null ? "" : ". Motivo: " + o.getMotivoRechazo();
+        crear(aprobada ? TIPO_OBRA_APROBADA : TIPO_OBRA_RECHAZADA,
+                (aprobada ? "Obra aprobada — " : "Obra rechazada — ") + o.getDescripcionAdecuacion() + motivo,
+                o.getId(), o.apartamentoId(), o.apartamentoId());
+    }
+
+    @Override
+    public void avisarPersonalNuevo(com.residencial.model.PersonalObra p) {
+        com.residencial.model.Obra o = p.getObra();
+        crear(TIPO_PERSONAL, "Trabajador por aprobar — " + p.getNombreTrabajador() + " · " + torreApto(o.getApartamento()),
+                p.getId(), o.apartamentoId(), null);
+    }
+
+    @Override
+    public void avisarPersonalRevisado(com.residencial.model.PersonalObra p) {
+        boolean aprobado = com.residencial.model.PersonalObra.APROBADO.equals(p.getAprobacion());
+        String motivo = aprobado || p.getMotivoRechazo() == null ? "" : ". Motivo: " + p.getMotivoRechazo();
+        Long apto = p.getObra().apartamentoId();
+        crear(aprobado ? TIPO_PERSONAL_APROBADO : TIPO_PERSONAL_RECHAZADO,
+                (aprobado ? "Trabajador aprobado — " : "Trabajador rechazado — ") + p.getNombreTrabajador() + motivo,
+                p.getId(), apto, apto);
+    }
+
     private void crear(String tipo, String mensaje, Long referenciaId, Long apartamentoId, Long destinatario) {
         Notificacion n = repo.save(new Notificacion(null, tipo, mensaje, LocalDateTime.now(zonaHoraria), false,
                 referenciaId, apartamentoId, destinatario));
@@ -214,6 +291,7 @@ public class NotificacionServiceImpl implements NotificacionService {
     }
 
     private static String torreApto(Apartamento a) {
+        if (a == null) return "Conjunto";
         return "Torre " + a.getTorre() + " Apto " + a.getApto();
     }
 }

@@ -37,7 +37,8 @@ public class TokenService {
     public LoginResponse paraAdmin(Administrador admin) {
         Instant expira = Instant.now().plus(duracion);
         String rol = ROL_CONTADOR.equals(admin.getRol()) ? ROL_CONTADOR : ROL_ADMIN;
-        JwtClaimsSet claims = base("admin:" + admin.getId(), rol, expira).build();
+        // usuario: quién mandó una solicitud contable (P5)
+        JwtClaimsSet claims = base("admin:" + admin.getId(), rol, expira).claim("usuario", admin.getUsuario()).build();
         return LoginResponse.builder()
                 .token(firmar(claims))
                 .expiraEn(expira)

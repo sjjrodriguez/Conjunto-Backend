@@ -9,6 +9,7 @@ public interface ApartamentoService {
     ApartamentoDTO buscarPorId(Long id);
     ApartamentoDTO guardar(ApartamentoRequest apartamento);
     ApartamentoDTO actualizar(Long id, ApartamentoRequest apartamento);
+    ApartamentoDTO cambiarCitofonos(Long id, String citofono1, String citofono2);
     boolean cambiarContrasena(Long id, String nuevaContrasena);
     void eliminar(Long id);
 }

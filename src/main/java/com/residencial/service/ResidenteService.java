@@ -13,4 +13,7 @@ public interface ResidenteService {
     List<ResidenteDTO> pendientes();
     ResidenteDTO revisar(Long id, String estado, String motivo);
     ResidenteDTO cambiarAcceso(Long id, String contrasena);
+    // P5 bloque 2: el propietario y su arrendatario
+    ResidenteDTO arrendatarioDe(Long apartamentoId);
+    ResidenteDTO aprobarComoPropietario(Long id, boolean aprobado, String motivo);
 }

@@ -17,6 +17,7 @@ public class ResidenteController {
 
     public record Revision(String estado, String motivo) {}
     public record Acceso(String contrasena) {}
+    public record AprobacionPropietario(boolean aprobado, String motivo) {}
 
     @GetMapping("/apartamento/{apartamentoId}")
     public List<ResidenteDTO> listarPorApartamento(@PathVariable Long apartamentoId) {
@@ -49,6 +50,19 @@ public class ResidenteController {
     @PutMapping("/{id}/acceso")
     public ResidenteDTO cambiarAcceso(@PathVariable Long id, @RequestBody Acceso acceso) {
         return service.cambiarAcceso(id, acceso.contrasena());
+    }
+
+    /** El arrendatario del apartamento (pendiente o activo); 204 si no tiene. */
+    @GetMapping("/apartamento/{apartamentoId}/arrendatario")
+    public ResponseEntity<ResidenteDTO> arrendatario(@PathVariable Long apartamentoId) {
+        ResidenteDTO a = service.arrendatarioDe(apartamentoId);
+        return a == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(a);
+    }
+
+    /** El propietario acepta o rechaza la solicitud del arrendatario. */
+    @PutMapping("/{id}/aprobacion-propietario")
+    public ResidenteDTO aprobarComoPropietario(@PathVariable Long id, @RequestBody AprobacionPropietario aprobacion) {
+        return service.aprobarComoPropietario(id, aprobacion.aprobado(), aprobacion.motivo());
     }
 
     @DeleteMapping("/{id}")

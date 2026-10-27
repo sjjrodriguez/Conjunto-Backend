@@ -24,13 +24,27 @@ public interface NotificacionService {
     void avisarNuevoVehiculo(Vehiculo vehiculo);
 
     // Para los residentes del apartamento
-    void avisarVehiculoRevisado(Vehiculo vehiculo);
+    void avisarVehiculoRevisado(Vehiculo vehiculo, String parqueadero);
     void avisarReservaRevisada(Reserva reserva);
     // P4 bloque 6: arrendatario que agrega el propietario (al administrador) y su revisión (al apartamento)
     void avisarNuevoResidente(Residente residente);
     void avisarResidenteRevisado(Residente residente, String motivo);
+    // P5 bloque 1: registro desde la app (a la administración y, si es arrendatario, al propietario)
+    void avisarNuevoRegistro(Residente titular);
+    void avisarRevisionDelPropietario(Residente arrendatario, String motivo);
+    // P5 bloque 3: nueva publicación en el feed (a cada apartamento)
+    void avisarPublicacion(com.residencial.model.Publicacion publicacion, java.util.List<Long> apartamentos);
     // P4 bloque 7: cuota nueva y su revisión (al apartamento), comprobante subido (a la administración)
     void avisarCuotaNueva(Cuota cuota, String mes);
     void avisarComprobante(Cuota cuota, String mes);
     void avisarCuotaRevisada(Cuota cuota, String mes);
+
+    // P5 bloque 6: obras y su personal esperan la aprobación de la administración
+    void avisarObraNueva(com.residencial.model.Obra obra);
+    void avisarObraRevisada(com.residencial.model.Obra obra);
+    void avisarPersonalNuevo(com.residencial.model.PersonalObra personal);
+    void avisarPersonalRevisado(com.residencial.model.PersonalObra personal);
+
+    // P5 bloque 7: el contador mandó algo a aprobar
+    void avisarSolicitudContable(com.residencial.model.SolicitudContable solicitud, String resumen);
 }

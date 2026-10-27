@@ -15,9 +15,16 @@ public class ReservaController {
 
     private final ReservaService service;
 
+    // Administración: con filtro opcional por estado (PENDIENTE, APROBADA, RECHAZADA)
     @GetMapping
-    public List<ReservaDTO> listarTodas() {
-        return service.listarTodas();
+    public List<ReservaDTO> listarTodas(@RequestParam(required = false) String estado) {
+        return service.listarTodas(estado);
+    }
+
+    /** El residente edita su reserva mientras está pendiente (P5). */
+    @PutMapping("/{id}")
+    public ReservaDTO actualizar(@PathVariable Long id, @RequestBody ReservaDTO dto) {
+        return service.actualizar(id, dto);
     }
 
     @GetMapping("/apartamento/{apartamentoId}")

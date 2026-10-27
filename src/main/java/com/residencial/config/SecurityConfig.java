@@ -77,11 +77,16 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/apartamentos/*").access(autenticado())
                 // La lista también la usa el contador (cartera)
                 .requestMatchers(HttpMethod.GET, "/api/apartamentos").access(cartera())
+                // Citófonos: quien vive en el apartamento (ApartamentoServiceImpl lo comprueba)
+                .requestMatchers(HttpMethod.PUT, "/api/apartamentos/*/citofonos").access(autenticado())
                 .requestMatchers("/api/apartamentos", "/api/apartamentos/**").access(admin())
 
                 // Residentes: el propietario ve los de su apartamento y agrega o quita arrendatarios
                 // (ResidenteServiceImpl lo comprueba); aprobar, dar acceso y editar es del administrador
-                .requestMatchers(HttpMethod.GET, "/api/residentes/apartamento/*").access(autenticado())
+                .requestMatchers(HttpMethod.GET, "/api/residentes/apartamento/*", "/api/residentes/apartamento/*/arrendatario").access(autenticado())
+                // P5: personas del hogar, acceso y aprobación del arrendatario por su propietario
+                .requestMatchers(HttpMethod.PUT, "/api/residentes/*", "/api/residentes/*/acceso",
+                        "/api/residentes/*/aprobacion-propietario").access(autenticado())
                 .requestMatchers(HttpMethod.POST, "/api/residentes").access(autenticado())
                 .requestMatchers(HttpMethod.DELETE, "/api/residentes/*").access(autenticado())
                 .requestMatchers("/api/residentes", "/api/residentes/**").access(admin())
@@ -89,17 +94,22 @@ public class SecurityConfig {
                 // Vehículos (el propietario solo los suyos)
                 // Aprobación y cupos: solo el administrador (los cupos los puede ver cualquiera)
                 .requestMatchers(HttpMethod.GET, "/api/vehiculos").access(admin())
-                .requestMatchers(HttpMethod.PUT, "/api/vehiculos/*/estado", "/api/vehiculos/cupos").access(admin())
+                .requestMatchers(HttpMethod.PUT, "/api/vehiculos/*/estado", "/api/vehiculos/cupos",
+                        "/api/vehiculos/cupos/apartamento/*").access(admin())
+                // Parqueaderos (P5): solo el administrador
+                .requestMatchers("/api/parqueaderos", "/api/parqueaderos/**").access(admin())
                 .requestMatchers("/api/vehiculos/**").access(autenticado())
 
                 // Obras
                 .requestMatchers(HttpMethod.GET, "/api/obras", "/api/obras/en-proceso").access(admin())
                 .requestMatchers(HttpMethod.PUT, "/api/obras/*/estado").access(admin())
-                .requestMatchers(HttpMethod.DELETE, "/api/obras/*").access(admin())
+                .requestMatchers(HttpMethod.PUT, "/api/obras/*/aprobacion").access(admin())
+                // Borrar: la administración o el propietario mientras no esté aprobada (ObraServiceImpl)
                 .requestMatchers("/api/obras", "/api/obras/**").access(autenticado())
 
                 // Personal de obra
                 .requestMatchers(HttpMethod.GET, "/api/personal-obra").access(admin())
+                .requestMatchers(HttpMethod.PUT, "/api/personal-obra/*/aprobacion").access(admin())
                 // Borrar: el administrador o el residente dueño de la obra (PersonalObraServiceImpl)
                 .requestMatchers("/api/personal-obra", "/api/personal-obra/**").access(autenticado())
 
@@ -127,7 +137,14 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/archivos/local").permitAll()
 
                 // Cuentas de la administración (administradores y contador)
+                // Solo el principal (AdministradorController lo comprueba); los asistentes son ADMIN
                 .requestMatchers("/api/administradores", "/api/administradores/**").access(admin())
+                // Cartera de la administración (P5): estadísticas y solicitudes del contador; revisar, el administrador
+                .requestMatchers(HttpMethod.PUT, "/api/cartera/solicitudes/*").access(admin())
+                .requestMatchers("/api/cartera", "/api/cartera/**").access(cartera())
+
+                // Chat (P5): ChatService decide quién ve qué conversación; el contador no entra
+                .requestMatchers("/api/chat", "/api/chat/**").access(autenticado())
 
                 // Notificaciones
                 // Cada uno ve las suyas: el administrador, las suyas; un residente, las de su apartamento
@@ -136,6 +153,11 @@ public class SecurityConfig {
                 // La baja no pide sesión: se hace al cerrarla y basta con el token, que solo tiene ese celular
                 .requestMatchers(HttpMethod.POST, "/api/dispositivos/baja").permitAll()
                 .requestMatchers("/api/dispositivos", "/api/dispositivos/**").access(autenticado())
+                // Feed (P5): lo ven todos; publica, edita y borra la administración
+                .requestMatchers(HttpMethod.GET, "/api/publicaciones").access(autenticado())
+                .requestMatchers("/api/publicaciones", "/api/publicaciones/**").access(admin())
+                // Visitantes frecuentes: cada apartamento los suyos (VisitanteController lo comprueba)
+                .requestMatchers("/api/visitantes", "/api/visitantes/**").access(autenticado())
 
                 .anyRequest().access(autenticado()));
 
@@ -170,7 +192,8 @@ public class SecurityConfig {
         DefaultBearerTokenResolver resolver = new DefaultBearerTokenResolver();
         // El login nunca necesita token: se ignora aunque llegue uno caducado. Las demás rutas de
         // /api/auth (cambiar la contraseña) sí lo usan
-        return req -> req.getRequestURI().startsWith("/api/auth/") && req.getRequestURI().endsWith("/login")
+        return req -> req.getRequestURI().startsWith("/api/auth/")
+                && (req.getRequestURI().endsWith("/login") || req.getRequestURI().startsWith("/api/auth/registro"))
                 ? null : resolver.resolve(req);
     }
 

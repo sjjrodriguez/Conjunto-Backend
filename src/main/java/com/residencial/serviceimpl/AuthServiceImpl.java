@@ -74,7 +74,7 @@ public class AuthServiceImpl implements AuthService {
         if (vacio(documento) || vacio(contrasena)) return null;
         // El mismo documento puede estar en dos apartamentos: entra al que tenga esa contraseña
         for (Residente r : residenteRepo.findByIdentificacion(documento.trim())) {
-            if (Residente.APROBADO.equals(r.getEstado()) && verificar(contrasena, r.getContrasena(), h -> {})) {
+            if (r.puedeEntrar() && verificar(contrasena, r.getContrasena(), h -> {})) {
                 return r;
             }
         }

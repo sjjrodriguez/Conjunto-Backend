@@ -10,7 +10,13 @@ import com.residencial.model.ZonaComun;
 import com.residencial.repository.ApartamentoRepository;
 import com.residencial.repository.ReservaRepository;
 import com.residencial.repository.ZonaComunRepository;
+import com.residencial.model.Catalogo;
+import com.residencial.model.ZonaBloqueo;
+import com.residencial.model.ZonaHorario;
+import com.residencial.repository.ZonaDisponibilidadRepository;
 import com.residencial.security.AccesoService;
+import java.time.format.TextStyle;
+import com.residencial.security.EstadoApartamento;
 import com.residencial.service.NotificacionService;
 import com.residencial.service.ReservaService;
 import org.springframework.beans.factory.annotation.Value;
@@ -38,12 +44,15 @@ public class ReservaServiceImpl implements ReservaService {
     private static final int MAXIMO_DIAS_DISPONIBILIDAD = 62;
     // Fin de una franja que sigue al día siguiente
     private static final LocalTime FIN_DEL_DIA = LocalTime.of(23, 59, 59);
+    private static final java.util.Locale ESPANOL = java.util.Locale.forLanguageTag("es-CO");
 
     private final ReservaRepository repo;
     private final ApartamentoRepository aptoRepo;
     private final ZonaComunRepository zonaRepo;
     private final AccesoService acceso;
     private final NotificacionService notificaciones;
+    private final EstadoApartamento estado;
+    private final ZonaDisponibilidadRepository disp;
     // Lo que dura una reserva que no dice hora de fin (las de la app anterior a P4)
     private final Duration duracion;
     // Lo máximo que puede durar una reserva con hora de fin
@@ -56,6 +65,8 @@ public class ReservaServiceImpl implements ReservaService {
                               ZonaComunRepository zonaRepo,
                               AccesoService acceso,
                               NotificacionService notificaciones,
+                              EstadoApartamento estado,
+                              ZonaDisponibilidadRepository disp,
                               @Value("${app.reservas.duracion-horas:2}") long duracionHoras,
                               @Value("${app.reservas.duracion-maxima-horas:8}") long duracionMaximaHoras,
                               @Value("${app.zona-horaria:America/Bogota}") String zonaHoraria) {
@@ -70,9 +81,27 @@ public class ReservaServiceImpl implements ReservaService {
         this.zonaRepo = zonaRepo;
         this.acceso = acceso;
         this.notificaciones = notificaciones;
+        this.estado = estado;
+        this.disp = disp;
         this.duracion = Duration.ofHours(duracionHoras);
         this.duracionMaxima = Duration.ofHours(duracionMaximaHoras);
         this.zonaHoraria = ZoneId.of(zonaHoraria);
+    }
+
+    /** El horario de una zona en una fecha: bloqueada, cerrada ese día de la semana o abierta de-a. */
+    private record Horario(boolean abierta, LocalTime apertura, LocalTime cierre, String motivo) {}
+
+    private Horario horarioDelDia(ZonaComun zona, LocalDate fecha, List<ZonaHorario> semanal, List<ZonaBloqueo> bloqueos) {
+        Optional<ZonaBloqueo> bloqueo = bloqueos.stream().filter(b -> b.getFecha().equals(fecha)).findFirst();
+        if (bloqueo.isPresent()) {
+            return new Horario(false, null, null, bloqueo.get().getMotivo() == null ? "fecha bloqueada" : bloqueo.get().getMotivo());
+        }
+        // Sin horario semanal rige el general de la zona
+        if (semanal.isEmpty()) return new Horario(true, zona.getHoraApertura(), zona.getHoraCierre(), null);
+        int dia = fecha.getDayOfWeek().getValue();
+        return semanal.stream().filter(x -> x.getDiaSemana() == dia).findFirst()
+                .map(x -> new Horario(true, x.getApertura(), x.getCierre(), null))
+                .orElse(new Horario(false, null, null, "no abre los " + fecha.getDayOfWeek().getDisplayName(TextStyle.FULL, ESPANOL)));
     }
 
     /** Lo que ocupa una reserva: [inicio, fin). */
@@ -100,7 +129,17 @@ public class ReservaServiceImpl implements ReservaService {
 
     @Override
     public List<ReservaDTO> listarTodas() {
-        return repo.findAll().stream().map(this::toDTO).collect(Collectors.toList());
+        return listarTodas(null);
+    }
+
+    /** Administración (P5): con filtro opcional por estado, de la más próxima a la más lejana. */
+    @Override
+    public List<ReservaDTO> listarTodas(String estadoFiltro) {
+        String e = estadoFiltro == null || estadoFiltro.isBlank() ? null : Catalogo.ESTADO_RESERVA.normalizar(estadoFiltro);
+        return repo.findAll().stream()
+                .filter(r -> e == null || e.equals(r.getEstado()))
+                .sorted(Comparator.comparing(Reserva::getFecha).thenComparing(Reserva::getHora).reversed())
+                .map(this::toDTO).collect(Collectors.toList());
     }
 
     @Override
@@ -114,6 +153,7 @@ public class ReservaServiceImpl implements ReservaService {
     @Transactional
     public ReservaDTO guardar(ReservaDTO dto) {
         acceso.verificarApartamento(dto.getApartamentoId());
+        if (dto.getApartamentoId() != null) estado.exigirQueViva(dto.getApartamentoId());
         if (dto.getApartamentoId() == null || dto.getZonaComunId() == null
                 || dto.getFecha() == null || dto.getHora() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -125,6 +165,46 @@ public class ReservaServiceImpl implements ReservaService {
         ZonaComun zona = zonaRepo.findByIdParaReservar(dto.getZonaComunId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Zona común no encontrada"));
 
+        validarPedido(zona, dto, null);
+
+        Reserva r = repo.save(new Reserva(null, dto.getFecha(), dto.getHora(), "PENDIENTE", zona, apto,
+                dto.getHoraFin(), dto.getAsistentes()));
+        notificaciones.avisarNuevaReserva(r);
+        return toDTO(r);
+    }
+
+    /**
+     * El residente cambia su reserva mientras está pendiente (P5): zona, fecha, horas y
+     * asistentes, con las mismas reglas que al crearla. Ya revisada, no se cambia.
+     */
+    @Override
+    @Transactional
+    public ReservaDTO actualizar(Long id, ReservaDTO dto) {
+        Reserva r = repo.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("Reserva no encontrada: " + id));
+        if (!acceso.esAdminActual()) {
+            acceso.verificarApartamento(r.getApartamento().getId());
+            estado.exigirQueViva(r.getApartamento().getId());
+        }
+        if (!"PENDIENTE".equals(r.getEstado())) {
+            throw error("Solo se puede editar una reserva pendiente: la administración ya la revisó");
+        }
+        if (dto.getFecha() == null || dto.getHora() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La fecha y la hora son obligatorias");
+        }
+        Long zonaId = dto.getZonaComunId() != null ? dto.getZonaComunId() : r.getZonaComun().getId();
+        ZonaComun zona = zonaRepo.findByIdParaReservar(zonaId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Zona común no encontrada"));
+        validarPedido(zona, dto, r.getId());
+        r.setZonaComun(zona);
+        r.setFecha(dto.getFecha());
+        r.setHora(dto.getHora());
+        r.setHoraFin(dto.getHoraFin());
+        r.setAsistentes(dto.getAsistentes());
+        return toDTO(repo.save(r));
+    }
+
+    /** Zona reservable, a futuro, duración válida, dentro del horario, con aforo y sin choques. */
+    private void validarPedido(ZonaComun zona, ReservaDTO dto, Long excluirId) {
         if (!Boolean.TRUE.equals(zona.getEsReservable())) {
             throw error("La zona " + zona.getNombre() + " no se puede reservar");
         }
@@ -140,18 +220,16 @@ public class ReservaServiceImpl implements ReservaService {
         Intervalo pedido = intervalo(dto.getFecha(), dto.getHora(), dto.getHoraFin());
         verificarHorario(zona, pedido);
         verificarAforo(zona, dto.getAsistentes());
-        buscarChoque(zona.getId(), pedido, ESTADOS_QUE_OCUPAN, null).ifPresent(this::rechazarPorChoque);
-
-        Reserva r = repo.save(new Reserva(null, dto.getFecha(), dto.getHora(), "PENDIENTE", zona, apto,
-                dto.getHoraFin(), dto.getAsistentes()));
-        notificaciones.avisarNuevaReserva(r);
-        return toDTO(r);
+        buscarChoque(zona.getId(), pedido, ESTADOS_QUE_OCUPAN, excluirId).ifPresent(this::rechazarPorChoque);
     }
 
     /** Dentro del horario de la zona (si lo tiene) y sin pasarse al día siguiente. */
     private void verificarHorario(ZonaComun zona, Intervalo pedido) {
-        LocalTime apertura = zona.getHoraApertura();
-        LocalTime cierre = zona.getHoraCierre();
+        LocalDate fecha = pedido.inicio().toLocalDate();
+        Horario h = horarioDelDia(zona, fecha, disp.horarioDe(zona.getId()), disp.bloqueosEntre(zona.getId(), fecha, fecha));
+        if (!h.abierta()) throw error(zona.getNombre() + " no está disponible el " + fecha.format(FECHA) + ": " + h.motivo());
+        LocalTime apertura = h.apertura();
+        LocalTime cierre = h.cierre();
         if (apertura == null && cierre == null) return;
         boolean antes = apertura != null && pedido.inicio().toLocalTime().isBefore(apertura);
         boolean despues = cierre != null && (pedido.fin().toLocalDate().isAfter(pedido.inicio().toLocalDate())
@@ -218,6 +296,8 @@ public class ReservaServiceImpl implements ReservaService {
         List<Reserva> reservas = repo.findByZonaComunIdAndFechaBetweenAndEstadoIn(
                 zonaId, desde.minusDays(1), hasta, ESTADOS_QUE_OCUPAN);
 
+        List<ZonaHorario> semanal = disp.horarioDe(zonaId);
+        List<ZonaBloqueo> bloqueos = disp.bloqueosEntre(zonaId, desde, hasta);
         List<DisponibilidadDTO.Dia> dias = new ArrayList<>();
         for (LocalDate dia = desde; !dia.isAfter(hasta); dia = dia.plusDays(1)) {
             LocalDateTime inicioDia = dia.atStartOfDay();
@@ -232,7 +312,8 @@ public class ReservaServiceImpl implements ReservaService {
                         propio != null && propio.equals(r.getApartamento().getId())));
             }
             franjas.sort(Comparator.comparing(DisponibilidadDTO.Franja::getInicio));
-            dias.add(new DisponibilidadDTO.Dia(dia, franjas));
+            Horario h = horarioDelDia(zona, dia, semanal, bloqueos);
+            dias.add(new DisponibilidadDTO.Dia(dia, franjas, h.abierta(), h.apertura(), h.cierre(), h.motivo()));
         }
         return new DisponibilidadDTO(zona.getId(), zona.getAforo(), zona.getHoraApertura(), zona.getHoraCierre(), dias);
     }

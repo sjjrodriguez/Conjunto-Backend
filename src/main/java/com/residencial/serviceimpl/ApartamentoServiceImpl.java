@@ -6,7 +6,9 @@ import com.residencial.model.Apartamento;
 import com.residencial.exception.RecursoNoEncontradoException;
 import com.residencial.repository.*;
 import org.springframework.transaction.annotation.Transactional;
+import com.residencial.model.Residente;
 import com.residencial.security.AccesoService;
+import com.residencial.security.EstadoApartamento;
 import com.residencial.service.ApartamentoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -32,9 +34,20 @@ public class ApartamentoServiceImpl implements ApartamentoService {
     private final CuotaRepository cuotas;
     private final PagoRepository pagos;
     private final DispositivoRepository dispositivos;
+    private final EstadoApartamento estado;
+    private final CupoApartamentoRepository cuposApto;
 
     private ApartamentoDTO toDTO(Apartamento a) {
         return new ApartamentoDTO(a.getId(), a.getTorre(), a.getApto());
+    }
+
+    /** Con citófonos (el primero, por defecto, el teléfono del propietario) y si está arrendado. */
+    private ApartamentoDTO detalle(Apartamento a) {
+        String citofono1 = a.getCitofono1() != null ? a.getCitofono1()
+                : residentes.findTitulares(a.getId(), Residente.PROPIETARIO).stream()
+                        .filter(Residente::puedeEntrar).map(Residente::getTelefono).filter(t -> t != null && !t.isBlank())
+                        .findFirst().orElse(null);
+        return new ApartamentoDTO(a.getId(), a.getTorre(), a.getApto(), citofono1, a.getCitofono2(), estado.arrendado(a.getId()));
     }
 
     private String hashValidado(String contrasena) {
@@ -47,13 +60,19 @@ public class ApartamentoServiceImpl implements ApartamentoService {
 
     @Override
     public List<ApartamentoDTO> listarTodos() {
-        return repo.findAll().stream().map(this::toDTO).collect(Collectors.toList());
+        // Una consulta para saber cuáles están arrendados (el directorio lo muestra)
+        java.util.Set<Long> arrendados = residentes.apartamentosArrendados();
+        return repo.findAll().stream().map(a -> {
+            ApartamentoDTO dto = toDTO(a);
+            dto.setArrendado(arrendados.contains(a.getId()));
+            return dto;
+        }).collect(Collectors.toList());
     }
 
     @Override
     public ApartamentoDTO buscarPorId(Long id) {
         acceso.verificarApartamento(id);
-        return repo.findById(id).map(this::toDTO).orElse(null);
+        return repo.findById(id).map(this::detalle).orElse(null);
     }
 
     @Override
@@ -73,6 +92,25 @@ public class ApartamentoServiceImpl implements ApartamentoService {
             }
             return toDTO(repo.save(a));
         }).orElse(null);
+    }
+
+    @Override
+    public ApartamentoDTO cambiarCitofonos(Long id, String citofono1, String citofono2) {
+        acceso.verificarApartamento(id);
+        estado.exigirQueViva(id);
+        Apartamento a = repo.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("Apartamento no encontrado: " + id));
+        a.setCitofono1(telefono(citofono1));
+        a.setCitofono2(telefono(citofono2));
+        return detalle(repo.save(a));
+    }
+
+    private static String telefono(String valor) {
+        if (valor == null || valor.isBlank()) return null;
+        String t = valor.trim();
+        if (!t.matches("^[0-9+ ()-]{5,30}$")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El teléfono del citófono no es válido");
+        }
+        return t;
     }
 
     @Override
@@ -98,6 +136,7 @@ public class ApartamentoServiceImpl implements ApartamentoService {
         cuotas.deleteAll(cuotas.findByApartamentoIdOrderByPeriodoDesc(id));
         pagos.findByApartamentoId(id).ifPresent(pagos::delete);
         dispositivos.deleteAll(dispositivos.findByApartamentoId(id));
+        cuposApto.deleteAll(cuposApto.findByApartamentoId(id));
         repo.delete(a);
     }
 }
