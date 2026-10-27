@@ -98,6 +98,15 @@ public class ObraServiceImpl implements ObraService {
         return toDTOs(repo.findAll());
     }
 
+    /** Detalle de una obra: la administración o el apartamento dueño. */
+    @Override
+    @Transactional(readOnly = true)
+    public ObraDTO obtener(Long id) {
+        Obra o = repo.findConApartamentoById(id).orElseThrow(() -> new RecursoNoEncontradoException("Obra no encontrada: " + id));
+        if (!esAdministracion()) acceso.verificarApartamento(o.apartamentoId());
+        return toDTO(o);
+    }
+
     /** Administración: de apartamentos o del conjunto, por estado y aprobación, y buscando por torre, apto o texto. */
     @Override
     @Transactional(readOnly = true)

@@ -71,6 +71,8 @@ class ObrasAprobacionIntegrationTest {
         int trabajador = idDe(enviar(post("/api/personal-obra"), propietario,
                 "{\"nombreTrabajador\":\"Pedro\",\"cedula\":\"111\",\"arlEstado\":false,\"obraId\":" + obra + "}")
                 .andExpect(jsonPath("$.aprobacion").value("PENDIENTE")));
+        mvc.perform(get("/api/obras/" + obra).header("Authorization", propietario))
+                .andExpect(jsonPath("$.personalPendiente").value(1));
         // Mientras está pendiente se edita toda
         enviar(put("/api/obras/" + obra), propietario, obraJson("Remodelación de cocina y baño", apto.getId()))
                 .andExpect(jsonPath("$.descripcionAdecuacion").value("Remodelación de cocina y baño"));

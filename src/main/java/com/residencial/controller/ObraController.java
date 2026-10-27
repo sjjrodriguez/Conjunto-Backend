@@ -35,6 +35,11 @@ public class ObraController {
         return service.listarPorApartamento(apartamentoId);
     }
 
+    @GetMapping("/{id:[0-9]+}")
+    public ObraDTO obtener(@PathVariable Long id) {
+        return service.obtener(id);
+    }
+
     @GetMapping("/en-proceso")
     public List<ObraDTO> listarEnProceso() {
         return service.listarEnProceso();

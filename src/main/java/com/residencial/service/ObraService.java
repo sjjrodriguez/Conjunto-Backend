@@ -14,5 +14,6 @@ public interface ObraService {
 
     // P5 bloque 6: filtros de la administración y aprobación
     List<ObraDTO> buscar(String alcance, String estado, String aprobacion, String texto);
+    ObraDTO obtener(Long id);
     ObraDTO revisar(Long id, boolean aprobada, String motivo);
 }
