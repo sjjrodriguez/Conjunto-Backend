@@ -14,4 +14,7 @@ public interface ReservaService {
 
     /** Lo ocupado de una zona entre dos fechas (incluidas), para el calendario. */
     DisponibilidadDTO disponibilidad(Long zonaId, LocalDate desde, LocalDate hasta);
+    // P5 bloque 5
+    ReservaDTO actualizar(Long id, ReservaDTO dto);
+    List<ReservaDTO> listarTodas(String estado);
 }
