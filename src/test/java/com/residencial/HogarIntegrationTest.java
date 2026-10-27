@@ -126,9 +126,12 @@ class HogarIntegrationTest {
         mvc.perform(get("/api/apartamentos").header("Authorization", admin))
                 .andExpect(jsonPath("$[0].arrendado").value(true));
 
-        // El propietario ya no registra vehículos ni visitantes; el arrendatario sí
-        enviar(post("/api/vehiculos"), propietario,
+        // P6: los vehículos son del propietario aunque esté arrendado (el arrendatario solo consulta);
+        // los visitantes ya no los registra el propietario sino quien vive ahí
+        enviar(post("/api/vehiculos"), arrendatario,
                 "{\"tipo\":\"Bicicleta\",\"marca\":\"GW\",\"apartamentoId\":" + apto.getId() + "}").andExpect(status().isForbidden());
+        enviar(post("/api/vehiculos"), propietario,
+                "{\"tipo\":\"Bicicleta\",\"marca\":\"GW\",\"apartamentoId\":" + apto.getId() + "}").andExpect(status().isOk());
         enviar(post("/api/visitantes"), propietario,
                 "{\"nombreCompleto\":\"X\",\"apartamentoId\":" + apto.getId() + "}").andExpect(status().isForbidden());
         enviar(post("/api/visitantes"), arrendatario,

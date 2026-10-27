@@ -14,7 +14,9 @@ import com.residencial.model.CupoApartamento;
 import com.residencial.model.Parqueadero;
 import com.residencial.repository.CupoApartamentoRepository;
 import com.residencial.security.AccesoService;
-import com.residencial.security.EstadoApartamento;
+import com.residencial.security.ConfiguracionService;
+import com.residencial.security.TokenService;
+import org.springframework.security.access.AccessDeniedException;
 import com.residencial.service.NotificacionService;
 import com.residencial.service.VehiculoService;
 import lombok.RequiredArgsConstructor;
@@ -45,7 +47,7 @@ public class VehiculoServiceImpl implements VehiculoService {
     private final NotificacionService notificaciones;
     private final ParqueaderoServiceImpl parqueaderos;
     private final CupoApartamentoRepository cuposApto;
-    private final EstadoApartamento estado;
+    private final ConfiguracionService configuracion;
 
     private VehiculoDTO toDTO(Vehiculo v) {
         return toDTO(v, parqueaderos.deVehiculos(List.of(v.getId())).get(v.getId()));
@@ -64,6 +66,22 @@ public class VehiculoServiceImpl implements VehiculoService {
         return lista.stream().map(v -> toDTO(v, deCada.get(v.getId()))).toList();
     }
 
+    /**
+     * Registrar, editar y quitar vehículos del apartamento es del propietario (aunque esté arrendado)
+     * o de la administración. El arrendatario solo consulta. Si el conjunto lo pide
+     * (vehiculos_alta_solo_admin), el propietario tampoco: lo hace la administración.
+     */
+    private void exigirGestion() {
+        String rol = acceso.tokenActual().map(t -> t.getClaimAsString(TokenService.CLAIM_ROL)).orElse(null);
+        if (rol == null || TokenService.ROL_ADMIN.equals(rol)) return; // administración, o modo transición sin token
+        if (!TokenService.ROL_PROPIETARIO.equals(rol)) {
+            throw new AccessDeniedException("Los vehículos del apartamento los gestiona el propietario");
+        }
+        if (configuracion.vehiculosAltaSoloAdmin()) {
+            throw new AccessDeniedException("En este conjunto los vehículos los registra la administración");
+        }
+    }
+
     @Override
     public List<VehiculoDTO> listarPorApartamento(Long apartamentoId) {
         acceso.verificarApartamento(apartamentoId);
@@ -74,7 +92,7 @@ public class VehiculoServiceImpl implements VehiculoService {
     @Transactional // el vehículo y su notificación se guardan juntos
     public VehiculoDTO guardar(VehiculoDTO dto) {
         acceso.verificarApartamento(dto.getApartamentoId());
-        if (dto.getApartamentoId() != null) estado.exigirQueViva(dto.getApartamentoId());
+        exigirGestion();
         Apartamento apto = aptoRepo.findById(dto.getApartamentoId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Apartamento no encontrado"));
         String tipo = Catalogo.TIPO_VEHICULO.normalizar(dto.getTipo());
@@ -100,7 +118,7 @@ public class VehiculoServiceImpl implements VehiculoService {
     public VehiculoDTO actualizar(Long id, VehiculoDTO dto) {
         Vehiculo v = repo.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("Vehículo no encontrado: " + id));
         acceso.verificarApartamento(v.getApartamento().getId());
-        estado.exigirQueViva(v.getApartamento().getId());
+        exigirGestion();
         String tipo = Catalogo.TIPO_VEHICULO.normalizar(dto.getTipo());
         String placa = vacioANull(dto.getPlaca());
         if (placa == null && CON_PLACA.contains(tipo)) {
@@ -141,7 +159,7 @@ public class VehiculoServiceImpl implements VehiculoService {
     public void eliminar(Long id) {
         repo.findById(id).ifPresent(v -> {
             acceso.verificarApartamento(v.getApartamento().getId());
-            estado.exigirQueViva(v.getApartamento().getId());
+            exigirGestion();
             parqueaderos.liberarDe(v.getId());
             repo.delete(v);
         });

@@ -43,7 +43,7 @@ public class SecurityConfig {
     private final ObjectMapper objectMapper;
     private final AuthenticationTrustResolver trustResolver = new AuthenticationTrustResolverImpl();
 
-    public SecurityConfig(@Value("${app.security.enforce:false}") boolean enforce, ObjectMapper objectMapper) {
+    public SecurityConfig(@Value("${app.security.enforce:true}") boolean enforce, ObjectMapper objectMapper) {
         this.enforce = enforce;
         this.objectMapper = objectMapper;
     }
@@ -67,6 +67,8 @@ public class SecurityConfig {
                 .jwt(j -> j.decoder(jwtDecoder).jwtAuthenticationConverter(jwtAuthenticationConverter())))
             .authorizeHttpRequests(a -> a
                 .requestMatchers("/error").permitAll()
+                // Cerrar sesión necesita la sesión que se cierra; el resto de /api/auth (login, registro) es público
+                .requestMatchers(HttpMethod.POST, "/api/auth/logout").access(autenticado())
                 .requestMatchers(HttpMethod.POST, "/api/auth/**").permitAll()
                 // Estado del servicio para Render (sin detalles); el resto de actuator no está expuesto
                 .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
@@ -132,6 +134,9 @@ public class SecurityConfig {
                 // (CuotaServiceImpl comprueba el apartamento); generar y revisar es del contador
                 .requestMatchers(HttpMethod.GET, "/api/cuotas/apartamento/*", "/api/cuotas/*/comprobante").access(autenticado())
                 .requestMatchers(HttpMethod.POST, "/api/cuotas/*/comprobante").access(autenticado())
+                // P6: el contador lee y propone (generar, revisar → solicitudes); editar o borrar una cuota es del administrador
+                .requestMatchers(HttpMethod.PUT, "/api/cuotas/*").access(admin())
+                .requestMatchers(HttpMethod.DELETE, "/api/cuotas/*").access(admin())
                 .requestMatchers("/api/cuotas", "/api/cuotas/**").access(cartera())
                 // Enlaces firmados del almacenamiento local (demo): la firma hace de permiso
                 .requestMatchers(HttpMethod.GET, "/api/archivos/local").permitAll()

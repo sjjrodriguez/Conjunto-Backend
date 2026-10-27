@@ -49,6 +49,11 @@ public class AuthServiceImpl implements AuthService {
             return null;
         }
         Administrador admin = encontrado.get();
+        if (!admin.isActivo()) {
+            // Cuenta dada de baja: tarda lo mismo y no dice que existe
+            passwordEncoder.matches(contrasena, hashFicticio);
+            return null;
+        }
         String guardada = admin.getContrasena();
         if (!verificar(contrasena, guardada, admin::setContrasena)) return null;
         if (!guardada.equals(admin.getContrasena())) adminRepo.save(admin);

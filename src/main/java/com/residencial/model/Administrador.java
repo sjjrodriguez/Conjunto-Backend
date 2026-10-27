@@ -11,6 +11,8 @@ public class Administrador {
 
     public static final String ADMIN = "ADMIN";
     public static final String CONTADOR = "CONTADOR";
+    // P6: la portería solo registra visitas y consulta el citófono de cada apartamento
+    public static final String PORTERIA = "PORTERIA";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -41,6 +43,13 @@ public class Administrador {
 
     @Column(length = 150)
     private String correo;
+
+    // P6: sube al cerrar sesión (invalida los tokens anteriores) y activo=false da de baja la cuenta
+    @Column(name = "token_version", nullable = false)
+    private int tokenVersion;
+
+    @Column(nullable = false)
+    private boolean activo = true;
 
     public Administrador(Long id, String usuario, String contrasena) {
         this(id, usuario, contrasena, ADMIN);

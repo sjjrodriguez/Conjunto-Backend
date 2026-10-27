@@ -10,6 +10,7 @@ public interface ApartamentoService {
     ApartamentoDTO guardar(ApartamentoRequest apartamento);
     ApartamentoDTO actualizar(Long id, ApartamentoRequest apartamento);
     ApartamentoDTO cambiarCitofonos(Long id, String citofono1, String citofono2);
+    ApartamentoDTO cambiarOcupacionYBanderas(Long id, ApartamentoDTO.OcupacionYBanderas cambio);
     boolean cambiarContrasena(Long id, String nuevaContrasena);
     void eliminar(Long id);
 }

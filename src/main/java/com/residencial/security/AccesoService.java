@@ -23,7 +23,7 @@ public class AccesoService {
     private final boolean enforce;
     private final AuthenticationTrustResolver trustResolver = new AuthenticationTrustResolverImpl();
 
-    public AccesoService(@Value("${app.security.enforce:false}") boolean enforce) {
+    public AccesoService(@Value("${app.security.enforce:true}") boolean enforce) {
         this.enforce = enforce;
     }
 

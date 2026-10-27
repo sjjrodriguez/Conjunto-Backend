@@ -41,6 +41,7 @@ public class ObraServiceImpl implements ObraService {
     private final ApartamentoRepository aptoRepo;
     private final PersonalObraRepository personalRepo;
     private final AccesoService acceso;
+    private final com.residencial.security.AccesoArrendatario arrendatario;
     private final NotificacionService notificaciones;
 
     private ObraDTO toDTO(Obra o, Map<Long, Long> pendientes) {
@@ -83,6 +84,7 @@ public class ObraServiceImpl implements ObraService {
     @Transactional(readOnly = true)
     public List<ObraDTO> listarPorApartamento(Long apartamentoId) {
         acceso.verificarApartamento(apartamentoId);
+        arrendatario.exigirVerObras(apartamentoId);
         return toDTOs(repo.findByApartamentoId(apartamentoId));
     }
 
@@ -103,7 +105,10 @@ public class ObraServiceImpl implements ObraService {
     @Transactional(readOnly = true)
     public ObraDTO obtener(Long id) {
         Obra o = repo.findConApartamentoById(id).orElseThrow(() -> new RecursoNoEncontradoException("Obra no encontrada: " + id));
-        if (!esAdministracion()) acceso.verificarApartamento(o.apartamentoId());
+        if (!esAdministracion()) {
+            acceso.verificarApartamento(o.apartamentoId());
+            arrendatario.exigirVerObras(o.apartamentoId());
+        }
         return toDTO(o);
     }
 
