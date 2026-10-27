@@ -62,7 +62,10 @@ public class DatosDemo implements CommandLineRunner {
     public void run(String... args) {
         LocalDate hoy = LocalDate.now(ZoneId.of("America/Bogota"));
 
-        adminRepo.save(new Administrador(null, "admin", encoder.encode("admin-demo")));
+        Administrador principal = new Administrador(null, "admin", encoder.encode("admin-demo"));
+        principal.setPrincipal(true);
+        principal.setNombreCompleto("Administración MiConjunto");
+        adminRepo.save(principal);
         adminRepo.save(new Administrador(null, "contador", encoder.encode("contador-demo"), Administrador.CONTADOR));
 
         String clave = encoder.encode(CLAVE_APARTAMENTOS);

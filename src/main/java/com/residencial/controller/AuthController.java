@@ -3,6 +3,7 @@ package com.residencial.controller;
 import com.residencial.dto.CambioPropiaContrasenaRequest;
 import com.residencial.dto.LoginDTO;
 import com.residencial.dto.MensajeError;
+import com.residencial.dto.LoginResponse;
 import com.residencial.model.Administrador;
 import com.residencial.model.Apartamento;
 import com.residencial.model.Residente;
@@ -31,6 +32,7 @@ public class AuthController {
     private final LimitadorLogin limitador;
     private final AccesoService acceso;
     private final RegistroService registro;
+    private final com.residencial.repository.AdministradorRepository adminRepo;
 
     @PostMapping("/admin/login")
     public ResponseEntity<?> loginAdmin(@RequestBody LoginDTO.AdminLoginRequest request, HttpServletRequest http) {
@@ -39,7 +41,9 @@ public class AuthController {
         Administrador admin = authService.loginAdmin(request.getUsuario(), request.getContrasena());
         if (admin != null) {
             limitador.limpiar(clave);
-            return ResponseEntity.ok(tokenService.paraAdmin(admin));
+            LoginResponse respuesta = tokenService.paraAdmin(admin);
+            if (Administrador.ADMIN.equals(admin.getRol())) respuesta.setPrincipal(adminRepo.esPrincipal(admin));
+            return ResponseEntity.ok(respuesta);
         }
         limitador.registrarFallo(clave);
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new MensajeError("Credenciales incorrectas"));

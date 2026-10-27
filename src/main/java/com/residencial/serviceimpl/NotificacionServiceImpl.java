@@ -45,6 +45,7 @@ public class NotificacionServiceImpl implements NotificacionService {
     public static final String TIPO_COMPROBANTE = "COMPROBANTE";
     public static final String TIPO_CUOTA_PAGADA = "CUOTA_PAGADA";
     public static final String TIPO_CUOTA_RECHAZADA = "CUOTA_RECHAZADA";
+    public static final String TIPO_SOLICITUD_CONTABLE = "SOLICITUD_CONTABLE";
     public static final String TIPO_OBRA = "OBRA";
     public static final String TIPO_OBRA_APROBADA = "OBRA_APROBADA";
     public static final String TIPO_OBRA_RECHAZADA = "OBRA_RECHAZADA";
@@ -231,6 +232,12 @@ public class NotificacionServiceImpl implements NotificacionService {
     }
 
     // Al guardarla también sale el aviso a los celulares de quien la recibe (AvisosPush)
+    @Override
+    public void avisarSolicitudContable(com.residencial.model.SolicitudContable s, String resumen) {
+        Long apto = s.getCuota() == null ? null : s.getCuota().getApartamento().getId();
+        crear(TIPO_SOLICITUD_CONTABLE, "Por aprobar — " + resumen, s.getId(), apto, null);
+    }
+
     @Override
     public void avisarObraNueva(com.residencial.model.Obra o) {
         crear(TIPO_OBRA, "Obra por aprobar — " + o.getDescripcionAdecuacion() + " · " + torreApto(o.getApartamento()),

@@ -21,6 +21,7 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -49,6 +50,7 @@ class CuotasIntegrationTest {
     @Autowired ReservaRepository reservaRepo;
     @Autowired ZonaComunRepository zonaRepo;
     @Autowired PersonalObraRepository personalRepo;
+    @Autowired SolicitudContableRepository solicitudRepo;
     @Autowired ObraRepository obraRepo;
     @Autowired PasswordEncoder encoder;
 
@@ -80,6 +82,7 @@ class CuotasIntegrationTest {
     void limpiar() {
         notificacionRepo.deleteAll();
         dispositivoRepo.deleteAll();
+        solicitudRepo.deleteAll();
         cuotaRepo.deleteAll();
         personalRepo.deleteAll();
         obraRepo.deleteAll();
@@ -99,12 +102,26 @@ class CuotasIntegrationTest {
                         .content("{\"usuario\":\"conta\",\"contrasena\":\"conta123\"}"))
                 .andExpect(jsonPath("$.rol").value("CONTADOR"));
 
-        generar(contador, 175000)
+        // P5: la facturación del contador espera al administrador
+        int solicitud = JsonPath.read(generar(contador, 175000)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.creadas").value(2))
-                .andExpect(jsonPath("$.existentes").value(0));
+                .andExpect(jsonPath("$.creadas").value(0))
+                .andExpect(jsonPath("$.enAprobacion").value(true))
+                .andReturn().getResponse().getContentAsString(), "$.solicitudId");
+        assertThat(cuotaRepo.findAll()).isEmpty();
+        generar(contador, 175000).andExpect(status().isBadRequest());
+        mvc.perform(get("/api/cartera/solicitudes?estado=PENDIENTE").header("Authorization", admin))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].tipo").value("FACTURACION"))
+                .andExpect(jsonPath("$[0].solicitadaPor").value("conta"));
+        enviar(put("/api/cartera/solicitudes/" + solicitud), contador, "{\"aprobada\":true}").andExpect(status().isForbidden());
+        enviar(put("/api/cartera/solicitudes/" + solicitud), admin, "{\"aprobada\":true}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("APROBADA"));
+        assertThat(cuotaRepo.findAll()).hasSize(2);
+        enviar(put("/api/cartera/solicitudes/" + solicitud), admin, "{\"aprobada\":true}").andExpect(status().isBadRequest());
         // Generar otra vez no duplica
-        generar(contador, 175000).andExpect(jsonPath("$.creadas").value(0)).andExpect(jsonPath("$.existentes").value(2));
+        generar(admin, 175000).andExpect(jsonPath("$.creadas").value(0)).andExpect(jsonPath("$.existentes").value(2));
 
         mvc.perform(get("/api/cuotas?periodo=" + mes).header("Authorization", contador))
                 .andExpect(status().isOk())
@@ -135,7 +152,7 @@ class CuotasIntegrationTest {
 
     @Test
     void elResidenteSubeElComprobanteYElContadorLoConfirma() throws Exception {
-        generar(contador, 200000);
+        generar(admin, 200000);
         long id = cuota(apto);
 
         // Solo una foto o un PDF de verdad, y solo para su apartamento
@@ -176,7 +193,7 @@ class CuotasIntegrationTest {
 
     @Test
     void elComprobanteRechazadoVuelveADeberYSePuedeSubirOtro() throws Exception {
-        generar(contador, 200000);
+        generar(admin, 200000);
         long id = cuota(apto);
         revisar(id, contador, "{\"estado\":\"rechazada\"}").andExpect(status().isBadRequest());
         subir(id, propietario, PNG);
@@ -211,12 +228,12 @@ class CuotasIntegrationTest {
     void elAdministradorCreaLaCuentaDelContador() throws Exception {
         enviar(post("/api/administradores"), contador, "{\"usuario\":\"otro\",\"contrasena\":\"otro123\",\"rol\":\"contador\"}")
                 .andExpect(status().isForbidden());
-        int id = enviar(post("/api/administradores"), admin, "{\"usuario\":\"lucia\",\"contrasena\":\"lucia123\",\"rol\":\"contador\"}")
+        int id = enviar(post("/api/administradores"), admin, "{\"usuario\":\"lucia\",\"contrasena\":\"lucia123\",\"rol\":\"contador\",\"nombreCompleto\":\"Lucía Rojas\",\"documento\":\"52111222\",\"telefono\":\"3001234567\",\"correo\":\"lucia@correo.com\"}")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.rol").value("CONTADOR"))
                 .andExpect(jsonPath("$.contrasena").doesNotExist())
                 .andReturn().getResponse().getContentAsString().transform(r -> JsonPath.read(r, "$.id"));
-        enviar(post("/api/administradores"), admin, "{\"usuario\":\"lucia\",\"contrasena\":\"lucia123\"}")
+        enviar(post("/api/administradores"), admin, "{\"usuario\":\"lucia\",\"contrasena\":\"lucia123\",\"nombreCompleto\":\"Lucía Rojas\",\"documento\":\"52111222\",\"telefono\":\"3001234567\",\"correo\":\"lucia@correo.com\"}")
                 .andExpect(status().isBadRequest());
         token("/api/auth/admin/login", "{\"usuario\":\"lucia\",\"contrasena\":\"lucia123\"}");
 

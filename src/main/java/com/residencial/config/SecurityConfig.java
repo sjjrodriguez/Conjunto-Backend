@@ -137,7 +137,11 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/archivos/local").permitAll()
 
                 // Cuentas de la administración (administradores y contador)
+                // Solo el principal (AdministradorController lo comprueba); los asistentes son ADMIN
                 .requestMatchers("/api/administradores", "/api/administradores/**").access(admin())
+                // Cartera de la administración (P5): estadísticas y solicitudes del contador; revisar, el administrador
+                .requestMatchers(HttpMethod.PUT, "/api/cartera/solicitudes/*").access(admin())
+                .requestMatchers("/api/cartera", "/api/cartera/**").access(cartera())
 
                 // Notificaciones
                 // Cada uno ve las suyas: el administrador, las suyas; un residente, las de su apartamento

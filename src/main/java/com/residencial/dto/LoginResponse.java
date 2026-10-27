@@ -21,4 +21,5 @@ public class LoginResponse {
     private String apto;     // solo propietario
     private Long residenteId; // solo si entró con su documento
     private String nombre;    // solo si entró con su documento
+    private Boolean principal; // P5: solo admin; el principal maneja el equipo
 }

@@ -46,6 +46,7 @@ public class AvisosPush {
             Map.entry("COMPROBANTE", "Comprobante por revisar"),
             Map.entry("CUOTA_PAGADA", "Pago confirmado"),
             Map.entry("CUOTA_RECHAZADA", "Comprobante rechazado"),
+            Map.entry("SOLICITUD_CONTABLE", "El contador mandó algo a aprobar"),
             Map.entry("OBRA", "Obra por aprobar"),
             Map.entry("OBRA_APROBADA", "Obra aprobada"),
             Map.entry("OBRA_RECHAZADA", "Obra rechazada"),
