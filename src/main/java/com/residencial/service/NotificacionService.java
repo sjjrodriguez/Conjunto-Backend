@@ -38,4 +38,10 @@ public interface NotificacionService {
     void avisarCuotaNueva(Cuota cuota, String mes);
     void avisarComprobante(Cuota cuota, String mes);
     void avisarCuotaRevisada(Cuota cuota, String mes);
+
+    // P5 bloque 6: obras y su personal esperan la aprobación de la administración
+    void avisarObraNueva(com.residencial.model.Obra obra);
+    void avisarObraRevisada(com.residencial.model.Obra obra);
+    void avisarPersonalNuevo(com.residencial.model.PersonalObra personal);
+    void avisarPersonalRevisado(com.residencial.model.PersonalObra personal);
 }

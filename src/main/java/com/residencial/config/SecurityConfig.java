@@ -103,11 +103,13 @@ public class SecurityConfig {
                 // Obras
                 .requestMatchers(HttpMethod.GET, "/api/obras", "/api/obras/en-proceso").access(admin())
                 .requestMatchers(HttpMethod.PUT, "/api/obras/*/estado").access(admin())
-                .requestMatchers(HttpMethod.DELETE, "/api/obras/*").access(admin())
+                .requestMatchers(HttpMethod.PUT, "/api/obras/*/aprobacion").access(admin())
+                // Borrar: la administración o el propietario mientras no esté aprobada (ObraServiceImpl)
                 .requestMatchers("/api/obras", "/api/obras/**").access(autenticado())
 
                 // Personal de obra
                 .requestMatchers(HttpMethod.GET, "/api/personal-obra").access(admin())
+                .requestMatchers(HttpMethod.PUT, "/api/personal-obra/*/aprobacion").access(admin())
                 // Borrar: el administrador o el residente dueño de la obra (PersonalObraServiceImpl)
                 .requestMatchers("/api/personal-obra", "/api/personal-obra/**").access(autenticado())
 

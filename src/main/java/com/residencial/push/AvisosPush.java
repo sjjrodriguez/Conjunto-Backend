@@ -45,7 +45,13 @@ public class AvisosPush {
             Map.entry("SOLICITUD_ARRENDATARIO", "Solicitud de arrendatario"),
             Map.entry("COMPROBANTE", "Comprobante por revisar"),
             Map.entry("CUOTA_PAGADA", "Pago confirmado"),
-            Map.entry("CUOTA_RECHAZADA", "Comprobante rechazado"));
+            Map.entry("CUOTA_RECHAZADA", "Comprobante rechazado"),
+            Map.entry("OBRA", "Obra por aprobar"),
+            Map.entry("OBRA_APROBADA", "Obra aprobada"),
+            Map.entry("OBRA_RECHAZADA", "Obra rechazada"),
+            Map.entry("PERSONAL_OBRA", "Trabajador por aprobar"),
+            Map.entry("PERSONAL_OBRA_APROBADO", "Trabajador aprobado"),
+            Map.entry("PERSONAL_OBRA_RECHAZADO", "Trabajador rechazado"));
 
     private final DispositivoRepository dispositivos;
     private final EnviadorPush enviador;
