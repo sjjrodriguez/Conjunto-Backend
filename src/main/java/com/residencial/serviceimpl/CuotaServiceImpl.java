@@ -233,6 +233,20 @@ public class CuotaServiceImpl implements CuotaService {
     }
 
     @Override
+    public CuotaDTO registrarPagoEnLinea(Long cuotaId) {
+        Cuota c = repo.findById(cuotaId).orElse(null);
+        if (c == null) return null;
+        if (c.pagada()) return toDTO(c);
+        c.setEstado(Cuota.PAGADA);
+        c.setPagadaEn(LocalDateTime.now(zonaHoraria));
+        c.setMotivoRechazo(null);
+        Cuota guardada = repo.save(c);
+        recalcular(guardada.getApartamento());
+        notificaciones.avisarCuotaRevisada(guardada, nombreMes(guardada.getPeriodo()));
+        return toDTO(guardada);
+    }
+
+    @Override
     public CuotaDTO actualizar(Long id, CuotaDTO.Cambio cambio) {
         Cuota c = buscar(id);
         if (c.pagada()) throw invalido("Una cuota pagada no se puede cambiar");

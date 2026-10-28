@@ -136,6 +136,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/reservas", "/api/reservas/**").access(autenticado())
 
                 // Pagos
+                // P6: pago en línea. El webhook de Wompi es público y se valida por su firma
+                .requestMatchers(HttpMethod.POST, "/api/pagos/webhook/wompi").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/pagos/checkout").access(residentes())
                 .requestMatchers(HttpMethod.GET, "/api/pagos/apartamento/*").access(autenticado())
                 .requestMatchers(HttpMethod.PUT, "/api/pagos/apartamento/*/simular").access(autenticado())
                 .requestMatchers("/api/pagos", "/api/pagos/**").access(cartera())

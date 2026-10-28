@@ -15,6 +15,11 @@ public interface CuotaService {
     CuotaDTO revisar(Long id, String estado, String motivo);
     CuotaDTO actualizar(Long id, CuotaDTO.Cambio cambio);
     void eliminar(Long id);
+    /**
+     * P6: la pasarela confirmó el pago. Deja la cuota PAGADA, recalcula la cartera y avisa al apartamento.
+     * Idempotente: si ya estaba pagada no hace nada. Devuelve la cuota (null si no existe).
+     */
+    CuotaDTO registrarPagoEnLinea(Long cuotaId);
     /** Recalcula el resumen de cartera (tabla pago) del apartamento con sus cuotas. */
     void recalcularCartera(Long apartamentoId);
 
