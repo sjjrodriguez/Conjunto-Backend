@@ -19,8 +19,27 @@ public class Publicacion {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    public static final List<String> CATEGORIAS = List.of("GENERAL", "URGENTE", "MANTENIMIENTO", "EVENTO", "FINANZAS");
+    public static final List<String> AUDIENCIAS = List.of("TODOS", "PROPIETARIOS", "ARRENDATARIOS");
+
     @Column(nullable = false, columnDefinition = "TEXT")
     private String texto;
+
+    @Column(length = 150)
+    private String titulo;
+
+    @Column(nullable = false, length = 20)
+    private String categoria = "GENERAL";
+
+    @Column(nullable = false, length = 20)
+    private String audiencia = "TODOS";
+
+    // null = todas las torres
+    @Column(length = 20)
+    private String torre;
+
+    @Column(nullable = false)
+    private boolean fijado;
 
     // Sin llave foránea: si se elimina la cuenta, la publicación conserva el nombre
     private Long autorId;

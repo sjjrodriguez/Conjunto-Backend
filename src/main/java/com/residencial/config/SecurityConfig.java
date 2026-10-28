@@ -159,7 +159,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/dispositivos/baja").permitAll()
                 .requestMatchers("/api/dispositivos", "/api/dispositivos/**").access(autenticado())
                 // Feed (P5): lo ven todos; publica, edita y borra la administración
-                .requestMatchers(HttpMethod.GET, "/api/publicaciones").access(autenticado())
+                // P6: la portería no ve el feed; abrir una publicación la marca como leída
+                .requestMatchers(HttpMethod.GET, "/api/publicaciones").access(sinPorteria())
+                .requestMatchers(HttpMethod.POST, "/api/publicaciones/*/lectura").access(sinPorteria())
                 .requestMatchers("/api/publicaciones", "/api/publicaciones/**").access(admin())
                 // Visitantes frecuentes: cada apartamento los suyos (VisitanteController lo comprueba)
                 .requestMatchers("/api/visitantes", "/api/visitantes/**").access(autenticado())
@@ -175,6 +177,11 @@ public class SecurityConfig {
 
     private AuthorizationManager<RequestAuthorizationContext> cartera() {
         return regla(AuthorityAuthorizationManager.hasAnyRole(TokenService.ROL_ADMIN, TokenService.ROL_CONTADOR));
+    }
+
+    private AuthorizationManager<RequestAuthorizationContext> sinPorteria() {
+        return regla(AuthorityAuthorizationManager.hasAnyRole(TokenService.ROL_ADMIN, TokenService.ROL_CONTADOR,
+                TokenService.ROL_PROPIETARIO, TokenService.ROL_ARRENDATARIO));
     }
 
     private AuthorizationManager<RequestAuthorizationContext> autenticado() {
