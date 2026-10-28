@@ -68,16 +68,17 @@ public class SecurityConfig {
             .authorizeHttpRequests(a -> a
                 .requestMatchers("/error").permitAll()
                 // Cerrar sesión necesita la sesión que se cierra; el resto de /api/auth (login, registro) es público
-                .requestMatchers(HttpMethod.POST, "/api/auth/logout").access(autenticado())
+                .requestMatchers(HttpMethod.POST, "/api/auth/logout").access(sesion())
+                .requestMatchers(HttpMethod.PUT, "/api/auth/contrasena").access(sesion())
                 // P6: activar y quitar la huella piden sesión; entrar con ella (biometria/login) es público
-                .requestMatchers(HttpMethod.POST, "/api/auth/biometria/activar").access(autenticado())
-                .requestMatchers(HttpMethod.DELETE, "/api/auth/biometria").access(autenticado())
+                .requestMatchers(HttpMethod.POST, "/api/auth/biometria/activar").access(sesion())
+                .requestMatchers(HttpMethod.DELETE, "/api/auth/biometria").access(sesion())
                 .requestMatchers(HttpMethod.POST, "/api/auth/**").permitAll()
                 // P6: textos legales públicos; consentimientos y solicitudes de datos, de cualquier sesión
                 .requestMatchers(HttpMethod.GET, "/api/legal/textos").permitAll()
-                .requestMatchers("/api/legal/**").access(autenticado())
-                .requestMatchers(HttpMethod.POST, "/api/solicitudes-datos").access(autenticado())
-                .requestMatchers(HttpMethod.GET, "/api/solicitudes-datos/mias").access(autenticado())
+                .requestMatchers("/api/legal/**").access(sesion())
+                .requestMatchers(HttpMethod.POST, "/api/solicitudes-datos").access(sesion())
+                .requestMatchers(HttpMethod.GET, "/api/solicitudes-datos/mias").access(sesion())
                 .requestMatchers("/api/solicitudes-datos", "/api/solicitudes-datos/**").access(admin())
                 // Estado del servicio para Render (sin detalles); el resto de actuator no está expuesto
                 .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
@@ -162,11 +163,15 @@ public class SecurityConfig {
 
                 // Notificaciones
                 // Cada uno ve las suyas: el administrador, las suyas; un residente, las de su apartamento
-                .requestMatchers("/api/notificaciones", "/api/notificaciones/**").access(autenticado())
+                .requestMatchers("/api/notificaciones", "/api/notificaciones/**").access(sesion())
+                // Portería (P6): la portería registra y consulta; el residente responde las de su apartamento
+                .requestMatchers(HttpMethod.GET, "/api/porteria/visitas/pendientes").access(residentes())
+                .requestMatchers(HttpMethod.PATCH, "/api/porteria/visitas/*/respuesta").access(respondeVisita())
+                .requestMatchers("/api/porteria", "/api/porteria/**").access(portero())
                 // Celulares que reciben avisos: cualquiera con sesión (DispositivoServiceImpl la exige).
                 // La baja no pide sesión: se hace al cerrarla y basta con el token, que solo tiene ese celular
                 .requestMatchers(HttpMethod.POST, "/api/dispositivos/baja").permitAll()
-                .requestMatchers("/api/dispositivos", "/api/dispositivos/**").access(autenticado())
+                .requestMatchers("/api/dispositivos", "/api/dispositivos/**").access(sesion())
                 // Feed (P5): lo ven todos; publica, edita y borra la administración
                 // P6: la portería no ve el feed; abrir una publicación la marca como leída
                 .requestMatchers(HttpMethod.GET, "/api/publicaciones").access(sinPorteria())
@@ -193,8 +198,34 @@ public class SecurityConfig {
                 TokenService.ROL_PROPIETARIO, TokenService.ROL_ARRENDATARIO));
     }
 
+    /** Cualquier sesión menos la portería: la portería solo ve lo suyo (P6). */
     private AuthorizationManager<RequestAuthorizationContext> autenticado() {
+        return regla((auth, ctx) -> {
+            AuthorizationDecision autenticado = AuthenticatedAuthorizationManager.authenticated().check(auth, ctx);
+            boolean porteria = auth.get().getAuthorities().stream()
+                    .anyMatch(a -> ("ROLE_" + TokenService.ROL_PORTERIA).equals(a.getAuthority()));
+            return new AuthorizationDecision(autenticado != null && autenticado.isGranted() && !porteria);
+        });
+    }
+
+    /** Cualquier sesión, también la portería: cuenta, avisos, legal. */
+    private AuthorizationManager<RequestAuthorizationContext> sesion() {
         return regla(AuthenticatedAuthorizationManager.authenticated());
+    }
+
+    /** Administración y portería. */
+    private AuthorizationManager<RequestAuthorizationContext> portero() {
+        return regla(AuthorityAuthorizationManager.hasAnyRole(TokenService.ROL_ADMIN, TokenService.ROL_PORTERIA));
+    }
+
+    /** Quien puede responder una visita: la administración, la portería (por llamada) y los residentes. */
+    private AuthorizationManager<RequestAuthorizationContext> respondeVisita() {
+        return regla(AuthorityAuthorizationManager.hasAnyRole(TokenService.ROL_ADMIN, TokenService.ROL_PORTERIA,
+                TokenService.ROL_PROPIETARIO, TokenService.ROL_ARRENDATARIO));
+    }
+
+    private AuthorizationManager<RequestAuthorizationContext> residentes() {
+        return regla(AuthorityAuthorizationManager.hasAnyRole(TokenService.ROL_PROPIETARIO, TokenService.ROL_ARRENDATARIO));
     }
 
     /**

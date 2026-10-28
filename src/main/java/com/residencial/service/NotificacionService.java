@@ -45,6 +45,9 @@ public interface NotificacionService {
     void avisarPersonalNuevo(com.residencial.model.PersonalObra personal);
     void avisarPersonalRevisado(com.residencial.model.PersonalObra personal);
 
+    // P6 bloque 5: hay una visita en la portería esperando que el apartamento responda
+    void avisarVisita(com.residencial.model.VisitaPorteria visita);
+
     // P5 bloque 7: el contador mandó algo a aprobar
     void avisarSolicitudContable(com.residencial.model.SolicitudContable solicitud, String resumen);
 }

@@ -48,6 +48,7 @@ public class AvisosPush {
             Map.entry("CUOTA", "Nueva cuota de administración"),
             Map.entry("REGISTRO", "Nuevo registro por aprobar"),
             Map.entry("PUBLICACION", "Nueva publicación"),
+            Map.entry("VISITA_PORTERIA", "Visita en portería"),
             Map.entry("SOLICITUD_ARRENDATARIO", "Solicitud de arrendatario"),
             Map.entry("COMPROBANTE", "Comprobante por revisar"),
             Map.entry("CUOTA_PAGADA", "Pago confirmado"),
