@@ -154,6 +154,10 @@ public class SecurityConfig {
                 // Enlaces firmados del almacenamiento local (demo): la firma hace de permiso
                 .requestMatchers(HttpMethod.GET, "/api/archivos/local").permitAll()
 
+                // Personal y presupuesto del conjunto (P6): solo el administrador; el contador lee el resumen
+                .requestMatchers(HttpMethod.GET, "/api/personal-conjunto/presupuesto/resumen").access(cartera())
+                .requestMatchers("/api/personal-conjunto", "/api/personal-conjunto/**").access(admin())
+
                 // Cuentas de la administración (administradores y contador)
                 // Solo el principal (AdministradorController lo comprueba); los asistentes son ADMIN
                 .requestMatchers("/api/administradores", "/api/administradores/**").access(admin())
