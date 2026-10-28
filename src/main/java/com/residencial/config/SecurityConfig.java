@@ -69,7 +69,16 @@ public class SecurityConfig {
                 .requestMatchers("/error").permitAll()
                 // Cerrar sesión necesita la sesión que se cierra; el resto de /api/auth (login, registro) es público
                 .requestMatchers(HttpMethod.POST, "/api/auth/logout").access(autenticado())
+                // P6: activar y quitar la huella piden sesión; entrar con ella (biometria/login) es público
+                .requestMatchers(HttpMethod.POST, "/api/auth/biometria/activar").access(autenticado())
+                .requestMatchers(HttpMethod.DELETE, "/api/auth/biometria").access(autenticado())
                 .requestMatchers(HttpMethod.POST, "/api/auth/**").permitAll()
+                // P6: textos legales públicos; consentimientos y solicitudes de datos, de cualquier sesión
+                .requestMatchers(HttpMethod.GET, "/api/legal/textos").permitAll()
+                .requestMatchers("/api/legal/**").access(autenticado())
+                .requestMatchers(HttpMethod.POST, "/api/solicitudes-datos").access(autenticado())
+                .requestMatchers(HttpMethod.GET, "/api/solicitudes-datos/mias").access(autenticado())
+                .requestMatchers("/api/solicitudes-datos", "/api/solicitudes-datos/**").access(admin())
                 // Estado del servicio para Render (sin detalles); el resto de actuator no está expuesto
                 .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
                 // Solo responden si SWAGGER_ENABLED=true

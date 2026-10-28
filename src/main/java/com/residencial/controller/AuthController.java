@@ -34,6 +34,7 @@ public class AuthController {
     private final RegistroService registro;
     private final com.residencial.repository.AdministradorRepository adminRepo;
     private final com.residencial.security.SesionVersion sesiones;
+    private final com.residencial.service.BiometriaService biometria;
 
     /**
      * Cierra la sesión: los tokens emitidos antes dejan de valer (administradores y residentes con
@@ -134,6 +135,8 @@ public class AuthController {
             return ResponseEntity.badRequest().body(new MensajeError("La contraseña actual no es correcta"));
         }
         limitador.limpiar(clave);
+        // La huella activada con la contraseña anterior deja de servir
+        biometria.revocarTodas(sesion.getSubject());
         return ResponseEntity.noContent().build();
     }
 
