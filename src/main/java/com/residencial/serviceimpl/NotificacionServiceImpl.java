@@ -41,6 +41,7 @@ public class NotificacionServiceImpl implements NotificacionService {
     public static final String TIPO_CUOTA = "CUOTA";
     public static final String TIPO_REGISTRO = "REGISTRO";
     public static final String TIPO_PUBLICACION = "PUBLICACION";
+    public static final String TIPO_VISITA = "VISITA_PORTERIA";
     public static final String TIPO_SOLICITUD_ARRENDATARIO = "SOLICITUD_ARRENDATARIO";
     public static final String TIPO_COMPROBANTE = "COMPROBANTE";
     public static final String TIPO_CUOTA_PAGADA = "CUOTA_PAGADA";
@@ -80,8 +81,15 @@ public class NotificacionServiceImpl implements NotificacionService {
         return acceso.apartamentoActual().orElse(null);
     }
 
+    /** La portería no tiene avisos propios y no debe ver los de la administración. */
+    private boolean esPorteria() {
+        return acceso.tokenActual().map(t -> com.residencial.security.TokenService.ROL_PORTERIA
+                .equals(t.getClaimAsString(com.residencial.security.TokenService.CLAIM_ROL))).orElse(false);
+    }
+
     @Override
     public List<NotificacionDTO> listarRecientes() {
+        if (esPorteria()) return List.of();
         Long apto = apartamentoDeLaSesion();
         List<Notificacion> lista = apto == null
                 ? repo.findTop50ByDestinatarioApartamentoIdIsNullOrderByFechaDescIdDesc()
@@ -91,6 +99,7 @@ public class NotificacionServiceImpl implements NotificacionService {
 
     @Override
     public long contarNoLeidas() {
+        if (esPorteria()) return 0;
         Long apto = apartamentoDeLaSesion();
         return apto == null ? repo.countByLeidaFalseAndDestinatarioApartamentoIdIsNull()
                 : repo.countByLeidaFalseAndDestinatarioApartamentoId(apto);
@@ -99,6 +108,7 @@ public class NotificacionServiceImpl implements NotificacionService {
     @Override
     @Transactional
     public void marcarTodasLeidas() {
+        if (esPorteria()) return;
         Long apto = apartamentoDeLaSesion();
         if (apto == null) repo.marcarTodasLeidasAdmin(); else repo.marcarTodasLeidasApartamento(apto);
     }
@@ -106,6 +116,7 @@ public class NotificacionServiceImpl implements NotificacionService {
     @Override
     @Transactional
     public void eliminarTodas() {
+        if (esPorteria()) return;
         Long apto = apartamentoDeLaSesion();
         if (apto == null) repo.eliminarTodasAdmin(); else repo.eliminarTodasApartamento(apto);
     }
@@ -114,6 +125,7 @@ public class NotificacionServiceImpl implements NotificacionService {
     @Override
     @Transactional
     public void marcarLeida(Long id) {
+        if (esPorteria()) throw new RecursoNoEncontradoException("Notificación no encontrada");
         Long apto = apartamentoDeLaSesion();
         int cambiadas = apto == null ? repo.marcarLeidaAdmin(id) : repo.marcarLeidaApartamento(id, apto);
         if (cambiadas == 0) throw new RecursoNoEncontradoException("Notificación no encontrada");
@@ -122,6 +134,7 @@ public class NotificacionServiceImpl implements NotificacionService {
     @Override
     @Transactional
     public void eliminar(Long id) {
+        if (esPorteria()) throw new RecursoNoEncontradoException("Notificación no encontrada");
         Long apto = apartamentoDeLaSesion();
         int borradas = apto == null ? repo.eliminarAdmin(id) : repo.eliminarApartamento(id, apto);
         if (borradas == 0) throw new RecursoNoEncontradoException("Notificación no encontrada");
@@ -229,6 +242,12 @@ public class NotificacionServiceImpl implements NotificacionService {
         String texto = p.getTexto().isBlank() ? "Nueva publicación con adjuntos" : p.getTexto().replaceAll("\\s+", " ");
         String resumen = "Nueva publicación de la administración — " + (texto.length() > 90 ? texto.substring(0, 90) + "…" : texto);
         for (Long apto : apartamentos) crear(TIPO_PUBLICACION, resumen, p.getId(), apto, apto);
+    }
+
+    @Override
+    public void avisarVisita(com.residencial.model.VisitaPorteria v) {
+        crear(TIPO_VISITA, "Visita en portería: " + v.getVisitanteNombre() + ". Autorízala o recházala en 2 minutos",
+                v.getId(), v.getApartamento().getId(), v.getApartamento().getId());
     }
 
     // Al guardarla también sale el aviso a los celulares de quien la recibe (AvisosPush)

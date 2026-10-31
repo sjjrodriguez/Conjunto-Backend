@@ -6,9 +6,13 @@ import com.residencial.exception.RecursoNoEncontradoException;
 import com.residencial.model.Apartamento;
 import com.residencial.model.Publicacion;
 import com.residencial.model.PublicacionAdjunto;
+import com.residencial.model.PublicacionLectura;
 import com.residencial.repository.ApartamentoRepository;
+import com.residencial.repository.PublicacionLecturaRepository;
 import com.residencial.repository.PublicacionRepository;
 import com.residencial.security.AccesoService;
+import com.residencial.security.TokenService;
+import org.springframework.security.oauth2.jwt.Jwt;
 import com.residencial.service.NotificacionService;
 import com.residencial.service.PublicacionService;
 import org.slf4j.Logger;
@@ -54,11 +58,14 @@ public class PublicacionServiceImpl implements PublicacionService {
     private final NotificacionService notificaciones;
     private final AlmacenArchivos almacen;
     private final ZoneId zonaHoraria;
+    private final PublicacionLecturaRepository lecturas;
 
     public PublicacionServiceImpl(PublicacionRepository repo, ApartamentoRepository aptoRepo,
                                   AccesoService acceso, NotificacionService notificaciones,
                                   @Qualifier("almacenPublicaciones") AlmacenArchivos almacen,
+                                  PublicacionLecturaRepository lecturas,
                                   @Value("${app.zona-horaria:America/Bogota}") String zonaHoraria) {
+        this.lecturas = lecturas;
         this.repo = repo;
         this.aptoRepo = aptoRepo;
         this.acceso = acceso;
@@ -70,20 +77,29 @@ public class PublicacionServiceImpl implements PublicacionService {
     @Override
     @Transactional(readOnly = true)
     public PublicacionDTO.Pagina listar(int pagina) {
-        Page<Publicacion> page = repo.findAllByOrderByCreadaEnDescIdDesc(PageRequest.of(Math.max(pagina, 0), POR_PAGINA));
+        Jwt token = acceso.tokenActual().orElse(null);
+        String rol = token == null ? "" : token.getClaimAsString(TokenService.CLAIM_ROL);
+        // La administración y el contador ven todo; un residente, lo dirigido a su rol y a su torre
+        boolean todo = token == null || TokenService.ROL_ADMIN.equals(rol) || TokenService.ROL_CONTADOR.equals(rol);
+        String audiencia = TokenService.ROL_ARRENDATARIO.equals(rol) ? "ARRENDATARIOS" : "PROPIETARIOS";
+        String torre = todo ? "" : acceso.apartamentoActual().flatMap(aptoRepo::findById).map(Apartamento::getTorre).orElse("");
+        Page<Publicacion> page = repo.feed(todo, audiencia, torre, PageRequest.of(Math.max(pagina, 0), POR_PAGINA));
         List<Long> ids = page.getContent().stream().map(Publicacion::getId).toList();
+        Set<Long> leidas = token == null || ids.isEmpty() ? Set.of()
+                : new HashSet<>(lecturas.leidasPor(token.getSubject(), ids));
         Map<Long, List<PublicacionAdjunto>> adjuntos = ids.isEmpty() ? Map.of()
                 : repo.adjuntosDe(ids).stream().collect(Collectors.groupingBy(a -> a.getPublicacion().getId()));
         // Todos los enlaces de la página en una sola petición al almacenamiento
         Map<String, String> enlaces = almacen.enlaces(adjuntos.values().stream().flatMap(List::stream)
                 .map(PublicacionAdjunto::getRuta).toList(), VIGENCIA);
         List<PublicacionDTO> lista = page.getContent().stream()
-                .map(p -> toDTO(p, adjuntos.getOrDefault(p.getId(), List.of()), enlaces)).toList();
+                .map(p -> toDTO(p, adjuntos.getOrDefault(p.getId(), List.of()), enlaces, leidas.contains(p.getId()))).toList();
         return new PublicacionDTO.Pagina(lista, page.hasNext());
     }
 
     @Override
-    public PublicacionDTO publicar(String texto, List<MultipartFile> archivos) {
+    public PublicacionDTO publicar(String texto, List<MultipartFile> archivos, String titulo, String categoria,
+                                   String audiencia, String torre, boolean fijado) {
         List<MultipartFile> lista = archivos == null ? List.of() : archivos.stream().filter(a -> a != null && !a.isEmpty()).toList();
         String limpio = texto == null ? "" : texto.trim();
         if (limpio.isEmpty() && lista.isEmpty()) throw invalido("Escribe algo o adjunta una imagen o un archivo");
@@ -92,6 +108,11 @@ public class PublicacionServiceImpl implements PublicacionService {
 
         Publicacion p = new Publicacion();
         p.setTexto(limpio);
+        p.setTitulo(titulo(titulo));
+        p.setCategoria(valor(categoria, Publicacion.CATEGORIAS, "GENERAL", "La categoría no es válida"));
+        p.setAudiencia(valor(audiencia, Publicacion.AUDIENCIAS, "TODOS", "La audiencia no es válida"));
+        p.setTorre(torre == null || torre.isBlank() ? null : torre.trim());
+        p.setFijado(fijado);
         p.setCreadaEn(LocalDateTime.now(zonaHoraria));
         p.setAutorId(idAdministrador());
         // Hasta que las cuentas tengan nombre (P5 bloque 7), firma la administración
@@ -121,36 +142,83 @@ public class PublicacionServiceImpl implements PublicacionService {
             throw e;
         }
         Publicacion guardada = repo.save(p);
-        notificaciones.avisarPublicacion(guardada, aptoRepo.findAll().stream().map(Apartamento::getId).toList());
+        // El aviso solo les llega a los apartamentos a los que va dirigida
+        notificaciones.avisarPublicacion(guardada, aptoRepo.findAll().stream()
+                .filter(a -> guardada.getTorre() == null || guardada.getTorre().equals(a.getTorre()))
+                .filter(a -> !"ARRENDATARIOS".equals(guardada.getAudiencia())
+                        || Apartamento.OCUPA_ARRENDATARIO.equals(a.getTipoOcupacion()))
+                .map(Apartamento::getId).toList());
         Map<String, String> enlaces = almacen.enlaces(subidas, VIGENCIA);
-        return toDTO(guardada, guardada.getAdjuntos(), enlaces);
+        return toDTO(guardada, guardada.getAdjuntos(), enlaces, false);
     }
 
     @Override
-    public PublicacionDTO editar(Long id, String texto) {
+    public PublicacionDTO editar(Long id, PublicacionDTO.Edicion e) {
         Publicacion p = buscar(id);
-        String limpio = texto == null ? "" : texto.trim();
+        String limpio = e.texto() == null ? p.getTexto() : e.texto().trim();
         if (limpio.isEmpty() && p.getAdjuntos().isEmpty()) throw invalido("La publicación no puede quedar vacía");
         if (limpio.length() > LARGO_MAXIMO) throw invalido("El texto puede tener máximo " + LARGO_MAXIMO + " caracteres");
         p.setTexto(limpio);
+        if (e.titulo() != null) p.setTitulo(titulo(e.titulo()));
+        if (e.categoria() != null) p.setCategoria(valor(e.categoria(), Publicacion.CATEGORIAS, "GENERAL", "La categoría no es válida"));
+        if (e.audiencia() != null) p.setAudiencia(valor(e.audiencia(), Publicacion.AUDIENCIAS, "TODOS", "La audiencia no es válida"));
+        if (e.torre() != null) p.setTorre(e.torre().isBlank() ? null : e.torre().trim());
+        if (e.fijado() != null) p.setFijado(e.fijado());
         p.setEditadaEn(LocalDateTime.now(zonaHoraria));
-        Publicacion guardada = repo.save(p);
-        Map<String, String> enlaces = almacen.enlaces(guardada.getAdjuntos().stream().map(PublicacionAdjunto::getRuta).toList(), VIGENCIA);
-        return toDTO(guardada, guardada.getAdjuntos(), enlaces);
+        return guardarYMostrar(p);
+    }
+
+    @Override
+    public PublicacionDTO fijar(Long id, boolean fijado) {
+        Publicacion p = buscar(id);
+        p.setFijado(fijado);
+        return guardarYMostrar(p);
+    }
+
+    @Override
+    public void marcarLeida(Long id) {
+        Publicacion p = buscar(id);
+        String sujeto = acceso.tokenActual().map(Jwt::getSubject).orElse(null);
+        if (sujeto == null) return;
+        PublicacionLectura.Clave clave = new PublicacionLectura.Clave(p.getId(), sujeto);
+        if (!lecturas.existsById(clave)) {
+            lecturas.save(new PublicacionLectura(p.getId(), sujeto, LocalDateTime.now(zonaHoraria)));
+        }
     }
 
     @Override
     public void eliminar(Long id) {
         Publicacion p = buscar(id);
         List<String> rutas = p.getAdjuntos().stream().map(PublicacionAdjunto::getRuta).toList();
+        lecturas.borrarDe(p.getId());
         repo.delete(p);
         borrarSinFallar(rutas);
     }
 
-    private PublicacionDTO toDTO(Publicacion p, List<PublicacionAdjunto> adjuntos, Map<String, String> enlaces) {
+    private PublicacionDTO guardarYMostrar(Publicacion p) {
+        Publicacion guardada = repo.save(p);
+        Map<String, String> enlaces = almacen.enlaces(guardada.getAdjuntos().stream().map(PublicacionAdjunto::getRuta).toList(), VIGENCIA);
+        return toDTO(guardada, guardada.getAdjuntos(), enlaces, false);
+    }
+
+    private PublicacionDTO toDTO(Publicacion p, List<PublicacionAdjunto> adjuntos, Map<String, String> enlaces, boolean leida) {
         return new PublicacionDTO(p.getId(), p.getTexto(), p.getAutorNombre(), p.getCreadaEn(), p.getEditadaEn(),
                 adjuntos.stream().map(a -> new PublicacionDTO.Adjunto(a.getId(), a.getTipo(), a.getNombre(), a.getMime(),
-                        a.getTamano(), enlaces.get(a.getRuta()))).toList());
+                        a.getTamano(), enlaces.get(a.getRuta()))).toList(),
+                p.getTitulo(), p.getCategoria(), p.getAudiencia(), p.getTorre(), p.isFijado(), leida);
+    }
+
+    private static String titulo(String t) {
+        String limpio = t == null ? "" : t.trim();
+        if (limpio.length() > 150) throw invalido("El título puede tener máximo 150 caracteres");
+        return limpio.isEmpty() ? null : limpio;
+    }
+
+    private static String valor(String v, List<String> validos, String porDefecto, String error) {
+        if (v == null || v.isBlank()) return porDefecto;
+        String mayus = v.trim().toUpperCase(Locale.ROOT);
+        if (!validos.contains(mayus)) throw invalido(error);
+        return mayus;
     }
 
     private Publicacion buscar(Long id) {

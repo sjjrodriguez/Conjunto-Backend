@@ -34,6 +34,13 @@ public class Dispositivo {
     @JoinColumn(name = "apartamento_id", foreignKey = @ForeignKey(name = "fk_dispositivo_apartamento"))
     private Apartamento apartamento;
 
+    // P6: qué app registró el celular (ADMIN o RESIDENTE) y su applicationId; null = app anterior
+    @Column(name = "tipo_app", length = 20)
+    private String tipoApp;
+
+    @Column(name = "application_id", length = 100)
+    private String applicationId;
+
     // Hora de Colombia de la última vez que el celular lo registró
     @Column(nullable = false)
     private LocalDateTime actualizado;

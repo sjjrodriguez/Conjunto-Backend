@@ -21,7 +21,7 @@ public enum Catalogo {
     ESTADO_VEHICULO("El estado del vehículo", List.of("PENDIENTE", "APROBADO", "RECHAZADO")),
     ESTADO_RESIDENTE("El estado del residente", List.of("PENDIENTE", "APROBADO", "RECHAZADO")),
     ESTADO_CUOTA("El estado de la cuota", List.of("PENDIENTE", "EN_REVISION", "PAGADA", "RECHAZADA")),
-    ROL_ADMINISTRACION("El rol de la cuenta", List.of("ADMIN", "CONTADOR")),
+    ROL_ADMINISTRACION("El rol de la cuenta", List.of("ADMIN", "CONTADOR", "PORTERIA")),
     ESTADO_CUENTA("El estado de cuenta", List.of("Al Día", "En Mora"));
 
     private final String campo;

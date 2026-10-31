@@ -33,6 +33,20 @@ public class AuthController {
     private final AccesoService acceso;
     private final RegistroService registro;
     private final com.residencial.repository.AdministradorRepository adminRepo;
+    private final com.residencial.security.SesionVersion sesiones;
+    private final com.residencial.service.BiometriaService biometria;
+
+    /**
+     * Cierra la sesión: los tokens emitidos antes dejan de valer (administradores y residentes con
+     * cuenta propia). La clave del apartamento es de todos los que viven ahí, así que no se toca.
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout() {
+        Jwt sesion = acceso.tokenActual()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Debes iniciar sesión"));
+        sesiones.cerrar(sesion.getSubject());
+        return ResponseEntity.noContent().build();
+    }
 
     @PostMapping("/admin/login")
     public ResponseEntity<?> loginAdmin(@RequestBody LoginDTO.AdminLoginRequest request, HttpServletRequest http) {
@@ -121,6 +135,8 @@ public class AuthController {
             return ResponseEntity.badRequest().body(new MensajeError("La contraseña actual no es correcta"));
         }
         limitador.limpiar(clave);
+        // La huella activada con la contraseña anterior deja de servir
+        biometria.revocarTodas(sesion.getSubject());
         return ResponseEntity.noContent().build();
     }
 

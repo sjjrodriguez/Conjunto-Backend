@@ -4,6 +4,12 @@ import com.jayway.jsonpath.JsonPath;
 import com.residencial.model.Administrador;
 import com.residencial.model.Apartamento;
 import com.residencial.model.Pago;
+import com.residencial.model.Residente;
+import com.residencial.repository.ResidenteRepository;
+import org.springframework.http.HttpMethod;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import com.residencial.repository.AdministradorRepository;
 import com.residencial.repository.ApartamentoRepository;
 import com.residencial.repository.PagoRepository;
@@ -31,6 +37,7 @@ class SeguridadIntegrationTest {
     @Autowired AdministradorRepository adminRepo;
     @Autowired ApartamentoRepository aptoRepo;
     @Autowired PagoRepository pagoRepo;
+    @Autowired ResidenteRepository residenteRepo;
     @Autowired VehiculoRepository vehiculoRepo;
     @Autowired PasswordEncoder encoder;
 
@@ -39,6 +46,7 @@ class SeguridadIntegrationTest {
 
     @BeforeEach
     void datos() {
+        residenteRepo.deleteAll();
         vehiculoRepo.deleteAll();
         pagoRepo.deleteAll();
         aptoRepo.deleteAll();
@@ -210,6 +218,105 @@ class SeguridadIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.contrasena").doesNotExist());
         loginApto("1", "101", "clave101").andExpect(status().isOk());
+    }
+
+    // ─── Matriz de roles (P6) ────────────────────────────────────────────────
+
+    /**
+     * Cada fila: método, ruta, cuerpo y los roles que SÍ pasan (cualquier respuesta distinta de 401/403:
+     * después puede ser 404 o 400 por los datos de prueba). El resto debe recibir exactamente 403.
+     */
+    @Test
+    void matrizDeRolesPorEndpoint() throws Exception {
+        adminRepo.save(new Administrador(null, "conta", encoder.encode("conta123"), Administrador.CONTADOR));
+        adminRepo.save(new Administrador(null, "porte", encoder.encode("porte123"), Administrador.PORTERIA));
+        residenteRepo.save(new Residente(null, "Pedro Arrienda", "3002223344", "2222222", "ARRENDATARIO",
+                aptoRepo.findById(apto1).orElseThrow(), encoder.encode("arrienda1"), Residente.APROBADO));
+        try {
+            Map<String, String> tokens = new LinkedHashMap<>();
+            tokens.put("ADMIN", bearer(tokenAdmin()));
+            tokens.put("CONTADOR", bearer(token(loginAdmin("conta", "conta123"))));
+            tokens.put("PORTERIA", bearer(token(loginAdmin("porte", "porte123"))));
+            tokens.put("PROPIETARIO", bearer(tokenApto("1", "101", "clave101")));
+            tokens.put("ARRENDATARIO", bearer(token(mvc.perform(post("/api/auth/residente/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"torre\":\"1\",\"apto\":\"101\",\"rol\":\"ARRENDATARIO\",\"contrasena\":\"arrienda1\"}")))));
+
+            String json = "{}";
+            String[][] filas = {
+                    // Administración
+                    {"GET", "/api/apartamentos", null, "ADMIN,CONTADOR"},
+                    {"GET", "/api/residentes", null, "ADMIN"},
+                    {"GET", "/api/vehiculos", null, "ADMIN"},
+                    {"GET", "/api/obras", null, "ADMIN"},
+                    {"GET", "/api/reservas", null, "ADMIN"},
+                    {"GET", "/api/administradores", null, "ADMIN"},
+                    // Cartera: el contador lee y propone; editar o borrar una cuota es del administrador
+                    {"GET", "/api/cuotas?periodo=2026-11", null, "ADMIN,CONTADOR"},
+                    {"GET", "/api/cuotas/apartamento/" + apto1, null, "ADMIN,CONTADOR,PROPIETARIO"},
+                    {"PUT", "/api/cuotas/99999", json, "ADMIN"},
+                    {"DELETE", "/api/cuotas/99999", null, "ADMIN"},
+                    // Feed y publicaciones
+                    {"GET", "/api/publicaciones", null, "ADMIN,CONTADOR,PROPIETARIO,ARRENDATARIO"},
+                    {"PATCH", "/api/publicaciones/99999/fijar", "{\"fijado\":true}", "ADMIN"},
+                    {"POST", "/api/publicaciones/99999/lectura", null, "ADMIN,CONTADOR,PROPIETARIO,ARRENDATARIO"},
+                    // Portería
+                    {"GET", "/api/porteria/visitas", null, "ADMIN,PORTERIA"},
+                    {"POST", "/api/porteria/visitas", "{\"torre\":\"1\",\"apto\":\"999\",\"visitante\":\"X\"}", "ADMIN,PORTERIA"},
+                    {"GET", "/api/porteria/visitas/pendientes", null, "PROPIETARIO,ARRENDATARIO"},
+                    {"PATCH", "/api/porteria/visitas/99999/respuesta", "{\"decision\":\"AUTORIZAR\"}", "ADMIN,PORTERIA,PROPIETARIO,ARRENDATARIO"},
+                    // Personal y presupuesto del conjunto: solo el administrador; el contador lee el resumen
+                    {"GET", "/api/personal-conjunto/trabajadores", null, "ADMIN"},
+                    {"POST", "/api/personal-conjunto/nomina/generar?periodo=2026-11", null, "ADMIN"},
+                    {"GET", "/api/personal-conjunto/presupuesto/resumen?periodo=2026-11", null, "ADMIN,CONTADOR"},
+                    // Datos personales y textos legales
+                    {"GET", "/api/solicitudes-datos", null, "ADMIN"},
+                    {"GET", "/api/solicitudes-datos/mias", null, "ADMIN,CONTADOR,PORTERIA,PROPIETARIO,ARRENDATARIO"},
+                    {"GET", "/api/legal/pendientes", null, "ADMIN,CONTADOR,PORTERIA,PROPIETARIO,ARRENDATARIO"},
+                    // Avisos y cuenta: la portería también
+                    {"GET", "/api/notificaciones", null, "ADMIN,CONTADOR,PORTERIA,PROPIETARIO,ARRENDATARIO"},
+                    {"POST", "/api/auth/logout", null, "ADMIN,CONTADOR,PORTERIA,PROPIETARIO,ARRENDATARIO"},
+            };
+            for (String[] fila : filas) {
+                for (Map.Entry<String, String> rol : tokens.entrySet()) {
+                    // El cierre de sesión invalida el token: va al final y con uno nuevo
+                    var peticion = request(HttpMethod.valueOf(fila[0]), fila[1])
+                            .header("Authorization", rol.getValue()).contentType(MediaType.APPLICATION_JSON);
+                    if (fila[2] != null) peticion.content(fila[2]);
+                    int estado = mvc.perform(peticion).andReturn().getResponse().getStatus();
+                    boolean permitido = Arrays.asList(fila[3].split(",")).contains(rol.getKey());
+                    String que = rol.getKey() + " " + fila[0] + " " + fila[1] + " -> " + estado;
+                    if (permitido) assertThat(estado).as(que).isNotIn(401, 403);
+                    else assertThat(estado).as(que).isEqualTo(403);
+                    // La clave del apartamento la comparten todos los que viven ahí: su logout no invalida el token
+                    if (fila[1].equals("/api/auth/logout") && !rol.getKey().equals("PROPIETARIO")) {
+                        // Con la sesión cerrada, el mismo token ya no vale
+                        mvc.perform(get("/api/notificaciones").header("Authorization", rol.getValue()))
+                                .andExpect(status().isUnauthorized());
+                    }
+                }
+            }
+        } finally {
+            residenteRepo.deleteAll();
+        }
+    }
+
+    @Test
+    void lasRutasPublicasYLasProtegidasSinTokenResponden401() throws Exception {
+        // Públicas
+        mvc.perform(get("/api/legal/textos")).andExpect(status().isOk());
+        // El webhook no tiene sesión: sin firma de Wompi válida es 401, nunca 200
+        mvc.perform(post("/api/pagos/webhook/wompi").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isUnauthorized());
+        // Protegidas
+        for (String ruta : new String[]{"/api/porteria/visitas", "/api/personal-conjunto/trabajadores", "/api/publicaciones",
+                "/api/solicitudes-datos", "/api/legal/pendientes"}) {
+            mvc.perform(get(ruta)).andExpect(status().isUnauthorized());
+        }
+        mvc.perform(post("/api/pagos/checkout").contentType(MediaType.APPLICATION_JSON).content("{\"cuotaId\":1}"))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/auth/biometria/activar").contentType(MediaType.APPLICATION_JSON).content("{\"dispositivoId\":\"x\"}"))
+                .andExpect(status().isUnauthorized());
     }
 
     // ─── Utilidades ──────────────────────────────────────────────────────────

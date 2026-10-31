@@ -22,8 +22,10 @@ public class DispositivoController {
     private final DispositivoService service;
 
     @PostMapping
-    public ResponseEntity<Void> registrar(@Valid @RequestBody DispositivoRequest request) {
-        service.registrar(request.getToken());
+    public ResponseEntity<Void> registrar(@Valid @RequestBody DispositivoRequest request,
+                                          @org.springframework.web.bind.annotation.RequestHeader(value = "X-App-Tipo", required = false) String app) {
+        service.registrar(request.getToken(), request.getTipoApp() != null ? request.getTipoApp() : app,
+                request.getApplicationId());
         return ResponseEntity.noContent().build();
     }
 

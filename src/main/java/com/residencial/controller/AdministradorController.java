@@ -33,7 +33,7 @@ import java.util.regex.Pattern;
 public class AdministradorController {
 
     private static final Pattern CORREO = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
-    private static final List<String> ROLES = List.of(Administrador.ADMIN, Administrador.CONTADOR);
+    private static final List<String> ROLES = List.of(Administrador.ADMIN, Administrador.CONTADOR, Administrador.PORTERIA);
 
     private final AdministradorRepository repo;
     private final CupoEquipoRepository cupos;
@@ -201,7 +201,7 @@ public class AdministradorController {
     }
 
     private static String etiqueta(String rol) {
-        return Administrador.CONTADOR.equals(rol) ? "contador" : "asistente";
+        return Administrador.CONTADOR.equals(rol) ? "contador" : Administrador.PORTERIA.equals(rol) ? "portería" : "asistente";
     }
 
     private static String limpio(String s) {

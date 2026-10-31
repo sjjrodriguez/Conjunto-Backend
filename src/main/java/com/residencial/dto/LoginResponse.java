@@ -22,4 +22,14 @@ public class LoginResponse {
     private Long residenteId; // solo si entró con su documento
     private String nombre;    // solo si entró con su documento
     private Boolean principal; // P5: solo admin; el principal maneja el equipo
+
+    // P6: solo residentes. Cómo está ocupado el apartamento y qué le deja ver la administración al arrendatario
+    private String tipoOcupacion;
+    private Boolean arrendatarioVeCartera;
+    private Boolean arrendatarioPuedePagar;
+    private Boolean arrendatarioVeObras;
+    // Si solo la administración registra vehículos (ajuste del conjunto)
+    private Boolean vehiculosAltaSoloAdmin;
+    // Hay una versión de los términos o de la política que esta cuenta aún no acepta
+    private Boolean consentimientosPendientes;
 }

@@ -24,6 +24,7 @@ public class PagoServiceImpl implements PagoService {
     private final ApartamentoRepository aptoRepo;
     private final CuotaRepository cuotaRepo;
     private final AccesoService acceso;
+    private final com.residencial.security.AccesoArrendatario arrendatario;
 
     private PagoDTO toDTO(Pago p) {
         return new PagoDTO(p.getId(), p.getSaldoPendiente(),
@@ -39,12 +40,14 @@ public class PagoServiceImpl implements PagoService {
     @Override
     public PagoDTO consultarPorApartamento(Long apartamentoId) {
         acceso.verificarApartamentoOCartera(apartamentoId);
+        arrendatario.exigirVerCartera(apartamentoId);
         return repo.findByApartamentoId(apartamentoId).map(this::toDTO).orElse(null);
     }
 
     @Override
     public PagoDTO simularPago(Long apartamentoId) {
         acceso.verificarApartamento(apartamentoId);
+        arrendatario.exigirPoderPagar(apartamentoId);
         return repo.findByApartamentoId(apartamentoId).map(p -> {
             if (p.getSaldoPendiente() <= 0) {
                 throw new IllegalStateException("El saldo ya está en cero. No hay pago pendiente.");

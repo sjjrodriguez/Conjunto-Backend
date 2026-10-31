@@ -43,7 +43,7 @@ public class SecurityConfig {
     private final ObjectMapper objectMapper;
     private final AuthenticationTrustResolver trustResolver = new AuthenticationTrustResolverImpl();
 
-    public SecurityConfig(@Value("${app.security.enforce:false}") boolean enforce, ObjectMapper objectMapper) {
+    public SecurityConfig(@Value("${app.security.enforce:true}") boolean enforce, ObjectMapper objectMapper) {
         this.enforce = enforce;
         this.objectMapper = objectMapper;
     }
@@ -67,7 +67,19 @@ public class SecurityConfig {
                 .jwt(j -> j.decoder(jwtDecoder).jwtAuthenticationConverter(jwtAuthenticationConverter())))
             .authorizeHttpRequests(a -> a
                 .requestMatchers("/error").permitAll()
+                // Cerrar sesión necesita la sesión que se cierra; el resto de /api/auth (login, registro) es público
+                .requestMatchers(HttpMethod.POST, "/api/auth/logout").access(sesion())
+                .requestMatchers(HttpMethod.PUT, "/api/auth/contrasena").access(sesion())
+                // P6: activar y quitar la huella piden sesión; entrar con ella (biometria/login) es público
+                .requestMatchers(HttpMethod.POST, "/api/auth/biometria/activar").access(sesion())
+                .requestMatchers(HttpMethod.DELETE, "/api/auth/biometria").access(sesion())
                 .requestMatchers(HttpMethod.POST, "/api/auth/**").permitAll()
+                // P6: textos legales públicos; consentimientos y solicitudes de datos, de cualquier sesión
+                .requestMatchers(HttpMethod.GET, "/api/legal/textos").permitAll()
+                .requestMatchers("/api/legal/**").access(sesion())
+                .requestMatchers(HttpMethod.POST, "/api/solicitudes-datos").access(sesion())
+                .requestMatchers(HttpMethod.GET, "/api/solicitudes-datos/mias").access(sesion())
+                .requestMatchers("/api/solicitudes-datos", "/api/solicitudes-datos/**").access(admin())
                 // Estado del servicio para Render (sin detalles); el resto de actuator no está expuesto
                 .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
                 // Solo responden si SWAGGER_ENABLED=true
@@ -124,6 +136,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/reservas", "/api/reservas/**").access(autenticado())
 
                 // Pagos
+                // P6: pago en línea. El webhook de Wompi es público y se valida por su firma
+                .requestMatchers(HttpMethod.POST, "/api/pagos/webhook/wompi").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/pagos/checkout").access(residentes())
                 .requestMatchers(HttpMethod.GET, "/api/pagos/apartamento/*").access(autenticado())
                 .requestMatchers(HttpMethod.PUT, "/api/pagos/apartamento/*/simular").access(autenticado())
                 .requestMatchers("/api/pagos", "/api/pagos/**").access(cartera())
@@ -132,9 +147,16 @@ public class SecurityConfig {
                 // (CuotaServiceImpl comprueba el apartamento); generar y revisar es del contador
                 .requestMatchers(HttpMethod.GET, "/api/cuotas/apartamento/*", "/api/cuotas/*/comprobante").access(autenticado())
                 .requestMatchers(HttpMethod.POST, "/api/cuotas/*/comprobante").access(autenticado())
+                // P6: el contador lee y propone (generar, revisar → solicitudes); editar o borrar una cuota es del administrador
+                .requestMatchers(HttpMethod.PUT, "/api/cuotas/*").access(admin())
+                .requestMatchers(HttpMethod.DELETE, "/api/cuotas/*").access(admin())
                 .requestMatchers("/api/cuotas", "/api/cuotas/**").access(cartera())
                 // Enlaces firmados del almacenamiento local (demo): la firma hace de permiso
                 .requestMatchers(HttpMethod.GET, "/api/archivos/local").permitAll()
+
+                // Personal y presupuesto del conjunto (P6): solo el administrador; el contador lee el resumen
+                .requestMatchers(HttpMethod.GET, "/api/personal-conjunto/presupuesto/resumen").access(cartera())
+                .requestMatchers("/api/personal-conjunto", "/api/personal-conjunto/**").access(admin())
 
                 // Cuentas de la administración (administradores y contador)
                 // Solo el principal (AdministradorController lo comprueba); los asistentes son ADMIN
@@ -148,13 +170,19 @@ public class SecurityConfig {
 
                 // Notificaciones
                 // Cada uno ve las suyas: el administrador, las suyas; un residente, las de su apartamento
-                .requestMatchers("/api/notificaciones", "/api/notificaciones/**").access(autenticado())
+                .requestMatchers("/api/notificaciones", "/api/notificaciones/**").access(sesion())
+                // Portería (P6): la portería registra y consulta; el residente responde las de su apartamento
+                .requestMatchers(HttpMethod.GET, "/api/porteria/visitas/pendientes").access(residentes())
+                .requestMatchers(HttpMethod.PATCH, "/api/porteria/visitas/*/respuesta").access(respondeVisita())
+                .requestMatchers("/api/porteria", "/api/porteria/**").access(portero())
                 // Celulares que reciben avisos: cualquiera con sesión (DispositivoServiceImpl la exige).
                 // La baja no pide sesión: se hace al cerrarla y basta con el token, que solo tiene ese celular
                 .requestMatchers(HttpMethod.POST, "/api/dispositivos/baja").permitAll()
-                .requestMatchers("/api/dispositivos", "/api/dispositivos/**").access(autenticado())
+                .requestMatchers("/api/dispositivos", "/api/dispositivos/**").access(sesion())
                 // Feed (P5): lo ven todos; publica, edita y borra la administración
-                .requestMatchers(HttpMethod.GET, "/api/publicaciones").access(autenticado())
+                // P6: la portería no ve el feed; abrir una publicación la marca como leída
+                .requestMatchers(HttpMethod.GET, "/api/publicaciones").access(sinPorteria())
+                .requestMatchers(HttpMethod.POST, "/api/publicaciones/*/lectura").access(sinPorteria())
                 .requestMatchers("/api/publicaciones", "/api/publicaciones/**").access(admin())
                 // Visitantes frecuentes: cada apartamento los suyos (VisitanteController lo comprueba)
                 .requestMatchers("/api/visitantes", "/api/visitantes/**").access(autenticado())
@@ -172,8 +200,39 @@ public class SecurityConfig {
         return regla(AuthorityAuthorizationManager.hasAnyRole(TokenService.ROL_ADMIN, TokenService.ROL_CONTADOR));
     }
 
+    private AuthorizationManager<RequestAuthorizationContext> sinPorteria() {
+        return regla(AuthorityAuthorizationManager.hasAnyRole(TokenService.ROL_ADMIN, TokenService.ROL_CONTADOR,
+                TokenService.ROL_PROPIETARIO, TokenService.ROL_ARRENDATARIO));
+    }
+
+    /** Cualquier sesión menos la portería: la portería solo ve lo suyo (P6). */
     private AuthorizationManager<RequestAuthorizationContext> autenticado() {
+        return regla((auth, ctx) -> {
+            AuthorizationDecision autenticado = AuthenticatedAuthorizationManager.authenticated().check(auth, ctx);
+            boolean porteria = auth.get().getAuthorities().stream()
+                    .anyMatch(a -> ("ROLE_" + TokenService.ROL_PORTERIA).equals(a.getAuthority()));
+            return new AuthorizationDecision(autenticado != null && autenticado.isGranted() && !porteria);
+        });
+    }
+
+    /** Cualquier sesión, también la portería: cuenta, avisos, legal. */
+    private AuthorizationManager<RequestAuthorizationContext> sesion() {
         return regla(AuthenticatedAuthorizationManager.authenticated());
+    }
+
+    /** Administración y portería. */
+    private AuthorizationManager<RequestAuthorizationContext> portero() {
+        return regla(AuthorityAuthorizationManager.hasAnyRole(TokenService.ROL_ADMIN, TokenService.ROL_PORTERIA));
+    }
+
+    /** Quien puede responder una visita: la administración, la portería (por llamada) y los residentes. */
+    private AuthorizationManager<RequestAuthorizationContext> respondeVisita() {
+        return regla(AuthorityAuthorizationManager.hasAnyRole(TokenService.ROL_ADMIN, TokenService.ROL_PORTERIA,
+                TokenService.ROL_PROPIETARIO, TokenService.ROL_ARRENDATARIO));
+    }
+
+    private AuthorizationManager<RequestAuthorizationContext> residentes() {
+        return regla(AuthorityAuthorizationManager.hasAnyRole(TokenService.ROL_PROPIETARIO, TokenService.ROL_ARRENDATARIO));
     }
 
     /**

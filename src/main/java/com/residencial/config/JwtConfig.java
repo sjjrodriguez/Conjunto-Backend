@@ -7,7 +7,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import com.residencial.security.SesionVersion;
+import com.residencial.security.VersionTokenValidator;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
@@ -36,8 +40,12 @@ public class JwtConfig {
     }
 
     @Bean
-    public JwtDecoder jwtDecoder(SecretKey jwtClave) {
-        return NimbusJwtDecoder.withSecretKey(jwtClave).macAlgorithm(MacAlgorithm.HS256).build();
+    public JwtDecoder jwtDecoder(SecretKey jwtClave, SesionVersion sesiones) {
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtClave).macAlgorithm(MacAlgorithm.HS256).build();
+        // Además de firma y caducidad: que la sesión no se haya cerrado ni la cuenta dado de baja
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                JwtValidators.createDefault(), new VersionTokenValidator(sesiones)));
+        return decoder;
     }
 
     @Bean

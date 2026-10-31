@@ -36,7 +36,7 @@ public class DispositivoServiceImpl implements DispositivoService {
 
     @Override
     @Transactional
-    public void registrar(String token) {
+    public void registrar(String token, String tipoApp, String applicationId) {
         // Hace falta saber de quién es el celular: aun en modo transición, exige sesión
         Jwt sesion = acceso.tokenActual()
                 .orElseThrow(() -> new AccessDeniedException("Debes iniciar sesión"));
@@ -48,6 +48,11 @@ public class DispositivoServiceImpl implements DispositivoService {
         d.setApartamento(TokenService.ROL_ADMIN.equals(rol) || TokenService.ROL_CONTADOR.equals(rol) ? null
                 : sesion.getClaim(TokenService.CLAIM_APARTAMENTO) instanceof Number id
                         ? apartamentos.getReferenceById(id.longValue()) : null);
+        // Sin dato (app anterior) se deduce del rol: la app de administración solo la usa el personal
+        boolean personal = TokenService.ROL_ADMIN.equals(rol) || TokenService.ROL_CONTADOR.equals(rol)
+                || TokenService.ROL_PORTERIA.equals(rol);
+        d.setTipoApp(tipoApp == null || tipoApp.isBlank() ? (personal ? "ADMIN" : "RESIDENTE") : tipoApp.trim().toUpperCase());
+        d.setApplicationId(applicationId == null || applicationId.isBlank() ? null : applicationId.trim());
         d.setActualizado(LocalDateTime.now(zonaHoraria));
         repo.save(d);
     }

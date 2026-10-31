@@ -38,7 +38,12 @@ public class ApartamentoServiceImpl implements ApartamentoService {
     private final CupoApartamentoRepository cuposApto;
 
     private ApartamentoDTO toDTO(Apartamento a) {
-        return new ApartamentoDTO(a.getId(), a.getTorre(), a.getApto());
+        ApartamentoDTO dto = new ApartamentoDTO(a.getId(), a.getTorre(), a.getApto());
+        dto.setTipoOcupacion(a.getTipoOcupacion());
+        dto.setArrendatarioVeCartera(a.isArrendatarioVeCartera());
+        dto.setArrendatarioPuedePagar(a.isArrendatarioPuedePagar());
+        dto.setArrendatarioVeObras(a.isArrendatarioVeObras());
+        return dto;
     }
 
     /** Con citófonos (el primero, por defecto, el teléfono del propietario) y si está arrendado. */
@@ -47,7 +52,11 @@ public class ApartamentoServiceImpl implements ApartamentoService {
                 : residentes.findTitulares(a.getId(), Residente.PROPIETARIO).stream()
                         .filter(Residente::puedeEntrar).map(Residente::getTelefono).filter(t -> t != null && !t.isBlank())
                         .findFirst().orElse(null);
-        return new ApartamentoDTO(a.getId(), a.getTorre(), a.getApto(), citofono1, a.getCitofono2(), estado.arrendado(a.getId()));
+        ApartamentoDTO dto = toDTO(a);
+        dto.setCitofono1(citofono1);
+        dto.setCitofono2(a.getCitofono2());
+        dto.setArrendado(estado.arrendado(a.getId()));
+        return dto;
     }
 
     private String hashValidado(String contrasena) {
@@ -111,6 +120,22 @@ public class ApartamentoServiceImpl implements ApartamentoService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El teléfono del citófono no es válido");
         }
         return t;
+    }
+
+    @Override
+    public ApartamentoDTO cambiarOcupacionYBanderas(Long id, ApartamentoDTO.OcupacionYBanderas cambio) {
+        Apartamento a = repo.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("Apartamento no encontrado: " + id));
+        if (cambio.tipoOcupacion() != null) {
+            String tipo = cambio.tipoOcupacion().trim().toUpperCase(java.util.Locale.ROOT);
+            if (!List.of(Apartamento.OCUPA_PROPIETARIO, Apartamento.OCUPA_ARRENDATARIO, Apartamento.OCUPA_DESOCUPADO).contains(tipo)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La ocupación debe ser PROPIETARIO, ARRENDATARIO o DESOCUPADO");
+            }
+            a.setTipoOcupacion(tipo);
+        }
+        if (cambio.arrendatarioVeCartera() != null) a.setArrendatarioVeCartera(cambio.arrendatarioVeCartera());
+        if (cambio.arrendatarioPuedePagar() != null) a.setArrendatarioPuedePagar(cambio.arrendatarioPuedePagar());
+        if (cambio.arrendatarioVeObras() != null) a.setArrendatarioVeObras(cambio.arrendatarioVeObras());
+        return detalle(repo.save(a));
     }
 
     @Override

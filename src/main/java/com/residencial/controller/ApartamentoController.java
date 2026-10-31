@@ -47,6 +47,13 @@ public class ApartamentoController {
         return service.cambiarCitofonos(id, citofonos.citofono1(), citofonos.citofono2());
     }
 
+    /** P6: cómo está ocupado el apartamento y qué le deja ver/hacer la administración al arrendatario. */
+    @PatchMapping("/{id}/ocupacion-y-banderas")
+    public ApartamentoDTO cambiarOcupacionYBanderas(@PathVariable Long id,
+                                                    @RequestBody ApartamentoDTO.OcupacionYBanderas cambio) {
+        return service.cambiarOcupacionYBanderas(id, cambio);
+    }
+
     @PutMapping("/{id}/contrasena")
     public ResponseEntity<Void> cambiarContrasena(@PathVariable Long id,
                                                   @Valid @RequestBody CambioContrasenaRequest request) {

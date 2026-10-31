@@ -60,12 +60,15 @@ public class CuotaServiceImpl implements CuotaService {
     private final AlmacenArchivos almacen;
     private final ZoneId zonaHoraria;
     private final SolicitudContableRepository solicitudes;
+    private final com.residencial.security.AccesoArrendatario arrendatario;
 
     public CuotaServiceImpl(CuotaRepository repo, ApartamentoRepository aptoRepo, PagoRepository pagoRepo,
                             AccesoService acceso, NotificacionService notificaciones, AlmacenArchivos almacen,
                             @Value("${app.zona-horaria:America/Bogota}") String zonaHoraria,
-                            SolicitudContableRepository solicitudes) {
+                            SolicitudContableRepository solicitudes,
+                            com.residencial.security.AccesoArrendatario arrendatario) {
         this.solicitudes = solicitudes;
+        this.arrendatario = arrendatario;
         this.repo = repo;
         this.aptoRepo = aptoRepo;
         this.pagoRepo = pagoRepo;
@@ -108,6 +111,7 @@ public class CuotaServiceImpl implements CuotaService {
     @Transactional(readOnly = true)
     public List<CuotaDTO> listarPorApartamento(Long apartamentoId) {
         acceso.verificarApartamentoOCartera(apartamentoId);
+        arrendatario.exigirVerCartera(apartamentoId);
         return repo.findByApartamentoIdOrderByPeriodoDesc(apartamentoId).stream().map(this::toDTO).toList();
     }
 
@@ -160,6 +164,7 @@ public class CuotaServiceImpl implements CuotaService {
     public CuotaDTO subirComprobante(Long id, MultipartFile archivo) {
         Cuota c = buscar(id);
         acceso.verificarApartamento(c.getApartamento().getId());
+        arrendatario.exigirPoderPagar(c.getApartamento().getId());
         if (c.pagada()) throw invalido("Esta cuota ya está pagada");
         if (archivo == null || archivo.isEmpty()) throw invalido("Adjunta el comprobante");
         if (archivo.getSize() > TAMANO_MAXIMO) throw invalido("El comprobante no puede pasar de 5 MB");
@@ -193,6 +198,7 @@ public class CuotaServiceImpl implements CuotaService {
     public CuotaDTO.Enlace enlaceComprobante(Long id) {
         Cuota c = buscar(id);
         acceso.verificarApartamentoOCartera(c.getApartamento().getId());
+        arrendatario.exigirVerCartera(c.getApartamento().getId());
         if (c.getComprobanteRuta() == null) throw new RecursoNoEncontradoException("Esta cuota no tiene comprobante");
         return new CuotaDTO.Enlace(almacen.enlace(c.getComprobanteRuta(), VIGENCIA_ENLACE), c.getComprobanteTipo(),
                 LocalDateTime.now(zonaHoraria).plus(VIGENCIA_ENLACE));
@@ -220,6 +226,20 @@ public class CuotaServiceImpl implements CuotaService {
             default -> throw invalido("Indica si la cuota queda pagada o si rechazas el comprobante");
         }
         c.setEstado(nuevo);
+        Cuota guardada = repo.save(c);
+        recalcular(guardada.getApartamento());
+        notificaciones.avisarCuotaRevisada(guardada, nombreMes(guardada.getPeriodo()));
+        return toDTO(guardada);
+    }
+
+    @Override
+    public CuotaDTO registrarPagoEnLinea(Long cuotaId) {
+        Cuota c = repo.findById(cuotaId).orElse(null);
+        if (c == null) return null;
+        if (c.pagada()) return toDTO(c);
+        c.setEstado(Cuota.PAGADA);
+        c.setPagadaEn(LocalDateTime.now(zonaHoraria));
+        c.setMotivoRechazo(null);
         Cuota guardada = repo.save(c);
         recalcular(guardada.getApartamento());
         notificaciones.avisarCuotaRevisada(guardada, nombreMes(guardada.getPeriodo()));

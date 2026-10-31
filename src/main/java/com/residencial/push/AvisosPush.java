@@ -48,6 +48,7 @@ public class AvisosPush {
             Map.entry("CUOTA", "Nueva cuota de administración"),
             Map.entry("REGISTRO", "Nuevo registro por aprobar"),
             Map.entry("PUBLICACION", "Nueva publicación"),
+            Map.entry("VISITA_PORTERIA", "Visita en portería"),
             Map.entry("SOLICITUD_ARRENDATARIO", "Solicitud de arrendatario"),
             Map.entry("COMPROBANTE", "Comprobante por revisar"),
             Map.entry("CUOTA_PAGADA", "Pago confirmado"),
@@ -71,7 +72,7 @@ public class AvisosPush {
                 // Las de la administración llegan al administrador y al contador
                 ? dispositivos.findByRolIn(List.of(TokenService.ROL_ADMIN, TokenService.ROL_CONTADOR))
                 : dispositivos.findByApartamentoId(destinatario);
-        List<String> tokens = celulares.stream().map(Dispositivo::getToken).toList();
+        List<String> tokens = deApp(celulares, destinatario == null ? "ADMIN" : "RESIDENTE");
         if (tokens.isEmpty()) return;
         Set<String> invalidos = enviador.enviar(tokens, datos(evento.notificacion()));
         if (!invalidos.isEmpty()) {
@@ -87,7 +88,7 @@ public class AvisosPush {
                 ? dispositivos.findByRol(TokenService.ROL_ADMIN)
                 : dispositivos.findByApartamentoId(evento.apartamentoId()).stream()
                         .filter(d -> evento.participante().equals(d.getRol())).toList();
-        List<String> tokens = celulares.stream().map(Dispositivo::getToken).toList();
+        List<String> tokens = deApp(celulares, evento.apartamentoId() == null ? "ADMIN" : "RESIDENTE");
         if (tokens.isEmpty()) return;
         Map<String, String> datos = new HashMap<>();
         datos.put("tipo", "CHAT");
@@ -96,6 +97,12 @@ public class AvisosPush {
         datos.put("referenciaId", String.valueOf(evento.conversacionId()));
         Set<String> invalidos = enviador.enviar(tokens, datos);
         if (!invalidos.isEmpty()) dispositivos.borrarTokens(invalidos);
+    }
+
+    /** P6: cada aviso va solo a las celulares de su app (los registrados antes de P6 no dicen cuál y siguen recibiéndolo). */
+    static List<String> deApp(List<Dispositivo> celulares, String app) {
+        return celulares.stream().filter(d -> d.getTipoApp() == null || app.equals(d.getTipoApp()))
+                .map(Dispositivo::getToken).toList();
     }
 
     /** Lo que recibe la app: texto del aviso y a qué pantalla llevar al tocarlo. */

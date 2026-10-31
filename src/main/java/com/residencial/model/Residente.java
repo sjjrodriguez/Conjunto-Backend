@@ -14,7 +14,6 @@ import java.time.LocalDateTime;
         })
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
 public class Residente {
 
     public static final String PENDIENTE = "PENDIENTE";
@@ -60,6 +59,27 @@ public class Residente {
 
     // Solo arrendatarios: también los aprueba el propietario. Null = no aplica
     private Boolean aprobadoPropietario;
+
+    // P6: sube al cerrar sesión (ver SesionVersion)
+    @Column(name = "token_version", nullable = false)
+    private int tokenVersion;
+
+    public Residente(Long id, String nombreCompleto, String telefono, String identificacion,
+                     String tipoHabitante, Apartamento apartamento, String contrasena, String estado,
+                     String correo, boolean titular, LocalDateTime terminosAceptadosEn, Boolean aprobadoPropietario) {
+        this.id = id;
+        this.nombreCompleto = nombreCompleto;
+        this.telefono = telefono;
+        this.identificacion = identificacion;
+        this.tipoHabitante = tipoHabitante;
+        this.apartamento = apartamento;
+        this.contrasena = contrasena;
+        this.estado = estado;
+        this.correo = correo;
+        this.titular = titular;
+        this.terminosAceptadosEn = terminosAceptadosEn;
+        this.aprobadoPropietario = aprobadoPropietario;
+    }
 
     public Residente(Long id, String nombreCompleto, String telefono, String identificacion,
                      String tipoHabitante, Apartamento apartamento) {
