@@ -60,6 +60,9 @@ public class PorteriaService {
         String nombre = limpio(n.visitante());
         if (nombre == null) throw invalido("Escribe el nombre del visitante");
         if (nombre.length() > 150) throw invalido("El nombre del visitante es muy largo");
+        if (largo(n.documento()) > 40) throw invalido("El documento es muy largo (máximo 40 caracteres)");
+        if (largo(n.placa()) > 20) throw invalido("La placa es muy larga (máximo 20 caracteres)");
+        if (largo(n.motivo()) > 200) throw invalido("El motivo es muy largo (máximo 200 caracteres)");
         List<Apartamento> encontrados = n.torre() == null || n.apto() == null ? List.of()
                 : apartamentos.findByTorreAndApto(n.torre().trim(), n.apto().trim());
         if (encontrados.isEmpty()) throw new RecursoNoEncontradoException("No existe ese apartamento");
@@ -133,6 +136,10 @@ public class PorteriaService {
         return new Visita(v.getId(), a.getId(), a.getTorre(), a.getApto(), v.getVisitanteNombre(), v.getVisitanteDocumento(),
                 v.getPlaca(), v.getMotivo(), v.getEstado(), v.getCreadaEn(), v.getVenceEn(), v.getRespondidaEn(),
                 v.getCanalRespuesta(), telefono);
+    }
+
+    private static int largo(String s) {
+        return s == null ? 0 : s.trim().length();
     }
 
     private static String limpio(String s) {
