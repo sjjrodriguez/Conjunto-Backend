@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
         })
 @Data
 @NoArgsConstructor
-public class Residente {
+public class Residente extends EntidadConjunto {
 
     public static final String PENDIENTE = "PENDIENTE";
     public static final String APROBADO = "APROBADO";

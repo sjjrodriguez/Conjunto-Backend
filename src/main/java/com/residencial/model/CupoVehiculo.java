@@ -14,7 +14,7 @@ import java.util.Map;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class CupoVehiculo {
+public class CupoVehiculo extends EntidadConjunto {
 
     /** Cupos iniciales (los mismos de la migración V3), en el orden en que se muestran. */
     public static final Map<String, Integer> POR_DEFECTO = new LinkedHashMap<>();

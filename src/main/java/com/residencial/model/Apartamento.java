@@ -7,7 +7,7 @@ import lombok.*;
 @Table(name = "apartamento")
 @Data
 @NoArgsConstructor
-public class Apartamento {
+public class Apartamento extends EntidadConjunto {
 
     // P6: cómo está ocupado. Lo cambia la administración; lo que ve el arrendatario depende de las banderas
     public static final String OCUPA_PROPIETARIO = "PROPIETARIO";

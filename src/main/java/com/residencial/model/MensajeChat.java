@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @NoArgsConstructor
-public class MensajeChat {
+public class MensajeChat extends EntidadConjunto {
 
     public static final String ADMINISTRACION = "ADMINISTRACION";
     public static final String RESIDENTE = "RESIDENTE";

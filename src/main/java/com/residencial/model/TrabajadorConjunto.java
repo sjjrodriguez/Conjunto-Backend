@@ -12,12 +12,12 @@ import java.util.List;
 /** Persona que trabaja en el conjunto, contratada directo o por una empresa (P6 bloque 7). */
 @Entity
 @Table(name = "trabajador_conjunto",
-        uniqueConstraints = @UniqueConstraint(name = "uk_trabajador_conjunto_documento", columnNames = "documento"),
+        uniqueConstraints = @UniqueConstraint(name = "uk_trabajador_conjunto_documento", columnNames = {"conjunto_id", "documento"}),
         indexes = @Index(name = "idx_trabajador_cargo", columnList = "cargo, activo"))
 @Getter
 @Setter
 @NoArgsConstructor
-public class TrabajadorConjunto {
+public class TrabajadorConjunto extends EntidadConjunto {
     public static final List<String> CARGOS = List.of("VIGILANTE", "ASEO", "JARDINERIA", "MANTENIMIENTO", "ADMINISTRATIVO", "OTRO");
     public static final String DIRECTO = "DIRECTO";
     public static final String EMPRESA = "EMPRESA";

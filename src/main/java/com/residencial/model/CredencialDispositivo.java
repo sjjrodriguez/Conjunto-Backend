@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @NoArgsConstructor
-public class CredencialDispositivo {
+public class CredencialDispositivo extends EntidadConjunto {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

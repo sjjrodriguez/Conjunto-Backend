@@ -11,6 +11,7 @@ import com.residencial.security.AccesoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,6 +50,7 @@ public class WompiService {
     private final AccesoService acceso;
     private final AccesoArrendatario arrendatario;
     private final ZoneId zona;
+    private final JdbcTemplate jdbc;
 
     public WompiService(@Value("${app.wompi.llave-publica:}") String llavePublica,
                         @Value("${app.wompi.secreto-integridad:}") String secretoIntegridad,
@@ -57,7 +59,8 @@ public class WompiService {
                         @Value("${app.wompi.url-retorno:}") String urlRetorno,
                         CuotaRepository cuotas, TransaccionPagoRepository transacciones, CuotaService cuotaService,
                         AccesoService acceso, AccesoArrendatario arrendatario,
-                        @Value("${app.zona-horaria:America/Bogota}") String zona) {
+                        @Value("${app.zona-horaria:America/Bogota}") String zona, JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
         this.llavePublica = llavePublica;
         this.secretoIntegridad = secretoIntegridad;
         this.secretoEventos = secretoEventos;
@@ -109,6 +112,13 @@ public class WompiService {
      * Evento de Wompi. false si la firma no es válida (el controlador responde 401); true si se
      * procesó o se ignoró de forma segura. Repetir el mismo evento no cambia nada.
      */
+    /** P7: el conjunto de la transacción del evento (SQL directo: Wompi no dice el conjunto y Hibernate solo ve uno). */
+    public Long conjuntoDelEvento(JsonNode evento) {
+        String referencia = evento == null ? "" : evento.path("data").path("transaction").path("reference").asText("");
+        return jdbc.query("select conjunto_id from transaccion_pago where referencia = ?",
+                rs -> rs.next() ? rs.getLong(1) : null, referencia);
+    }
+
     public boolean procesarEvento(JsonNode evento, String checksumCabecera) {
         if (secretoEventos.isBlank() || evento == null || !firmaValida(evento, checksumCabecera)) return false;
         JsonNode datos = evento.path("data").path("transaction");

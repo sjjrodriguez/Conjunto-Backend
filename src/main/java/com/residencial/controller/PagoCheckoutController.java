@@ -1,6 +1,7 @@
 package com.residencial.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.residencial.conjunto.ConjuntoContexto;
 import com.residencial.service.WompiService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,7 +32,11 @@ public class PagoCheckoutController {
     @PostMapping("/webhook/wompi")
     public ResponseEntity<Void> webhook(@RequestBody JsonNode evento,
                                         @RequestHeader(value = "X-Event-Checksum", required = false) String checksum) {
-        return wompi.procesarEvento(evento, checksum) ? ResponseEntity.ok().build()
+        // P7: se procesa en el conjunto de la transacción (la petición de Wompi no trae ninguno)
+        Long conjunto = wompi.conjuntoDelEvento(evento);
+        boolean valido = ConjuntoContexto.en(conjunto == null ? ConjuntoContexto.actual() : conjunto,
+                () -> wompi.procesarEvento(evento, checksum));
+        return valido ? ResponseEntity.ok().build()
                 : ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
     }
 }

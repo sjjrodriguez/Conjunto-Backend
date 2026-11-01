@@ -1,5 +1,6 @@
 package com.residencial.service;
 
+import com.residencial.conjunto.ConjuntoContexto;
 import com.residencial.exception.RecursoNoEncontradoException;
 import com.residencial.model.Apartamento;
 import com.residencial.model.Residente;
@@ -15,6 +16,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -122,10 +124,11 @@ public class PorteriaService {
         return aDTO(visitas.save(v), personal);
     }
 
-    /** Cada 15 segundos: las visitas sin respuesta pasan a EXPIRADA. */
+    /** Cada 15 segundos: las visitas sin respuesta pasan a EXPIRADA, en todos los conjuntos (P7). */
     @Scheduled(fixedDelayString = "${app.porteria.expiracion-ms:15000}")
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void expirar() {
-        visitas.expirar(LocalDateTime.now(zona));
+        ConjuntoContexto.comoRaiz(() -> visitas.expirar(LocalDateTime.now(zona)));
     }
 
     private Visita aDTO(VisitaPorteria v, boolean conTelefono) {

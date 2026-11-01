@@ -15,7 +15,7 @@ import java.time.LocalTime;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class ZonaHorario {
+public class ZonaHorario extends EntidadConjunto {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

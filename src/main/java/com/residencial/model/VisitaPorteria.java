@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @NoArgsConstructor
-public class VisitaPorteria {
+public class VisitaPorteria extends EntidadConjunto {
     public static final int MINUTOS_VIGENCIA = 2;
     public static final String PENDIENTE = "PENDIENTE";
     public static final String AUTORIZADA = "AUTORIZADA";

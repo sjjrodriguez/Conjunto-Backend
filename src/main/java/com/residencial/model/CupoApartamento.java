@@ -12,7 +12,7 @@ import java.io.Serializable;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class CupoApartamento {
+public class CupoApartamento extends EntidadConjunto {
 
     @Id
     @Column(name = "apartamento_id")

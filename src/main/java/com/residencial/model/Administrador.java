@@ -4,10 +4,12 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "administrador")
+// P7: el mismo usuario puede existir en otro conjunto
+@Table(name = "administrador",
+        uniqueConstraints = @UniqueConstraint(name = "uk_administrador_usuario", columnNames = {"conjunto_id", "usuario"}))
 @Data
 @NoArgsConstructor
-public class Administrador {
+public class Administrador extends EntidadConjunto {
 
     public static final String ADMIN = "ADMIN";
     public static final String CONTADOR = "CONTADOR";
@@ -18,7 +20,7 @@ public class Administrador {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String usuario;
 
     @Column(nullable = false)

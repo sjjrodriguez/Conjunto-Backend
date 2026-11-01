@@ -13,7 +13,7 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
-public class Publicacion {
+public class Publicacion extends EntidadConjunto {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

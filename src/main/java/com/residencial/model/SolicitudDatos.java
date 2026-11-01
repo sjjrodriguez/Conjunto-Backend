@@ -14,7 +14,7 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
-public class SolicitudDatos {
+public class SolicitudDatos extends EntidadConjunto {
     public static final List<String> TIPOS = List.of("CONSULTA", "SUPRESION");
     public static final String PENDIENTE = "PENDIENTE";
     public static final String ATENDIDA = "ATENDIDA";

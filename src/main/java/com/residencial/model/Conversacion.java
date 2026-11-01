@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @NoArgsConstructor
-public class Conversacion {
+public class Conversacion extends EntidadConjunto {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

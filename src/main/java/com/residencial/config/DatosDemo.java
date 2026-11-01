@@ -1,5 +1,8 @@
 package com.residencial.config;
 
+import com.residencial.conjunto.ConjuntoContexto;
+import com.residencial.model.Conjunto;
+import com.residencial.repository.ConjuntoRepository;
 import com.residencial.model.*;
 import com.residencial.repository.*;
 import com.residencial.service.CuotaService;
@@ -57,10 +60,21 @@ public class DatosDemo implements CommandLineRunner {
     private final CuotaRepository cuotaRepo;
     private final ParqueaderoRepository parqueaderoRepo;
     private final CuotaService cuotaService;
+    private final ConjuntoRepository conjuntoRepo;
 
     @Override
     public void run(String... args) {
         LocalDate hoy = LocalDate.now(ZoneId.of("America/Bogota"));
+
+        // P7: dos conjuntos para probar el selector; todo lo demás va al primero
+        conjuntoRepo.save(new Conjunto("Conjunto Demo", "Bogotá D.C.", "Bogotá D.C.", "Calle 100 # 10-20"));
+        conjuntoRepo.save(new Conjunto("Conjunto Demo Norte", "Antioquia", "Medellín", "Carrera 43A # 1-50"));
+        ConjuntoContexto.en(2L, () -> {
+            Administrador otro = new Administrador(null, "admin", encoder.encode("admin-norte"));
+            otro.setPrincipal(true);
+            otro.setNombreCompleto("Administración Norte");
+            adminRepo.save(otro);
+        });
 
         Administrador principal = new Administrador(null, "admin", encoder.encode("admin-demo"));
         principal.setPrincipal(true);

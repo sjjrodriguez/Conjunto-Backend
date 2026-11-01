@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @Table(name = "solicitud_contable")
 @Data
 @NoArgsConstructor
-public class SolicitudContable {
+public class SolicitudContable extends EntidadConjunto {
 
     public static final String FACTURACION = "FACTURACION";
     public static final String PAGO_MANUAL = "PAGO_MANUAL";

@@ -10,7 +10,7 @@ import lombok.*;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class PublicacionAdjunto {
+public class PublicacionAdjunto extends EntidadConjunto {
 
     public static final String IMAGEN = "IMAGEN";
     public static final String ARCHIVO = "ARCHIVO";

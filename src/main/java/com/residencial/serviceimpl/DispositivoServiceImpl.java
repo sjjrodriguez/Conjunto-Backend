@@ -1,5 +1,6 @@
 package com.residencial.serviceimpl;
 
+import com.residencial.conjunto.ConjuntoContexto;
 import com.residencial.model.Dispositivo;
 import com.residencial.repository.ApartamentoRepository;
 import com.residencial.repository.DispositivoRepository;
@@ -7,6 +8,7 @@ import com.residencial.security.AccesoService;
 import com.residencial.security.TokenService;
 import com.residencial.service.DispositivoService;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
@@ -14,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.List;
 
 @Service
 public class DispositivoServiceImpl implements DispositivoService {
@@ -23,11 +24,14 @@ public class DispositivoServiceImpl implements DispositivoService {
     private final ApartamentoRepository apartamentos;
     private final AccesoService acceso;
     private final ZoneId zonaHoraria;
+    private final JdbcTemplate jdbc;
 
     public DispositivoServiceImpl(DispositivoRepository repo,
                                   ApartamentoRepository apartamentos,
                                   AccesoService acceso,
-                                  @Value("${app.zona-horaria:America/Bogota}") String zonaHoraria) {
+                                  @Value("${app.zona-horaria:America/Bogota}") String zonaHoraria,
+                                  JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
         this.repo = repo;
         this.apartamentos = apartamentos;
         this.acceso = acceso;
@@ -41,6 +45,8 @@ public class DispositivoServiceImpl implements DispositivoService {
         Jwt sesion = acceso.tokenActual()
                 .orElseThrow(() -> new AccessDeniedException("Debes iniciar sesión"));
         String rol = sesion.getClaimAsString(TokenService.CLAIM_ROL);
+        // P7: si el celular estaba en otro conjunto, deja de recibir sus avisos (SQL directo: Hibernate solo ve este)
+        jdbc.update("delete from dispositivo where token = ? and conjunto_id <> ?", token, ConjuntoContexto.actual());
         // El mismo celular pudo tener otra sesión antes (otro apartamento, el admin): se reemplaza
         Dispositivo d = repo.findByToken(token).orElseGet(Dispositivo::new);
         d.setToken(token);
@@ -61,6 +67,7 @@ public class DispositivoServiceImpl implements DispositivoService {
     @Transactional
     public void darDeBaja(String token) {
         // Al cerrar sesión basta con conocer el token: es un dato que solo tiene ese celular
-        repo.borrarTokens(List.of(token));
+        // P7: sin sesión no se sabe el conjunto; el token basta para encontrarlo en cualquiera
+        jdbc.update("delete from dispositivo where token = ?", token);
     }
 }

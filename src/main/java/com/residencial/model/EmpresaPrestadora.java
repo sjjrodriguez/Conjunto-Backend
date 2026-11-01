@@ -7,11 +7,11 @@ import lombok.Setter;
 
 /** Empresa que presta personal al conjunto (vigilancia, aseo...) (P6 bloque 7). */
 @Entity
-@Table(name = "empresa_prestadora", uniqueConstraints = @UniqueConstraint(name = "uk_empresa_prestadora_nombre", columnNames = "nombre"))
+@Table(name = "empresa_prestadora", uniqueConstraints = @UniqueConstraint(name = "uk_empresa_prestadora_nombre", columnNames = {"conjunto_id", "nombre"}))
 @Getter
 @Setter
 @NoArgsConstructor
-public class EmpresaPrestadora {
+public class EmpresaPrestadora extends EntidadConjunto {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

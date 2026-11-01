@@ -32,4 +32,8 @@ public class LoginResponse {
     private Boolean vehiculosAltaSoloAdmin;
     // Hay una versión de los términos o de la política que esta cuenta aún no acepta
     private Boolean consentimientosPendientes;
+
+    // P7: el conjunto de la cuenta
+    private Long conjuntoId;
+    private String conjuntoNombre;
 }

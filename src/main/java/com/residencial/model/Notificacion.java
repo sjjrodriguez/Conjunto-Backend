@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class Notificacion {
+public class Notificacion extends EntidadConjunto {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

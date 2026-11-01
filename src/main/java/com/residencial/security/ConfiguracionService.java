@@ -1,6 +1,7 @@
 package com.residencial.security;
 
 import com.residencial.model.ConfiguracionConjunto;
+import com.residencial.conjunto.ConjuntoContexto;
 import com.residencial.repository.ConfiguracionConjuntoRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -13,11 +14,11 @@ public class ConfiguracionService {
     private final ConfiguracionConjuntoRepository repo;
 
     public boolean activo(String clave) {
-        return repo.findById(clave).map(c -> "true".equalsIgnoreCase(c.getValor())).orElse(false);
+        return repo.findById(new ConfiguracionConjunto.Llave(ConjuntoContexto.actual(), clave)).map(c -> "true".equalsIgnoreCase(c.getValor())).orElse(false);
     }
 
     public void fijar(String clave, boolean valor) {
-        repo.save(new ConfiguracionConjunto(clave, String.valueOf(valor)));
+        repo.save(new ConfiguracionConjunto(ConjuntoContexto.actual(), clave, String.valueOf(valor)));
     }
 
     public boolean vehiculosAltaSoloAdmin() {

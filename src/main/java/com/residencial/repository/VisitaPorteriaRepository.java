@@ -4,6 +4,7 @@ import com.residencial.model.VisitaPorteria;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -19,6 +20,8 @@ public interface VisitaPorteriaRepository extends JpaRepository<VisitaPorteria, 
     List<VisitaPorteria> pendientesDe(Long apto, LocalDateTime ahora);
 
     /** Las que nadie respondió a tiempo. */
+    // Con su propia transacción: la abre la tarea programada, que no está en ninguna (P7)
+    @Transactional
     @Modifying
     @Query("update VisitaPorteria v set v.estado = 'EXPIRADA' where v.estado = 'PENDIENTE' and v.venceEn <= :ahora")
     int expirar(LocalDateTime ahora);

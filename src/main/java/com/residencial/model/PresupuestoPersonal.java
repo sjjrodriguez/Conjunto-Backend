@@ -10,11 +10,11 @@ import java.math.BigDecimal;
 /** Lo que se presupuesta para el personal de un cargo en un mes (P6 bloque 7). */
 @Entity
 @Table(name = "presupuesto_personal",
-        uniqueConstraints = @UniqueConstraint(name = "uk_presupuesto_periodo_cargo", columnNames = {"periodo", "cargo"}))
+        uniqueConstraints = @UniqueConstraint(name = "uk_presupuesto_periodo_cargo", columnNames = {"conjunto_id", "periodo", "cargo"}))
 @Getter
 @Setter
 @NoArgsConstructor
-public class PresupuestoPersonal {
+public class PresupuestoPersonal extends EntidadConjunto {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

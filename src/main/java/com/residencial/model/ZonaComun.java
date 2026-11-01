@@ -9,7 +9,7 @@ import java.time.LocalTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class ZonaComun {
+public class ZonaComun extends EntidadConjunto {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

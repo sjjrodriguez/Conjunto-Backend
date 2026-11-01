@@ -21,6 +21,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import com.residencial.conjunto.FiltroConjunto;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
@@ -65,8 +67,12 @@ public class SecurityConfig {
                 .authenticationEntryPoint(noAutenticado)
                 .accessDeniedHandler(sinPermiso)
                 .jwt(j -> j.decoder(jwtDecoder).jwtAuthenticationConverter(jwtAuthenticationConverter())))
+            // P7: el conjunto de la petición, ya con el token validado
+            .addFilterAfter(new FiltroConjunto(), BearerTokenAuthenticationFilter.class)
             .authorizeHttpRequests(a -> a
                 .requestMatchers("/error").permitAll()
+                // P7: los conjuntos para elegir antes de iniciar sesión
+                .requestMatchers(HttpMethod.GET, "/api/conjuntos", "/api/conjuntos/**").permitAll()
                 // Cerrar sesión necesita la sesión que se cierra; el resto de /api/auth (login, registro) es público
                 .requestMatchers(HttpMethod.POST, "/api/auth/logout").access(sesion())
                 .requestMatchers(HttpMethod.PUT, "/api/auth/contrasena").access(sesion())

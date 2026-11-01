@@ -1,5 +1,6 @@
 package com.residencial.controller;
 
+import com.residencial.conjunto.ConjuntoContexto;
 import com.residencial.dto.CambioPropiaContrasenaRequest;
 import com.residencial.dto.LoginDTO;
 import com.residencial.dto.MensajeError;
@@ -50,7 +51,7 @@ public class AuthController {
 
     @PostMapping("/admin/login")
     public ResponseEntity<?> loginAdmin(@RequestBody LoginDTO.AdminLoginRequest request, HttpServletRequest http) {
-        String clave = http.getRemoteAddr() + "|admin|" + normalizar(request.getUsuario());
+        String clave = http.getRemoteAddr() + "|" + ConjuntoContexto.actual() + "|admin|" + normalizar(request.getUsuario());
         limitador.verificar(clave);
         Administrador admin = authService.loginAdmin(request.getUsuario(), request.getContrasena());
         if (admin != null) {
@@ -66,7 +67,7 @@ public class AuthController {
     @PostMapping("/apartamento/login")
     public ResponseEntity<?> loginApartamento(@RequestBody LoginDTO.ApartamentoLoginRequest request,
                                               HttpServletRequest http) {
-        String clave = http.getRemoteAddr() + "|apto|"
+        String clave = http.getRemoteAddr() + "|" + ConjuntoContexto.actual() + "|apto|"
                 + normalizar(request.getTorre()) + "-" + normalizar(request.getApto());
         limitador.verificar(clave);
         Apartamento apartamento = authService.loginApartamento(
@@ -85,7 +86,7 @@ public class AuthController {
     public ResponseEntity<?> loginResidente(@RequestBody LoginDTO.ResidenteLoginRequest request,
                                             HttpServletRequest http) {
         boolean porDocumento = request.getDocumento() != null && !request.getDocumento().isBlank();
-        String clave = http.getRemoteAddr() + "|residente|" + (porDocumento ? normalizar(request.getDocumento())
+        String clave = http.getRemoteAddr() + "|" + ConjuntoContexto.actual() + "|residente|" + (porDocumento ? normalizar(request.getDocumento())
                 : normalizar(request.getTorre()) + "-" + normalizar(request.getApto()) + "-" + normalizar(request.getRol()));
         limitador.verificar(clave);
         Residente residente = porDocumento

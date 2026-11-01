@@ -14,7 +14,7 @@ import java.time.LocalTime;
 @Getter
 @Setter
 @NoArgsConstructor
-public class TurnoTrabajador {
+public class TurnoTrabajador extends EntidadConjunto {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

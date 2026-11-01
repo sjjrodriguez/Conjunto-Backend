@@ -14,7 +14,7 @@ import java.math.BigDecimal;
 @Getter
 @Setter
 @NoArgsConstructor
-public class NominaTrabajador {
+public class NominaTrabajador extends EntidadConjunto {
     public static final String GENERADA = "GENERADA";
     public static final String PAGADA = "PAGADA";
 

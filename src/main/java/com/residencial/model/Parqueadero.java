@@ -8,13 +8,13 @@ import org.hibernate.annotations.OnDeleteAction;
 /** Parqueadero numerado de una categoría de vehículo, o de invitados (P5 bloque 4). */
 @Entity
 @Table(name = "parqueadero",
-        uniqueConstraints = @UniqueConstraint(name = "uk_parqueadero_numero", columnNames = "numero"),
+        uniqueConstraints = @UniqueConstraint(name = "uk_parqueadero_numero", columnNames = {"conjunto_id", "numero"}),
         indexes = @Index(name = "idx_parqueadero_tipo", columnList = "tipo"))
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class Parqueadero {
+public class Parqueadero extends EntidadConjunto {
 
     public static final String INVITADOS = "Invitados";
 

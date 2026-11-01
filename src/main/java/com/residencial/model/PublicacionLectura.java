@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class PublicacionLectura {
+public class PublicacionLectura extends EntidadConjunto {
 
     @Id
     @Column(name = "publicacion_id")

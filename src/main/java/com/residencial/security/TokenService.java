@@ -1,5 +1,8 @@
 package com.residencial.security;
 
+import com.residencial.conjunto.ConjuntoContexto;
+import com.residencial.conjunto.FiltroConjunto;
+import com.residencial.repository.ConjuntoRepository;
 import com.residencial.dto.LoginResponse;
 import com.residencial.model.Administrador;
 import com.residencial.model.Apartamento;
@@ -35,13 +38,24 @@ public class TokenService {
     private final Duration duracion;
     private final ResidenteRepository residentes;
     private final ConfiguracionService configuracion;
+    private final ConjuntoRepository conjuntos;
 
     public TokenService(JwtEncoder encoder, @Value("${app.jwt.expiracion-horas:8}") long horas,
-                        ResidenteRepository residentes, ConfiguracionService configuracion) {
+                        ResidenteRepository residentes, ConfiguracionService configuracion,
+                        ConjuntoRepository conjuntos) {
         this.encoder = encoder;
         this.duracion = Duration.ofHours(horas);
         this.residentes = residentes;
         this.configuracion = configuracion;
+        this.conjuntos = conjuntos;
+    }
+
+    /** P7: el conjunto de la cuenta, para que la app lo muestre; el de la petición si la entidad aún no lo tiene. */
+    private LoginResponse conConjunto(LoginResponse respuesta, Long conjunto) {
+        long id = conjunto == null ? ConjuntoContexto.actual() : conjunto;
+        respuesta.setConjuntoId(id);
+        conjuntos.findById(id).ifPresent(c -> respuesta.setConjuntoNombre(c.getNombre()));
+        return respuesta;
     }
 
     /** El rol del token de un administrador: cada rol de la cuenta es el suyo, sin ascender ninguno. */
@@ -55,21 +69,21 @@ public class TokenService {
         Instant expira = Instant.now().plus(duracion);
         String rol = rolDeAdmin(admin);
         // usuario: quién mandó una solicitud contable (P5)
-        JwtClaimsSet claims = base("admin:" + admin.getId(), rol, expira, admin.getTokenVersion())
+        JwtClaimsSet claims = base("admin:" + admin.getId(), rol, expira, admin.getTokenVersion(), admin.getConjuntoId())
                 .claim("usuario", admin.getUsuario()).build();
-        return LoginResponse.builder()
+        return conConjunto(LoginResponse.builder()
                 .token(firmar(claims))
                 .expiraEn(expira)
                 .rol(rol)
                 .id(admin.getId())
                 .usuario(admin.getUsuario())
                 .nombre(admin.getNombreCompleto())
-                .build();
+                .build(), admin.getConjuntoId());
     }
 
     public LoginResponse paraApartamento(Apartamento apto) {
         Instant expira = Instant.now().plus(duracion);
-        JwtClaimsSet claims = base("apartamento:" + apto.getId(), ROL_PROPIETARIO, expira, apto.getTokenVersion())
+        JwtClaimsSet claims = base("apartamento:" + apto.getId(), ROL_PROPIETARIO, expira, apto.getTokenVersion(), apto.getConjuntoId())
                 .claim(CLAIM_APARTAMENTO, apto.getId())
                 .build();
         // El saludo: sin documento no se sabe quién entró, así que se usa el propietario titular
@@ -95,7 +109,7 @@ public class TokenService {
         Apartamento apto = residente.getApartamento();
         String rol = ROL_ARRENDATARIO.equals(residente.getTipoHabitante()) ? ROL_ARRENDATARIO : ROL_PROPIETARIO;
         Instant expira = Instant.now().plus(duracion);
-        JwtClaimsSet claims = base("residente:" + residente.getId(), rol, expira, residente.getTokenVersion())
+        JwtClaimsSet claims = base("residente:" + residente.getId(), rol, expira, residente.getTokenVersion(), residente.getConjuntoId())
                 .claim(CLAIM_APARTAMENTO, apto.getId())
                 .claim(CLAIM_RESIDENTE, residente.getId())
                 .build();
@@ -113,24 +127,27 @@ public class TokenService {
 
     /** Ocupación del apartamento, lo que ve el arrendatario y los ajustes del conjunto que cambian la pantalla. */
     private LoginResponse conAjustes(LoginResponse.LoginResponseBuilder respuesta, Apartamento apto) {
-        return respuesta
+        return conConjunto(respuesta
                 .tipoOcupacion(apto.getTipoOcupacion())
                 .arrendatarioVeCartera(apto.isArrendatarioVeCartera())
                 .arrendatarioPuedePagar(apto.isArrendatarioPuedePagar())
                 .arrendatarioVeObras(apto.isArrendatarioVeObras())
                 .vehiculosAltaSoloAdmin(configuracion.vehiculosAltaSoloAdmin())
                 .consentimientosPendientes(false)
-                .build();
+                .build(), apto.getConjuntoId());
     }
 
-    private JwtClaimsSet.Builder base(String sujeto, String rol, Instant expira, int version) {
+    private JwtClaimsSet.Builder base(String sujeto, String rol, Instant expira, int version, Long conjunto) {
+        if (conjunto == null) conjunto = ConjuntoContexto.actual();
         return JwtClaimsSet.builder()
                 .issuer("miconjunto")
                 .subject(sujeto)
                 .issuedAt(Instant.now())
                 .expiresAt(expira)
                 .claim(CLAIM_ROL, rol)
-                .claim(CLAIM_VERSION, version);
+                .claim(CLAIM_VERSION, version)
+                // P7: el conjunto de la cuenta; FiltroConjunto lo usa en cada petición
+                .claim(FiltroConjunto.CLAIM, conjunto);
     }
 
     private String firmar(JwtClaimsSet claims) {

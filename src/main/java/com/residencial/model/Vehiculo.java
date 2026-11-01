@@ -11,7 +11,7 @@ import lombok.*;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class Vehiculo {
+public class Vehiculo extends EntidadConjunto {
 
     public static final String PENDIENTE = "PENDIENTE";
     public static final String APROBADO = "APROBADO";

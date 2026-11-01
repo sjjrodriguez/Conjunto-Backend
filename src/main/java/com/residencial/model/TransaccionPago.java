@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @NoArgsConstructor
-public class TransaccionPago {
+public class TransaccionPago extends EntidadConjunto {
     public static final String CREADA = "CREADA";
     public static final String APROBADA = "APROBADA";
     public static final String RECHAZADA = "RECHAZADA";

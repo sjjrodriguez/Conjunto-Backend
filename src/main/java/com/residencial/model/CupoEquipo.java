@@ -9,7 +9,7 @@ import lombok.*;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class CupoEquipo {
+public class CupoEquipo extends EntidadConjunto {
 
     @Id
     @Column(length = 20)
