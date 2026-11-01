@@ -25,6 +25,9 @@ public class PagoServiceImpl implements PagoService {
     private final CuotaRepository cuotaRepo;
     private final AccesoService acceso;
     private final com.residencial.security.AccesoArrendatario arrendatario;
+    // Solo demo y pruebas: en producción la cuota se paga por Wompi, nunca "simulando"
+    @org.springframework.beans.factory.annotation.Value("${app.pagos.simulacion:false}")
+    private boolean simulacionHabilitada;
 
     private PagoDTO toDTO(Pago p) {
         return new PagoDTO(p.getId(), p.getSaldoPendiente(),
@@ -48,6 +51,10 @@ public class PagoServiceImpl implements PagoService {
     public PagoDTO simularPago(Long apartamentoId) {
         acceso.verificarApartamento(apartamentoId);
         arrendatario.exigirPoderPagar(apartamentoId);
+        if (!simulacionHabilitada) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN,
+                    "El pago simulado no está disponible. Paga tu cuota en línea");
+        }
         return repo.findByApartamentoId(apartamentoId).map(p -> {
             if (p.getSaldoPendiente() <= 0) {
                 throw new IllegalStateException("El saldo ya está en cero. No hay pago pendiente.");

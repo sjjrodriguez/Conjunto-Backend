@@ -26,7 +26,7 @@ public class CorsConfig implements WebMvcConfigurer {
         if (origenes.length == 0) return;
         registry.addMapping("/api/**")
                 .allowedOrigins(origenes)
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("Authorization", "Content-Type");
     }
 }
