@@ -179,6 +179,7 @@ public class ObraServiceImpl implements ObraService {
             return toDTO(repo.save(o));
         }
         acceso.verificarApartamento(o.apartamentoId());
+        exigirPropietario();
         if (Obra.APROBADA.equals(o.getAprobacion())) {
             // Aprobada: el residente solo cambia el estado (en proceso o finalizada)
             o.setEstadoObra(Catalogo.ESTADO_OBRA.normalizar(dto.getEstadoObra()));
@@ -232,11 +233,19 @@ public class ObraServiceImpl implements ObraService {
         if (!esAdministracion()) {
             // El residente retira la suya mientras no esté aprobada
             acceso.verificarApartamento(o.apartamentoId());
+            exigirPropietario();
             if (Obra.APROBADA.equals(o.getAprobacion())) throw invalido("Una obra aprobada solo la elimina la administración");
         }
         // El personal pertenece a la obra: se borra con ella
         personalRepo.deleteByObraId(id);
         repo.delete(o);
+    }
+
+    /** Editar o retirar una obra del apartamento es del propietario, no del arrendatario. */
+    private void exigirPropietario() {
+        if (TokenService.ROL_ARRENDATARIO.equals(rolActual())) {
+            throw new AccessDeniedException("Las obras del apartamento las gestiona el propietario");
+        }
     }
 
     private boolean esAdministracion() {

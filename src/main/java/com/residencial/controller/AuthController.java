@@ -137,7 +137,11 @@ public class AuthController {
         limitador.limpiar(clave);
         // La huella activada con la contraseña anterior deja de servir
         biometria.revocarTodas(sesion.getSubject());
-        return ResponseEntity.noContent().build();
+        // Los tokens anteriores (también uno robado) dejan de valer; quien cambió la clave recibe uno nuevo
+        sesiones.revocar(sesion.getSubject());
+        return biometria.sesionDe(sesion.getSubject())
+                .<ResponseEntity<?>>map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     private static String normalizar(String valor) {

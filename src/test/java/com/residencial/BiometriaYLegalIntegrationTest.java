@@ -99,7 +99,7 @@ class BiometriaYLegalIntegrationTest {
         String c2 = activar(residente, "celular-3", "RESIDENTE");
         entrar("celular-3", c2, "RESIDENTE").andExpect(status().isOk());
         mvc.perform(put("/api/auth/contrasena").header("Authorization", residente).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"contrasenaActual\":\"clave601\",\"contrasenaNueva\":\"nueva6011\"}")).andExpect(status().isNoContent());
+                .content("{\"contrasenaActual\":\"clave601\",\"contrasenaNueva\":\"nueva6011\"}")).andExpect(status().isOk());
         entrar("celular-3", c2, "RESIDENTE").andExpect(status().isUnauthorized());
     }
 

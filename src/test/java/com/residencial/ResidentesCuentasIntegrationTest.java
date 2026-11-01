@@ -182,7 +182,7 @@ class ResidentesCuentasIntegrationTest {
         // Cambia solo su contraseña: la del apartamento sigue igual
         enviar(put("/api/auth/contrasena"), residente,
                 "{\"contrasenaActual\":\"propia100\",\"contrasenaNueva\":\"nueva100\"}")
-                .andExpect(status().isNoContent());
+                .andExpect(status().isOk());
         login("100", "nueva100").andExpect(status().isOk());
         token("/api/auth/apartamento/login", "{\"torre\":\"8\",\"apto\":\"801\",\"contrasena\":\"clave801\"}");
 

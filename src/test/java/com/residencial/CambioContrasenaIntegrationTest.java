@@ -16,6 +16,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -51,7 +52,7 @@ class CambioContrasenaIntegrationTest {
     @Test
     void elResidenteCambiaSuContrasenaYEntraConLaNueva() throws Exception {
         String token = token(LOGIN_APTO, apto("clave801"));
-        cambiar(token, "clave801", "nueva8010").andExpect(status().isNoContent());
+        cambiar(token, "clave801", "nueva8010").andExpect(status().isOk());
 
         login(LOGIN_APTO, apto("clave801")).andExpect(status().isUnauthorized());
         login(LOGIN_APTO, apto("nueva8010")).andExpect(status().isOk());
@@ -60,10 +61,15 @@ class CambioContrasenaIntegrationTest {
     @Test
     void elAdministradorCambiaSuContrasena() throws Exception {
         String token = token(LOGIN_ADMIN, admin("admin123"));
-        cambiar(token, "admin123", "otraClave9").andExpect(status().isNoContent());
+        String respuesta = cambiar(token, "admin123", "otraClave9").andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
 
         login(LOGIN_ADMIN, admin("admin123")).andExpect(status().isUnauthorized());
         login(LOGIN_ADMIN, admin("otraClave9")).andExpect(status().isOk());
+        // El token anterior ya no vale; el que devolvió el cambio sí
+        mvc.perform(get("/api/administradores").header("Authorization", "Bearer " + token)).andExpect(status().isUnauthorized());
+        String nuevo = com.jayway.jsonpath.JsonPath.read(respuesta, "$.token");
+        mvc.perform(get("/api/administradores").header("Authorization", "Bearer " + nuevo)).andExpect(status().isOk());
     }
 
     @Test

@@ -9,6 +9,7 @@ import com.residencial.model.PersonalObra;
 import com.residencial.repository.ObraRepository;
 import com.residencial.repository.PersonalObraRepository;
 import com.residencial.security.AccesoService;
+import com.residencial.security.TokenService;
 import com.residencial.service.NotificacionService;
 import com.residencial.service.PersonalObraService;
 import org.springframework.beans.factory.annotation.Value;
@@ -43,10 +44,13 @@ public class PersonalObraServiceImpl implements PersonalObraService {
     private final NotificacionService notificaciones;
     private final AlmacenArchivos almacen;
     private final ZoneId zonaHoraria;
+    private final com.residencial.security.AccesoArrendatario arrendatario;
 
     public PersonalObraServiceImpl(PersonalObraRepository repo, ObraRepository obraRepo, AccesoService acceso,
                                    NotificacionService notificaciones, AlmacenArchivos almacen,
+                                   com.residencial.security.AccesoArrendatario arrendatario,
                                    @Value("${app.zona-horaria:America/Bogota}") String zonaHoraria) {
+        this.arrendatario = arrendatario;
         this.repo = repo;
         this.obraRepo = obraRepo;
         this.acceso = acceso;
@@ -76,7 +80,7 @@ public class PersonalObraServiceImpl implements PersonalObraService {
     @Override
     @Transactional(readOnly = true)
     public List<PersonalObraDTO> listarPorObra(Long obraId) {
-        obraRepo.findById(obraId).ifPresent(o -> acceso.verificarApartamento(o.apartamentoId()));
+        obraRepo.findById(obraId).ifPresent(this::exigirVer);
         return repo.findByObraId(obraId).stream().map(this::toDTO).collect(Collectors.toList());
     }
 
@@ -85,7 +89,7 @@ public class PersonalObraServiceImpl implements PersonalObraService {
         // Con su apartamento: toDTO necesita torre y apto
         Obra obra = obraRepo.findConApartamentoById(dto.getObraId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Obra no encontrada: " + dto.getObraId()));
-        acceso.verificarApartamento(obra.apartamentoId());
+        exigirGestion(obra);
         validar(dto);
         PersonalObra p = new PersonalObra(null, dto.getNombreTrabajador().trim(), dto.getCedula().trim(),
                 Boolean.TRUE.equals(dto.getArlEstado()), obra);
@@ -103,19 +107,30 @@ public class PersonalObraServiceImpl implements PersonalObraService {
         PersonalObra p = buscar(id);
         Obra obra = obraRepo.findConApartamentoById(p.getObra().getId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Obra no encontrada"));
-        acceso.verificarApartamento(obra.apartamentoId());
+        exigirGestion(obra);
         validar(dto);
+        boolean cambiaPersona = !p.getNombreTrabajador().equals(dto.getNombreTrabajador().trim())
+                || !p.getCedula().equals(dto.getCedula().trim());
         p.setNombreTrabajador(dto.getNombreTrabajador().trim());
         p.setCedula(dto.getCedula().trim());
         p.setArlEstado(Boolean.TRUE.equals(dto.getArlEstado()));
         p.setObra(obra);
+        // Cambiar el nombre o la cédula de alguien ya aprobado lo devuelve a revisión: es otra persona
+        boolean admin = acceso.esAdminActual() || acceso.tokenActual().isEmpty();
+        if (!admin && cambiaPersona && PersonalObra.APROBADO.equals(p.getAprobacion())) {
+            p.setAprobacion(PersonalObra.PENDIENTE);
+            p.setMotivoRechazo(null);
+            PersonalObra guardado = repo.save(p);
+            if (Obra.APROBADA.equals(obra.getAprobacion())) notificaciones.avisarPersonalNuevo(guardado);
+            return toDTO(guardado);
+        }
         return toDTO(repo.save(p));
     }
 
     @Override
     public void eliminar(Long id) {
         PersonalObra p = buscar(id);
-        obraRepo.findById(p.getObra().getId()).ifPresent(o -> acceso.verificarApartamento(o.apartamentoId()));
+        obraRepo.findById(p.getObra().getId()).ifPresent(this::exigirGestion);
         String ruta = p.getArlRuta();
         repo.delete(p);
         if (ruta != null) borrarSinFallar(ruta);
@@ -127,7 +142,7 @@ public class PersonalObraServiceImpl implements PersonalObraService {
         PersonalObra p = buscar(id);
         Obra obra = obraRepo.findConApartamentoById(p.getObra().getId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Obra no encontrada"));
-        acceso.verificarApartamento(obra.apartamentoId());
+        exigirGestion(obra);
         if (archivo == null || archivo.isEmpty()) throw invalido("Adjunta el certificado ARL");
         if (archivo.getSize() > TAMANO_MAXIMO) throw invalido("El certificado no puede pasar de 5 MB");
         byte[] datos;
@@ -159,7 +174,7 @@ public class PersonalObraServiceImpl implements PersonalObraService {
     @Transactional(readOnly = true)
     public CuotaDTO.Enlace enlaceCertificado(Long id) {
         PersonalObra p = buscar(id);
-        obraRepo.findById(p.getObra().getId()).ifPresent(o -> acceso.verificarApartamento(o.apartamentoId()));
+        obraRepo.findById(p.getObra().getId()).ifPresent(this::exigirVer);
         if (p.getArlRuta() == null) throw new RecursoNoEncontradoException("Este trabajador no tiene certificado ARL");
         return new CuotaDTO.Enlace(almacen.enlace(p.getArlRuta(), VIGENCIA_ENLACE), p.getArlTipo(),
                 LocalDateTime.now(zonaHoraria).plus(VIGENCIA_ENLACE));
@@ -177,6 +192,20 @@ public class PersonalObraServiceImpl implements PersonalObraService {
         PersonalObra guardado = repo.save(p);
         if (obra.getApartamento() != null) notificaciones.avisarPersonalRevisado(guardado);
         return toDTO(guardado);
+    }
+
+    /** Ver el personal de la obra: el apartamento dueño; el arrendatario solo si la administración se lo permite. */
+    private void exigirVer(Obra obra) {
+        acceso.verificarApartamento(obra.apartamentoId());
+        arrendatario.exigirVerObras(obra.apartamentoId());
+    }
+
+    /** Agregar, editar o quitar personal y subir su ARL es del propietario o de la administración. */
+    private void exigirGestion(Obra obra) {
+        acceso.verificarApartamento(obra.apartamentoId());
+        if (acceso.tokenActual().map(t -> TokenService.ROL_ARRENDATARIO.equals(t.getClaimAsString(TokenService.CLAIM_ROL))).orElse(false)) {
+            throw new org.springframework.security.access.AccessDeniedException("Las obras del apartamento las gestiona el propietario");
+        }
     }
 
     private static void validar(PersonalObraDTO dto) {

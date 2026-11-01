@@ -96,7 +96,9 @@ public class BiometriaService {
         credenciales.borrarDe(sujeto);
     }
 
-    private Optional<LoginResponse> sesionDe(String sujeto) {
+    /** Una sesión nueva para el sujeto del token ("admin:ID", "residente:ID" o "apartamento:ID"). */
+    @Transactional(readOnly = true) // el token del residente lee su apartamento
+    public Optional<LoginResponse> sesionDe(String sujeto) {
         int i = sujeto.indexOf(':');
         if (i < 0) return Optional.empty();
         Long id;
