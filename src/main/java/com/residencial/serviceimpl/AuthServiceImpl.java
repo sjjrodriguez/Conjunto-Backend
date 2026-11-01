@@ -63,7 +63,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public Apartamento loginApartamento(String torre, String apto, String contrasena) {
         if (vacio(torre) || vacio(apto) || vacio(contrasena)) return null;
-        for (Apartamento a : apartamentoRepo.findByTorreAndApto(torre, apto)) {
+        for (Apartamento a : apartamentoRepo.findByTorreAndApto(torre.trim(), apto.trim())) {
             String guardada = a.getContrasena();
             if (verificar(contrasena, guardada, a::setContrasena)) {
                 if (!guardada.equals(a.getContrasena())) apartamentoRepo.save(a);

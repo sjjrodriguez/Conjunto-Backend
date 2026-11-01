@@ -211,6 +211,8 @@ public class CuotaServiceImpl implements CuotaService {
         String razon = motivo == null || motivo.isBlank() ? null : motivo.trim();
         switch (nuevo) {
             case Cuota.PAGADA -> {
+                // Ya pagada (por ejemplo, el webhook llegó primero): no se repite ni se vuelve a avisar
+                if (c.pagada()) return toDTO(c);
                 // También sin comprobante: pagos en efectivo o en la oficina. P5: el del contador sin
                 // comprobante espera al administrador; la cuota no cambia hasta entonces
                 if (esContador() && c.getComprobanteRuta() == null && !c.pagada()) return pagoPorAprobar(c);
