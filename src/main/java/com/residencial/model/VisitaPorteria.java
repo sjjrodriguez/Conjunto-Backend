@@ -67,4 +67,8 @@ public class VisitaPorteria extends EntidadConjunto {
 
     @Column(name = "registrada_por", length = 60)
     private String registradaPor;
+
+    // P7 bloque 4: el guardia que tenía el turno en la recepción (copia del nombre: el historial no cambia)
+    @Column(name = "guardia_nombre", length = 150)
+    private String guardiaNombre;
 }

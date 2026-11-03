@@ -60,3 +60,19 @@ UPDATE en Supabase).
   nombre de un conjunto en el mismo municipio.
 - Auditoría (`auditoria_plataforma`): inicio de sesión, crear, editar, suspender, reactivar y
   restablecer, con el operador y el detalle. Se lee desde la app; no se edita.
+
+## B4: cómo funciona
+
+- El celular de la recepción entra con la cuenta de portería del conjunto (rol `PORTERIA`, la
+  crea el principal en Mi equipo). Cada guardia (`guardia_porteria`, V22) tiene nombre, documento
+  y un PIN de 4 a 6 dígitos (BCrypt; no se aceptan 1111 ni escaleras como 1234).
+- La administración los maneja en `/api/porteria/guardias` (crear, editar, cambiar el PIN, dar de
+  baja). La recepción solo ve `GET /api/porteria/turno/guardias` (id y nombre).
+- `POST /api/porteria/turno {guardiaId, pin}`: solo la cuenta de portería. Devuelve un token nuevo
+  con el claim `gid` y `guardiaNombre`. Límite de 5 intentos por minuto por guardia (429).
+- Las visitas que se registran con ese token guardan `guardia_nombre`; la portería y la
+  administración lo ven en `guardia`, el residente no. Si el guardia se da de baja, su token de
+  turno ya no registra (403) y hay que abrir otro turno.
+- Sin turno (la portería desde la app de administración) todo sigue igual, sin guardia.
+- El bloqueo por inactividad lo hace la app de recepción: vuelve a la pantalla de turno.
+- Demo: cuenta `porteria` / `porteria-demo`; guardias Carlos Ruiz (PIN 2580) y Ana Gómez (1357).

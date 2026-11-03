@@ -6,6 +6,7 @@ import com.residencial.repository.ConjuntoRepository;
 import com.residencial.dto.LoginResponse;
 import com.residencial.model.Administrador;
 import com.residencial.model.Apartamento;
+import com.residencial.model.GuardiaPorteria;
 import com.residencial.model.OperadorPlataforma;
 import com.residencial.model.Residente;
 import com.residencial.repository.ResidenteRepository;
@@ -38,6 +39,8 @@ public class TokenService {
     public static final String CLAIM_RESIDENTE = "residenteId";
     // P6: versión de sesión con la que se emitió el token (ver SesionVersion)
     public static final String CLAIM_VERSION = "tv";
+    // P7 bloque 4: el guardia que abrió el turno en la recepción con su PIN
+    public static final String CLAIM_GUARDIA = "gid";
 
     private final JwtEncoder encoder;
     private final Duration duracion;
@@ -71,11 +74,25 @@ public class TokenService {
     }
 
     public LoginResponse paraAdmin(Administrador admin) {
+        return paraAdmin(admin, null);
+    }
+
+    /** P7 bloque 4: la cuenta de portería con el turno de [guardia] (su id va en el token). */
+    public LoginResponse paraTurno(Administrador porteria, GuardiaPorteria guardia) {
+        LoginResponse respuesta = paraAdmin(porteria, guardia.getId());
+        respuesta.setGuardiaId(guardia.getId());
+        respuesta.setGuardiaNombre(guardia.getNombre());
+        return respuesta;
+    }
+
+    private LoginResponse paraAdmin(Administrador admin, Long guardia) {
         Instant expira = Instant.now().plus(duracion);
         String rol = rolDeAdmin(admin);
         // usuario: quién mandó una solicitud contable (P5)
-        JwtClaimsSet claims = base("admin:" + admin.getId(), rol, expira, admin.getTokenVersion(), admin.getConjuntoId())
-                .claim("usuario", admin.getUsuario()).build();
+        JwtClaimsSet.Builder datos = base("admin:" + admin.getId(), rol, expira, admin.getTokenVersion(), admin.getConjuntoId())
+                .claim("usuario", admin.getUsuario());
+        if (guardia != null) datos.claim(CLAIM_GUARDIA, guardia);
+        JwtClaimsSet claims = datos.build();
         return conConjunto(LoginResponse.builder()
                 .token(firmar(claims))
                 .expiraEn(expira)

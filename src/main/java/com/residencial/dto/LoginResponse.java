@@ -36,4 +36,8 @@ public class LoginResponse {
     // P7: el conjunto de la cuenta
     private Long conjuntoId;
     private String conjuntoNombre;
+
+    // P7 bloque 4: solo la portería, con el turno abierto con el PIN del guardia
+    private Long guardiaId;
+    private String guardiaNombre;
 }

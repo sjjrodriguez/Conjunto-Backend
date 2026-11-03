@@ -36,7 +36,7 @@ public class PorteriaService {
 
     public record Visita(Long id, Long apartamentoId, String torre, String apto, String visitante, String documento,
                          String placa, String motivo, String estado, LocalDateTime creadaEn, LocalDateTime venceEn,
-                         LocalDateTime respondidaEn, String canal, String telefono) {}
+                         LocalDateTime respondidaEn, String canal, String telefono, String guardia) {}
 
     public record Nueva(String torre, String apto, String visitante, String documento, String placa, String motivo) {}
 
@@ -45,11 +45,13 @@ public class PorteriaService {
     private final ResidenteRepository residentes;
     private final NotificacionService notificaciones;
     private final AccesoService acceso;
+    private final GuardiaService guardias;
     private final ZoneId zona;
 
     public PorteriaService(VisitaPorteriaRepository visitas, ApartamentoRepository apartamentos,
                            ResidenteRepository residentes, NotificacionService notificaciones, AccesoService acceso,
-                           @Value("${app.zona-horaria:America/Bogota}") String zona) {
+                           GuardiaService guardias, @Value("${app.zona-horaria:America/Bogota}") String zona) {
+        this.guardias = guardias;
         this.visitas = visitas;
         this.apartamentos = apartamentos;
         this.residentes = residentes;
@@ -79,6 +81,8 @@ public class PorteriaService {
         v.setCreadaEn(ahora);
         v.setVenceEn(ahora.plusMinutes(VisitaPorteria.MINUTOS_VIGENCIA));
         v.setRegistradaPor(acceso.tokenActual().map(Jwt::getSubject).orElse(null));
+        // P7 bloque 4: el guardia del turno de la recepción
+        v.setGuardiaNombre(guardias.delTurno().map(g -> g.getNombre()).orElse(null));
         v = visitas.save(v);
         notificaciones.avisarVisita(v);
         return aDTO(v, true);
@@ -138,7 +142,7 @@ public class PorteriaService {
                 .map(Residente::getTelefono).findFirst().orElse(null) : null;
         return new Visita(v.getId(), a.getId(), a.getTorre(), a.getApto(), v.getVisitanteNombre(), v.getVisitanteDocumento(),
                 v.getPlaca(), v.getMotivo(), v.getEstado(), v.getCreadaEn(), v.getVenceEn(), v.getRespondidaEn(),
-                v.getCanalRespuesta(), telefono);
+                v.getCanalRespuesta(), telefono, conTelefono ? v.getGuardiaNombre() : null);
     }
 
     private static int largo(String s) {

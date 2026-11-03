@@ -32,6 +32,8 @@ import java.util.List;
  *   Administrador:  usuario "admin", contraseña "admin-demo"
  *   Apartamentos:   torre 1 aptos 101, 102, 201 / torre 2 aptos 101, 102, 201,
  *                   contraseña "demo1234" en todos
+ *   Recepción (P7): usuario "porteria", contraseña "porteria-demo"; guardias con
+ *                   PIN 2580 (Carlos Ruiz) y 1357 (Ana Gómez)
  */
 @Component
 @Profile("demo")
@@ -61,6 +63,15 @@ public class DatosDemo implements CommandLineRunner {
     private final ParqueaderoRepository parqueaderoRepo;
     private final CuotaService cuotaService;
     private final ConjuntoRepository conjuntoRepo;
+    private final GuardiaPorteriaRepository guardiaRepo;
+
+    private GuardiaPorteria guardia(String nombre, String documento, String pin) {
+        GuardiaPorteria g = new GuardiaPorteria();
+        g.setNombre(nombre);
+        g.setDocumento(documento);
+        g.setPin(encoder.encode(pin));
+        return g;
+    }
 
     @Override
     public void run(String... args) {
@@ -81,6 +92,12 @@ public class DatosDemo implements CommandLineRunner {
         principal.setNombreCompleto("Administración MiConjunto");
         adminRepo.save(principal);
         adminRepo.save(new Administrador(null, "contador", encoder.encode("contador-demo"), Administrador.CONTADOR));
+        // P7 bloque 4: la recepción entra con la cuenta de portería y cada guardia abre su turno con su PIN
+        Administrador recepcion = new Administrador(null, "porteria", encoder.encode("porteria-demo"), Administrador.PORTERIA);
+        recepcion.setNombreCompleto("Recepción torre 1");
+        adminRepo.save(recepcion);
+        guardiaRepo.save(guardia("Carlos Ruiz", "79111222", "2580"));
+        guardiaRepo.save(guardia("Ana Gómez", "52333444", "1357"));
 
         String clave = encoder.encode(CLAVE_APARTAMENTOS);
         List<Apartamento> aptos = new ArrayList<>();

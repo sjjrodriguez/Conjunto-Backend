@@ -185,6 +185,8 @@ public class SecurityConfig {
                 // Portería (P6): la portería registra y consulta; el residente responde las de su apartamento
                 .requestMatchers(HttpMethod.GET, "/api/porteria/visitas/pendientes").access(residentes())
                 .requestMatchers(HttpMethod.PATCH, "/api/porteria/visitas/*/respuesta").access(respondeVisita())
+                // P7 bloque 4: los guardias los maneja la administración; el turno lo abre la recepción
+                .requestMatchers("/api/porteria/guardias", "/api/porteria/guardias/**").access(admin())
                 .requestMatchers("/api/porteria", "/api/porteria/**").access(portero())
                 // Celulares que reciben avisos: cualquiera con sesión (DispositivoServiceImpl la exige).
                 // La baja no pide sesión: se hace al cerrarla y basta con el token, que solo tiene ese celular
