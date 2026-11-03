@@ -15,9 +15,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * cerrar sesión la de la cuenta sube y los tokens anteriores dejan de valer. La versión vigente
  * se guarda 30 segundos en memoria para no consultar la base en cada petición.
  *
- * El sujeto del token dice de quién es: "admin:ID", "residente:ID" o "apartamento:ID". La clave
- * del apartamento la comparten todos los que viven ahí, así que cerrar esa sesión no invalida a
- * los demás: solo suben las versiones de administradores y residentes con cuenta propia.
+ * El sujeto del token dice de quién es: "admin:ID", "residente:ID", "apartamento:ID" o
+ * "plataforma:ID" (P7). La clave del apartamento la comparten todos los que viven ahí, así que
+ * cerrar esa sesión no invalida a los demás: solo suben las versiones de administradores,
+ * residentes con cuenta propia y operadores de la plataforma.
  */
 @Component
 @RequiredArgsConstructor
@@ -52,6 +53,7 @@ public class SesionVersion {
         // Consulta directa de una columna: se hace en cada petición nueva y no debe cargar entidades
         String sql;
         if (sujeto.startsWith("admin:")) sql = "select token_version from administrador where id = ? and activo = true";
+        else if (sujeto.startsWith("plataforma:")) sql = "select token_version from operador_plataforma where id = ? and activo = true";
         else if (sujeto.startsWith("residente:")) sql = "select token_version from residente where id = ?";
         else sql = "select token_version from apartamento where id = ?";
         return jdbc.query(sql, rs -> rs.next() ? rs.getInt(1) : INVALIDA, id);
@@ -66,7 +68,15 @@ public class SesionVersion {
             admins.findById(id).ifPresent(a -> { a.setTokenVersion(a.getTokenVersion() + 1); admins.save(a); });
         } else if (sujeto.startsWith("residente:")) {
             residentes.findById(id).ifPresent(r -> { r.setTokenVersion(r.getTokenVersion() + 1); residentes.save(r); });
+        } else if (sujeto.startsWith("plataforma:")) {
+            // P7: el operador no es de ningún conjunto; SQL directo para no depender del filtro
+            jdbc.update("update operador_plataforma set token_version = token_version + 1 where id = ?", id);
         }
+        cache.remove(sujeto);
+    }
+
+    /** P7: la versión de [sujeto] cambió por SQL directo (plataforma): se vuelve a consultar. */
+    public void olvidar(String sujeto) {
         cache.remove(sujeto);
     }
 

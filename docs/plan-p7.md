@@ -37,3 +37,26 @@ Cada bloque: compilar, pruebas del backend y commit. Una sola prueba en el emula
 Pendiente después de desplegar V20: el conjunto 1 queda como "Conjunto principal" en Bogotá D.C.;
 cambiar nombre, departamento y municipio por los reales (en B3 desde la app de plataforma o con un
 UPDATE en Supabase).
+
+## B3: cómo funciona
+
+- `OperadorPlataforma` (tabla `operador_plataforma`, V21) no es de ningún conjunto. El primero se
+  crea al arrancar con `PLATAFORMA_USUARIO` y `PLATAFORMA_CONTRASENA` (mínimo 10 caracteres) si
+  aún no existe; en la demo, `plataforma` / `plataforma-demo`.
+- Su token (rol `PLATAFORMA`, sujeto `plataforma:ID`, 2 horas, sin `cid`) solo sirve en
+  `/api/plataforma/**`: `autenticado()` y `sesion()` lo rechazan, así que no ve datos de residentes.
+- `/api/plataforma`: `login`, `logout`, `contrasena`, `departamentos`, `conjuntos` (lista con
+  apartamentos, cuentas y principal), `conjuntos/{id}` (ver y editar), `conjuntos/{id}/estado`
+  (suspender o reactivar, con motivo), `conjuntos/{id}/administracion` (cuentas, sin contraseñas),
+  `conjuntos/{id}/principal/restablecer` y `auditoria?conjunto=`.
+- Crear un conjunto crea también su administrador principal con una contraseña temporal de 12
+  caracteres que se muestra una sola vez. Restablecerla cierra sus sesiones y borra su huella.
+- Las cuentas de otro conjunto se escriben con SQL directo (el filtro de Hibernate se fija al abrir
+  la sesión): conjunto y administrador quedan en la misma transacción.
+- Suspender: `FiltroConjunto` responde 403 a las sesiones del conjunto y a sus logins
+  (`/api/auth/**`); deja de aparecer para elegir. `ConjuntosActivos` guarda el estado 30 s y la
+  plataforma lo olvida al cambiarlo.
+- El departamento debe ser uno de los 33 (`PlataformaService.DEPARTAMENTOS`); no se repite el
+  nombre de un conjunto en el mismo municipio.
+- Auditoría (`auditoria_plataforma`): inicio de sesión, crear, editar, suspender, reactivar y
+  restablecer, con el operador y el detalle. Se lee desde la app; no se edita.

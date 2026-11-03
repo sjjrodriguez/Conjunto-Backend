@@ -21,7 +21,9 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import com.residencial.conjunto.ConjuntosActivos;
 import com.residencial.conjunto.FiltroConjunto;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
@@ -51,7 +53,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, JwtDecoder jwtDecoder) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, JwtDecoder jwtDecoder, ConjuntosActivos activos) throws Exception {
         AuthenticationEntryPoint noAutenticado =
                 (req, res, ex) -> escribirError(res, 401, "Debes iniciar sesión para continuar");
         AccessDeniedHandler sinPermiso =
@@ -67,12 +69,15 @@ public class SecurityConfig {
                 .authenticationEntryPoint(noAutenticado)
                 .accessDeniedHandler(sinPermiso)
                 .jwt(j -> j.decoder(jwtDecoder).jwtAuthenticationConverter(jwtAuthenticationConverter())))
-            // P7: el conjunto de la petición, ya con el token validado
-            .addFilterAfter(new FiltroConjunto(), BearerTokenAuthenticationFilter.class)
+            // P7: el conjunto de la petición, ya con el token validado; uno suspendido no entra
+            .addFilterAfter(new FiltroConjunto(activos::activo), BearerTokenAuthenticationFilter.class)
             .authorizeHttpRequests(a -> a
                 .requestMatchers("/error").permitAll()
                 // P7: los conjuntos para elegir antes de iniciar sesión
                 .requestMatchers(HttpMethod.GET, "/api/conjuntos", "/api/conjuntos/**").permitAll()
+                // P7 bloque 3: la app de plataforma. Su token no sirve en ninguna otra ruta (autenticado, sesion)
+                .requestMatchers(HttpMethod.POST, "/api/plataforma/login").permitAll()
+                .requestMatchers("/api/plataforma", "/api/plataforma/**").access(plataforma())
                 // Cerrar sesión necesita la sesión que se cierra; el resto de /api/auth (login, registro) es público
                 .requestMatchers(HttpMethod.POST, "/api/auth/logout").access(sesion())
                 .requestMatchers(HttpMethod.PUT, "/api/auth/contrasena").access(sesion())
@@ -211,19 +216,31 @@ public class SecurityConfig {
                 TokenService.ROL_PROPIETARIO, TokenService.ROL_ARRENDATARIO));
     }
 
-    /** Cualquier sesión menos la portería: la portería solo ve lo suyo (P6). */
+    /** Cualquier sesión menos la portería: la portería solo ve lo suyo (P6). Tampoco la plataforma (P7). */
     private AuthorizationManager<RequestAuthorizationContext> autenticado() {
         return regla((auth, ctx) -> {
             AuthorizationDecision autenticado = AuthenticatedAuthorizationManager.authenticated().check(auth, ctx);
-            boolean porteria = auth.get().getAuthorities().stream()
-                    .anyMatch(a -> ("ROLE_" + TokenService.ROL_PORTERIA).equals(a.getAuthority()));
-            return new AuthorizationDecision(autenticado != null && autenticado.isGranted() && !porteria);
+            boolean otro = tieneRol(auth.get(), TokenService.ROL_PORTERIA) || tieneRol(auth.get(), TokenService.ROL_PLATAFORMA);
+            return new AuthorizationDecision(autenticado != null && autenticado.isGranted() && !otro);
         });
     }
 
-    /** Cualquier sesión, también la portería: cuenta, avisos, legal. */
+    /** Cualquier sesión de un conjunto, también la portería: cuenta, avisos, legal. La plataforma no es de ninguno. */
     private AuthorizationManager<RequestAuthorizationContext> sesion() {
-        return regla(AuthenticatedAuthorizationManager.authenticated());
+        return regla((auth, ctx) -> {
+            AuthorizationDecision autenticado = AuthenticatedAuthorizationManager.authenticated().check(auth, ctx);
+            return new AuthorizationDecision(autenticado != null && autenticado.isGranted()
+                    && !tieneRol(auth.get(), TokenService.ROL_PLATAFORMA));
+        });
+    }
+
+    /** P7 bloque 3: solo los operadores de la plataforma. */
+    private AuthorizationManager<RequestAuthorizationContext> plataforma() {
+        return regla(AuthorityAuthorizationManager.hasRole(TokenService.ROL_PLATAFORMA));
+    }
+
+    private static boolean tieneRol(Authentication auth, String rol) {
+        return auth.getAuthorities().stream().anyMatch(a -> ("ROLE_" + rol).equals(a.getAuthority()));
     }
 
     /** Administración y portería. */
@@ -259,6 +276,7 @@ public class SecurityConfig {
         // /api/auth (cambiar la contraseña) sí lo usan
         return req -> req.getRequestURI().startsWith("/api/auth/")
                 && (req.getRequestURI().endsWith("/login") || req.getRequestURI().startsWith("/api/auth/registro"))
+                || req.getRequestURI().equals("/api/plataforma/login")
                 ? null : resolver.resolve(req);
     }
 

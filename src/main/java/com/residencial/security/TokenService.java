@@ -6,6 +6,7 @@ import com.residencial.repository.ConjuntoRepository;
 import com.residencial.dto.LoginResponse;
 import com.residencial.model.Administrador;
 import com.residencial.model.Apartamento;
+import com.residencial.model.OperadorPlataforma;
 import com.residencial.model.Residente;
 import com.residencial.repository.ResidenteRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +29,10 @@ public class TokenService {
     public static final String ROL_PORTERIA = "PORTERIA";
     public static final String ROL_PROPIETARIO = "PROPIETARIO";
     public static final String ROL_ARRENDATARIO = "ARRENDATARIO";
+    // P7 bloque 3: maneja los conjuntos de la plataforma; no es de ninguno ni ve sus datos
+    public static final String ROL_PLATAFORMA = "PLATAFORMA";
+    // Más corta que la de las cuentas de un conjunto: puede crear y suspender conjuntos
+    private static final Duration DURACION_PLATAFORMA = Duration.ofHours(2);
     public static final String CLAIM_ROL = "rol";
     public static final String CLAIM_APARTAMENTO = "apartamentoId";
     public static final String CLAIM_RESIDENTE = "residenteId";
@@ -79,6 +84,28 @@ public class TokenService {
                 .usuario(admin.getUsuario())
                 .nombre(admin.getNombreCompleto())
                 .build(), admin.getConjuntoId());
+    }
+
+    /** P7 bloque 3: el token de la plataforma no lleva conjunto (FiltroConjunto no lo revisa). */
+    public LoginResponse paraPlataforma(OperadorPlataforma operador) {
+        Instant expira = Instant.now().plus(DURACION_PLATAFORMA);
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+                .issuer("miconjunto")
+                .subject("plataforma:" + operador.getId())
+                .issuedAt(Instant.now())
+                .expiresAt(expira)
+                .claim(CLAIM_ROL, ROL_PLATAFORMA)
+                .claim(CLAIM_VERSION, operador.getTokenVersion())
+                .claim("usuario", operador.getUsuario())
+                .build();
+        return LoginResponse.builder()
+                .token(firmar(claims))
+                .expiraEn(expira)
+                .rol(ROL_PLATAFORMA)
+                .id(operador.getId())
+                .usuario(operador.getUsuario())
+                .nombre(operador.getNombreCompleto())
+                .build();
     }
 
     public LoginResponse paraApartamento(Apartamento apto) {
