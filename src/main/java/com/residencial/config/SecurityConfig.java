@@ -84,6 +84,8 @@ public class SecurityConfig {
                 // P6: activar y quitar la huella piden sesión; entrar con ella (biometria/login) es público
                 .requestMatchers(HttpMethod.POST, "/api/auth/biometria/activar").access(sesion())
                 .requestMatchers(HttpMethod.DELETE, "/api/auth/biometria").access(sesion())
+                // P7 bloque 5: los celulares de la cuenta piden sesión; verificar el código de un celular nuevo es público
+                .requestMatchers("/api/auth/dispositivos", "/api/auth/dispositivos/**").access(sesion())
                 .requestMatchers(HttpMethod.POST, "/api/auth/**").permitAll()
                 // P6: textos legales públicos; consentimientos y solicitudes de datos, de cualquier sesión
                 .requestMatchers(HttpMethod.GET, "/api/legal/textos").permitAll()
@@ -277,7 +279,8 @@ public class SecurityConfig {
         // El login nunca necesita token: se ignora aunque llegue uno caducado. Las demás rutas de
         // /api/auth (cambiar la contraseña) sí lo usan
         return req -> req.getRequestURI().startsWith("/api/auth/")
-                && (req.getRequestURI().endsWith("/login") || req.getRequestURI().startsWith("/api/auth/registro"))
+                && (req.getRequestURI().endsWith("/login") || req.getRequestURI().startsWith("/api/auth/registro")
+                        || req.getRequestURI().startsWith("/api/auth/verificar"))
                 || req.getRequestURI().equals("/api/plataforma/login")
                 ? null : resolver.resolve(req);
     }

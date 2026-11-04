@@ -44,7 +44,8 @@ public class BiometriaController {
                                     @RequestHeader(value = "X-App-Tipo", required = false) String app) {
         String clave = http.getRemoteAddr() + "|bio|" + (cuerpo.dispositivoId() == null ? "" : cuerpo.dispositivoId());
         limitador.verificar(clave);
-        var sesion = servicio.entrar(cuerpo.dispositivoId(), cuerpo.credencial(), app(app));
+        var sesion = servicio.entrar(cuerpo.dispositivoId(), cuerpo.credencial(), app(app),
+                http.getHeader(com.residencial.security.SesionesDispositivo.CABECERA_NOMBRE));
         if (sesion.isPresent()) {
             limitador.limpiar(clave);
             return ResponseEntity.ok(sesion.get());

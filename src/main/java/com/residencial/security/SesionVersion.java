@@ -72,6 +72,10 @@ public class SesionVersion {
             // P7: el operador no es de ningún conjunto; SQL directo para no depender del filtro
             jdbc.update("update operador_plataforma set token_version = token_version + 1 where id = ?", id);
         }
+        // P7 bloque 5: sus celulares quedan sin sesión (sus tokens ya no valen por la versión)
+        if (SesionesDispositivo.aplica(sujeto)) {
+            jdbc.update("update dispositivo_cuenta set sesion = null, sesion_desde = null where sujeto = ?", sujeto);
+        }
         cache.remove(sujeto);
     }
 

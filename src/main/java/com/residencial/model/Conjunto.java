@@ -32,6 +32,10 @@ public class Conjunto {
     @Column(nullable = false)
     private boolean activo = true;
 
+    // P7 bloque 5: celulares con sesión abierta a la vez por cuenta (lo cambia la plataforma)
+    @Column(name = "max_dispositivos", nullable = false)
+    private int maxDispositivos = 3;
+
     @Column(name = "creado_en", nullable = false)
     private LocalDateTime creadoEn = LocalDateTime.now();
 

@@ -8,6 +8,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import com.residencial.security.SesionVersion;
+import com.residencial.security.SesionesDispositivo;
 import com.residencial.security.VersionTokenValidator;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -40,11 +41,11 @@ public class JwtConfig {
     }
 
     @Bean
-    public JwtDecoder jwtDecoder(SecretKey jwtClave, SesionVersion sesiones) {
+    public JwtDecoder jwtDecoder(SecretKey jwtClave, SesionVersion sesiones, SesionesDispositivo dispositivos) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtClave).macAlgorithm(MacAlgorithm.HS256).build();
-        // Además de firma y caducidad: que la sesión no se haya cerrado ni la cuenta dado de baja
+        // Además de firma y caducidad: que la sesión (también la del celular) no se haya cerrado ni la cuenta dado de baja
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
-                JwtValidators.createDefault(), new VersionTokenValidator(sesiones)));
+                JwtValidators.createDefault(), new VersionTokenValidator(sesiones, dispositivos)));
         return decoder;
     }
 

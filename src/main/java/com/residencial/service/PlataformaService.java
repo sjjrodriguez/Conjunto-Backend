@@ -49,7 +49,7 @@ public class PlataformaService {
     private static final int MAX_EVENTOS = 200;
 
     private static final String RESUMEN = """
-            select c.id, c.nombre, c.departamento, c.municipio, c.direccion, c.activo, c.creado_en,
+            select c.id, c.nombre, c.departamento, c.municipio, c.direccion, c.activo, c.creado_en, c.max_dispositivos,
                    (select count(*) from apartamento a where a.conjunto_id = c.id) as apartamentos,
                    (select count(*) from administrador d where d.conjunto_id = c.id and d.activo = true) as cuentas,
                    (select d.usuario from administrador d
@@ -111,7 +111,9 @@ public class PlataformaService {
         String temporal = temporal();
         Long id = tx.execute(estado -> {
             sinRepetir(d, null);
-            Conjunto c = conjuntos.saveAndFlush(new Conjunto(d.nombre(), d.departamento(), d.municipio(), d.direccion()));
+            Conjunto nuevo = new Conjunto(d.nombre(), d.departamento(), d.municipio(), d.direccion());
+            if (d.maxDispositivos() != null) nuevo.setMaxDispositivos(d.maxDispositivos());
+            Conjunto c = conjuntos.saveAndFlush(nuevo);
             jdbc.update("""
                     insert into administrador (conjunto_id, usuario, contrasena, rol, principal, nombre_completo, correo, token_version, activo)
                     values (?, ?, ?, ?, true, ?, ?, 0, true)
@@ -134,9 +136,14 @@ public class PlataformaService {
             c.setDepartamento(d.departamento());
             c.setMunicipio(d.municipio());
             c.setDireccion(d.direccion());
+            String limite = "";
+            if (d.maxDispositivos() != null && d.maxDispositivos() != c.getMaxDispositivos()) {
+                limite = "; celulares por cuenta: " + c.getMaxDispositivos() + " → " + d.maxDispositivos();
+                c.setMaxDispositivos(d.maxDispositivos());
+            }
             conjuntos.save(c);
             auditoria.save(new AuditoriaPlataforma(operador, AuditoriaPlataforma.EDITAR_CONJUNTO, id,
-                    antes + " → " + c.getNombre() + " (" + c.getMunicipio() + ", " + c.getDepartamento() + ")"));
+                    antes + " → " + c.getNombre() + " (" + c.getMunicipio() + ", " + c.getDepartamento() + ")" + limite));
         });
         return conjunto(id);
     }
@@ -185,6 +192,8 @@ public class PlataformaService {
         });
         String sujeto = "admin:" + cuenta[0];
         sesiones.olvidar(sujeto);
+        // P7 bloque 5: sus celulares quedan sin sesión (los tokens ya no valen por la versión)
+        jdbc.update("update dispositivo_cuenta set sesion = null, sesion_desde = null where sujeto = ?", sujeto);
         // La huella es del conjunto: se borra con su filtro, en una transacción propia
         ConjuntoContexto.en(conjuntoId, () -> biometria.revocarTodas(sujeto));
         return new PlataformaDTO.Acceso(conjuntoId, (String) cuenta[1], temporal);
@@ -209,7 +218,7 @@ public class PlataformaService {
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Elige un departamento de la lista"));
         return new PlataformaDTO.DatosConjunto(espacios(d.nombre()), departamento, espacios(d.municipio()),
-                vacioANull(d.direccion()));
+                vacioANull(d.direccion()), d.maxDispositivos());
     }
 
     /** Dos conjuntos con el mismo nombre en el mismo municipio no se distinguirían en el selector. */
@@ -238,7 +247,7 @@ public class PlataformaService {
         return new PlataformaDTO.ConjuntoResumen(rs.getLong("id"), rs.getString("nombre"), rs.getString("departamento"),
                 rs.getString("municipio"), rs.getString("direccion"), rs.getBoolean("activo"),
                 creado == null ? null : creado.toLocalDateTime(), rs.getLong("apartamentos"), rs.getLong("cuentas"),
-                rs.getString("principal"));
+                rs.getString("principal"), rs.getInt("max_dispositivos"));
     }
 
     private static String espacios(String s) {

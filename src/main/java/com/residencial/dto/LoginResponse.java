@@ -40,4 +40,10 @@ public class LoginResponse {
     // P7 bloque 4: solo la portería, con el turno abierto con el PIN del guardia
     private Long guardiaId;
     private String guardiaNombre;
+
+    // P7 bloque 5: celular nuevo. Sin token: la app pide el código enviado a ese correo (oculto)
+    private String verificacionId;
+    private String correoOculto;
+    // El celular cuya sesión se cerró porque la cuenta pasó del límite
+    private String sesionCerradaEn;
 }

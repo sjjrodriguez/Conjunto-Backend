@@ -9,7 +9,7 @@ Cada bloque: compilar, pruebas del backend y commit. Una sola prueba en el emula
 | B2 | Selector departamento → municipio → conjunto en las apps, editable desde Cuenta | B1 |
 | B3 | App Plataforma: crear, editar y suspender conjuntos y su administrador principal, con auditoría | B1 |
 | B4 | App Recepción: tercer flavor, PIN por guardia, bloqueo por inactividad | — |
-| B5 | Límite de dispositivos por cuenta y código de verificación en cada dispositivo nuevo | Llave de Brevo |
+| B5 | Límite de dispositivos por cuenta y código de verificación en cada dispositivo nuevo | Llave de Brevo (lista) |
 
 ## B1: cómo funciona
 
@@ -76,3 +76,33 @@ UPDATE en Supabase).
 - Sin turno (la portería desde la app de administración) todo sigue igual, sin guardia.
 - El bloqueo por inactividad lo hace la app de recepción: vuelve a la pantalla de turno.
 - Demo: cuenta `porteria` / `porteria-demo`; guardias Carlos Ruiz (PIN 2580) y Ana Gómez (1357).
+
+## B5: cómo funciona
+
+- **Una sesión por celular.** Cada celular se identifica con el id que la app ya genera para la
+  huella (cabeceras `X-Dispositivo` y `X-Dispositivo-Nombre`, p. ej. "Samsung SM-S921B"). Cada
+  inicio de sesión crea una fila en `dispositivo_cuenta` (cuenta + celular) con un id de sesión
+  aleatorio que va en el token (claim `sid`). `VersionTokenValidator` rechaza el token si esa
+  sesión ya se cerró (se consulta y se guarda 30 s en memoria, como la versión de sesión).
+- **Cerrar sesión** cierra solo la de ese celular (antes se cerraban todas las de la cuenta).
+  Cambiar la contraseña, darla de baja o restablecerla cierra todas; quien cambió la contraseña
+  sigue en su celular con un token nuevo.
+- **Límite por cuenta:** `conjunto.max_dispositivos` (por defecto 3, de 1 a 10), lo cambia la
+  plataforma en los datos del conjunto. Al entrar en uno más, se cierra la sesión del celular que
+  la abrió hace más tiempo y la respuesta del login lo dice (`sesionCerradaEn`).
+- **Código en un celular nuevo:** si la cuenta nunca verificó ese celular, el login no devuelve
+  token sino `verificacionId` y el correo oculto (`ms***@gmail.com`). Se envía un código de 6
+  dígitos por Brevo que vence en 10 minutos; 5 intentos por código y hasta 3 envíos (uno por
+  minuto). `POST /api/auth/verificar` con el código devuelve la sesión y deja el celular verificado:
+  la próxima vez no lo pide. La huella entra sin código (la credencial ya es de ese celular).
+- **A quién aplica:** cuentas de la administración (administrador, asistente, contador, portería)
+  y residentes con cuenta propia. No aplica a la clave compartida del apartamento (la usa toda la
+  familia y no tiene correo) ni a la plataforma (no tiene correo; su token dura 2 horas).
+  Una cuenta sin correo entra sin código (queda en el log) hasta que se le agregue uno.
+- **Mis dispositivos** (Cuenta): `GET /api/auth/dispositivos` lista los celulares de la cuenta
+  con su sesión; `DELETE /api/auth/dispositivos/{id}` cierra esa sesión y olvida el celular (si
+  vuelve a entrar, pide código).
+- **Apps anteriores:** un login sin `X-Dispositivo` funciona como antes (sin código ni límite) y
+  los tokens sin `sid` siguen valiendo. Cuando todos tengan la app nueva, poner
+  `SESIONES_EXIGIR_DISPOSITIVO=true` en Render: el login sin celular responde 426 "Actualiza la app".
+- En la demo (`app.sesiones.registrar-codigo=true`) el código también queda en el log.

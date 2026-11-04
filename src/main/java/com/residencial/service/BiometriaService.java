@@ -8,6 +8,7 @@ import com.residencial.repository.AdministradorRepository;
 import com.residencial.repository.ApartamentoRepository;
 import com.residencial.repository.CredencialDispositivoRepository;
 import com.residencial.repository.ResidenteRepository;
+import com.residencial.security.SesionesDispositivo;
 import com.residencial.security.TokenService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -38,16 +39,18 @@ public class BiometriaService {
     private final ResidenteRepository residentes;
     private final ApartamentoRepository apartamentos;
     private final TokenService tokens;
+    private final SesionesDispositivo sesiones;
     private final ZoneId zona;
 
     public BiometriaService(CredencialDispositivoRepository credenciales, AdministradorRepository admins,
                             ResidenteRepository residentes, ApartamentoRepository apartamentos, TokenService tokens,
-                            @Value("${app.zona-horaria:America/Bogota}") String zona) {
+                            SesionesDispositivo sesiones, @Value("${app.zona-horaria:America/Bogota}") String zona) {
         this.credenciales = credenciales;
         this.admins = admins;
         this.residentes = residentes;
         this.apartamentos = apartamentos;
         this.tokens = tokens;
+        this.sesiones = sesiones;
         this.zona = ZoneId.of(zona);
     }
 
@@ -68,19 +71,24 @@ public class BiometriaService {
         return credencial;
     }
 
-    /** Una sesión nueva si la credencial vale y la cuenta sigue pudiendo entrar; vacío si no. */
+    /**
+     * Una sesión nueva si la credencial vale y la cuenta sigue pudiendo entrar; vacío si no.
+     * P7 bloque 5: abre la sesión de ese celular sin pedir código (la credencial ya es de él).
+     */
     @Transactional
-    public Optional<LoginResponse> entrar(String dispositivoId, String credencial, String tipoApp) {
+    public Optional<LoginResponse> entrar(String dispositivoId, String credencial, String tipoApp, String nombreCelular) {
         if (dispositivoId == null || credencial == null || credencial.isBlank()) return Optional.empty();
         Optional<CredencialDispositivo> guardada = credenciales
                 .findByHashCredencialAndDispositivoIdAndTipoApp(hash(credencial), dispositivoId, tipoApp);
         if (guardada.isEmpty()) return Optional.empty();
         CredencialDispositivo c = guardada.get();
-        Optional<LoginResponse> sesion = sesionDe(c.getSujeto());
-        if (sesion.isEmpty()) {
+        if (sesionDe(c.getSujeto()).isEmpty()) {
             credenciales.delete(c);
             return Optional.empty();
         }
+        SesionesDispositivo.Apertura a = sesiones.abrir(c.getSujeto(), dispositivoId, nombreCelular, tipoApp, true);
+        Optional<LoginResponse> sesion = SesionesDispositivo.conSesion(a.sesion(), () -> sesionDe(c.getSujeto()));
+        sesion.ifPresent(r -> r.setSesionCerradaEn(a.cerradaEn()));
         c.setUltimoUso(LocalDateTime.now(zona));
         return sesion;
     }

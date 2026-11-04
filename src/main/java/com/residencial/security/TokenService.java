@@ -16,6 +16,9 @@ import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.time.Instant;
@@ -41,6 +44,8 @@ public class TokenService {
     public static final String CLAIM_VERSION = "tv";
     // P7 bloque 4: el guardia que abrió el turno en la recepción con su PIN
     public static final String CLAIM_GUARDIA = "gid";
+    // P7 bloque 5: la sesión del celular (ver SesionesDispositivo)
+    public static final String CLAIM_SESION = "sid";
 
     private final JwtEncoder encoder;
     private final Duration duracion;
@@ -183,7 +188,7 @@ public class TokenService {
 
     private JwtClaimsSet.Builder base(String sujeto, String rol, Instant expira, int version, Long conjunto) {
         if (conjunto == null) conjunto = ConjuntoContexto.actual();
-        return JwtClaimsSet.builder()
+        JwtClaimsSet.Builder datos = JwtClaimsSet.builder()
                 .issuer("miconjunto")
                 .subject(sujeto)
                 .issuedAt(Instant.now())
@@ -192,6 +197,23 @@ public class TokenService {
                 .claim(CLAIM_VERSION, version)
                 // P7: el conjunto de la cuenta; FiltroConjunto lo usa en cada petición
                 .claim(FiltroConjunto.CLAIM, conjunto);
+        String sesion = sesionPara(sujeto);
+        if (sesion != null) datos.claim(CLAIM_SESION, sesion);
+        return datos;
+    }
+
+    /**
+     * P7 bloque 5: la sesión del celular que va en el token. La que se está abriendo (login) o, si
+     * la misma cuenta pide un token nuevo con su sesión (turno de la recepción), la de su token.
+     */
+    private static String sesionPara(String sujeto) {
+        String abriendo = SesionesDispositivo.enCurso();
+        if (abriendo != null) return abriendo;
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth instanceof JwtAuthenticationToken actual && sujeto.equals(actual.getToken().getSubject())) {
+            return actual.getToken().getClaimAsString(CLAIM_SESION);
+        }
+        return null;
     }
 
     private String firmar(JwtClaimsSet claims) {

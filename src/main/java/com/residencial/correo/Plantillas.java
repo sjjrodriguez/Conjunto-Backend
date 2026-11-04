@@ -47,6 +47,21 @@ public final class Plantillas {
                 + "<p style=\"color:#777\">MiConjunto</p></div>";
     }
 
+    public static String asuntoCodigo(String codigo) {
+        return codigo + " es tu código de MiConjunto";
+    }
+
+    /** P7 bloque 5: código para entrar en un celular nuevo. */
+    public static String codigo(String nombre, String codigo, String celular, int minutos) {
+        return "<div style=\"font-family:sans-serif;font-size:15px;color:#222\">"
+                + "<p>Hola" + (nombre == null || nombre.isBlank() ? "" : ", " + HtmlUtils.htmlEscape(nombre)) + ":</p>"
+                + "<p>Para entrar a MiConjunto en " + (celular == null ? "un celular nuevo" : "<b>" + HtmlUtils.htmlEscape(celular) + "</b>")
+                + " escribe este código:</p>"
+                + "<p style=\"font-size:28px;font-weight:bold;letter-spacing:6px\">" + codigo + "</p>"
+                + "<p>Vence en " + minutos + " minutos. Si no fuiste tú, cambia tu contraseña: alguien la conoce.</p>"
+                + "<p style=\"color:#777\">MiConjunto</p></div>";
+    }
+
     private static String rol(Residente r) {
         return r.esArrendatario() ? "arrendatario" : "propietario";
     }
