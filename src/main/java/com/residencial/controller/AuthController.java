@@ -39,6 +39,7 @@ public class AuthController {
     private final com.residencial.service.BiometriaService biometria;
     private final com.residencial.security.SesionesDispositivo dispositivos;
     private final VerificacionDispositivo verificacion;
+    private final com.residencial.security.CodigoConjunto codigoConjunto;
 
     /**
      * Cierra la sesión: los tokens emitidos antes dejan de valer (administradores y residentes con
@@ -75,6 +76,8 @@ public class AuthController {
     @PostMapping("/apartamento/login")
     public ResponseEntity<?> loginApartamento(@RequestBody LoginDTO.ApartamentoLoginRequest request,
                                               HttpServletRequest http) {
+        // P9 bloque 2: solo desde un celular que ya puso el código del conjunto
+        codigoConjunto.exigirPase(http, ConjuntoContexto.actual());
         String clave = http.getRemoteAddr() + "|" + ConjuntoContexto.actual() + "|apto|"
                 + normalizar(request.getTorre()) + "-" + normalizar(request.getApto());
         limitador.verificar(clave);
@@ -93,6 +96,7 @@ public class AuthController {
     @PostMapping("/residente/login")
     public ResponseEntity<?> loginResidente(@RequestBody LoginDTO.ResidenteLoginRequest request,
                                             HttpServletRequest http) {
+        codigoConjunto.exigirPase(http, ConjuntoContexto.actual());
         boolean porDocumento = request.getDocumento() != null && !request.getDocumento().isBlank();
         String clave = http.getRemoteAddr() + "|" + ConjuntoContexto.actual() + "|residente|" + (porDocumento ? normalizar(request.getDocumento())
                 : normalizar(request.getTorre()) + "-" + normalizar(request.getApto()) + "-" + normalizar(request.getRol()));
@@ -113,6 +117,7 @@ public class AuthController {
     /** Registro paso 1: con qué rol quedaría quien se registra en ese apartamento. */
     @PostMapping("/registro/verificar")
     public RegistroDTO.Verificado verificarRegistro(@RequestBody RegistroDTO.Verificar solicitud, HttpServletRequest http) {
+        codigoConjunto.exigirPase(http, ConjuntoContexto.actual());
         String clave = http.getRemoteAddr() + "|registro";
         limitador.verificar(clave);
         limitador.registrarFallo(clave); // cuenta cada consulta: evita recorrer todos los apartamentos
@@ -121,7 +126,8 @@ public class AuthController {
 
     /** Registro completo: queda pendiente de aprobación (y del propietario, si es arrendatario). */
     @PostMapping("/registro")
-    public ResponseEntity<RegistroDTO.Recibido> registrar(@RequestBody RegistroDTO.Solicitud solicitud) {
+    public ResponseEntity<RegistroDTO.Recibido> registrar(@RequestBody RegistroDTO.Solicitud solicitud, HttpServletRequest http) {
+        codigoConjunto.exigirPase(http, ConjuntoContexto.actual());
         return ResponseEntity.status(HttpStatus.CREATED).body(registro.registrar(solicitud));
     }
 

@@ -31,12 +31,18 @@ public class PlataformaPanelService {
 
     private final JdbcTemplate jdbc;
     private final PlataformaService plataforma;
+    private final com.residencial.repository.ConjuntoRepository conjuntos;
+    private final com.residencial.security.CodigoConjunto codigos;
     private final ZoneId zona;
 
     public PlataformaPanelService(JdbcTemplate jdbc, PlataformaService plataforma,
+                                  com.residencial.repository.ConjuntoRepository conjuntos,
+                                  com.residencial.security.CodigoConjunto codigos,
                                   @Value("${app.zona-horaria:America/Bogota}") String zona) {
         this.jdbc = jdbc;
         this.plataforma = plataforma;
+        this.conjuntos = conjuntos;
+        this.codigos = codigos;
         this.zona = ZoneId.of(zona);
     }
 
@@ -87,9 +93,11 @@ public class PlataformaPanelService {
                 contar("select count(*) from parqueadero where conjunto_id = ?", id));
         Timestamp ultimo = jdbc.queryForObject("select max(sesion_desde) from dispositivo_cuenta where conjunto_id = ?",
                 Timestamp.class, id);
+        String codigo = conjuntos.findById(id).map(codigos::codigoDeHoy).orElse(null);
         return new PlataformaDTO.DetalleConjunto(resumen, cifras, plataforma.cuentas(id),
                 ultimo == null ? null : ultimo.toLocalDateTime(),
-                eventos(id, null, null, null, null, 0).eventos().stream().limit(10).toList());
+                eventos(id, null, null, null, null, 0).eventos().stream().limit(10).toList(),
+                codigo, codigos.cambiaEn());
     }
 
     /**

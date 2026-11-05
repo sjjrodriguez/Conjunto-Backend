@@ -75,6 +75,9 @@ public class SecurityConfig {
                 .requestMatchers("/error").permitAll()
                 // P7: los conjuntos para elegir antes de iniciar sesión
                 .requestMatchers(HttpMethod.GET, "/api/conjuntos", "/api/conjuntos/**").permitAll()
+                // P9 bloque 2: el código del conjunto lo manda la app antes del login; el de hoy lo ven la administración y la portería
+                .requestMatchers(HttpMethod.POST, "/api/conjuntos/*/codigo").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/codigo-conjunto").access(portero())
                 // P7 bloque 3: la app de plataforma. Su token no sirve en ninguna otra ruta (autenticado, sesion)
                 .requestMatchers(HttpMethod.POST, "/api/plataforma/login").permitAll()
                 .requestMatchers("/api/plataforma", "/api/plataforma/**").access(plataforma())

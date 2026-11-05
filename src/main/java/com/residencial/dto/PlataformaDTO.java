@@ -83,7 +83,9 @@ public final class PlataformaDTO {
                          long vehiculos, long guardias, long celularesConSesion, long visitasMes, long parqueaderos) {}
 
     public record DetalleConjunto(ConjuntoResumen conjunto, Cifras cifras, java.util.List<CuentaAdministracion> cuentas,
-                                  LocalDateTime ultimaSesion, java.util.List<EventoDetalle> eventos) {}
+                                  LocalDateTime ultimaSesion, java.util.List<EventoDetalle> eventos,
+                                  // P9 bloque 2: el código de hoy y cuándo cambia
+                                  String codigoDelDia, LocalDateTime codigoCambiaEn) {}
 
     public record EventoDetalle(Long id, String operador, String accion, Long conjuntoId, String conjunto, String detalle,
                                 LocalDateTime fecha) {}

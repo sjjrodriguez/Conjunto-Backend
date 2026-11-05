@@ -39,6 +39,13 @@ public class Conjunto {
     @Column(name = "creado_en", nullable = false)
     private LocalDateTime creadoEn = LocalDateTime.now();
 
+    // P9 bloque 2: de aquí sale el código diario del conjunto (CodigoConjunto). Nunca sale del servidor
+    @Column(name = "codigo_secreto", nullable = false, length = 64)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private String codigoSecreto = com.residencial.security.CodigoConjunto.nuevoSecreto();
+
     public Conjunto(String nombre, String departamento, String municipio, String direccion) {
         this.nombre = nombre;
         this.departamento = departamento;
