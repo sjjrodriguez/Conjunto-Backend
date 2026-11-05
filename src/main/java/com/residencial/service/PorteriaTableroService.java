@@ -44,7 +44,8 @@ public class PorteriaTableroService {
     static final int PAGINAS_MAX = 20;
 
     public record Resumen(long visitasHoy, long esperandoRespuesta, long dentro, long vehiculosDentro,
-                          long parqueaderosLibres, long parqueaderosTotal, long minutaHoy, String guardia) {}
+                          long parqueaderosLibres, long parqueaderosTotal, long minutaHoy, String guardia,
+                          long correspondenciaPendiente) {}
 
     public record Pagina(List<PorteriaService.Visita> visitas, boolean hayMas) {}
 
@@ -63,6 +64,7 @@ public class PorteriaTableroService {
     private final ResidenteRepository residentes;
     private final VehiculoRepository vehiculos;
     private final MinutaPorteriaRepository minuta;
+    private final com.residencial.repository.CorrespondenciaRepository correspondencia;
     private final GuardiaService guardias;
     private final AccesoService acceso;
     private final ZoneId zona;
@@ -70,6 +72,7 @@ public class PorteriaTableroService {
     public PorteriaTableroService(VisitaPorteriaRepository visitas, PorteriaService porteria, ApartamentoRepository apartamentos,
                                   ResidenteRepository residentes, VehiculoRepository vehiculos, MinutaPorteriaRepository minuta,
                                   GuardiaService guardias, AccesoService acceso,
+                                  com.residencial.repository.CorrespondenciaRepository correspondencia,
                                   @Value("${app.zona-horaria:America/Bogota}") String zona) {
         this.visitas = visitas;
         this.porteria = porteria;
@@ -77,6 +80,7 @@ public class PorteriaTableroService {
         this.residentes = residentes;
         this.vehiculos = vehiculos;
         this.minuta = minuta;
+        this.correspondencia = correspondencia;
         this.guardias = guardias;
         this.acceso = acceso;
         this.zona = ZoneId.of(zona);
@@ -96,7 +100,8 @@ public class PorteriaTableroService {
                 puestos.stream().filter(PorteriaService.ParqueaderoInvitados::libre).count(),
                 puestos.size(),
                 minuta.countByCreadaEnGreaterThanEqual(hoy),
-                guardias.delTurno().map(g -> g.getNombre()).orElse(null));
+                guardias.delTurno().map(g -> g.getNombre()).orElse(null),
+                correspondencia.countByEstado(com.residencial.model.Correspondencia.PENDIENTE));
     }
 
     /** Autorizadas sin salida: las de las últimas 24 horas y las que ocupan un parqueadero (de cuando sea). */

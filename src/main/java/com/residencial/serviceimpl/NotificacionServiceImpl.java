@@ -42,6 +42,10 @@ public class NotificacionServiceImpl implements NotificacionService {
     public static final String TIPO_REGISTRO = "REGISTRO";
     public static final String TIPO_PUBLICACION = "PUBLICACION";
     public static final String TIPO_VISITA = "VISITA_PORTERIA";
+    // P9 bloque 3
+    public static final String TIPO_CORRESPONDENCIA = "CORRESPONDENCIA";
+    public static final String TIPO_RECIBO = "RECIBO";
+    public static final String TIPO_CORRESPONDENCIA_ENTREGADA = "CORRESPONDENCIA_ENTREGADA";
     public static final String TIPO_SOLICITUD_ARRENDATARIO = "SOLICITUD_ARRENDATARIO";
     public static final String TIPO_COMPROBANTE = "COMPROBANTE";
     public static final String TIPO_CUOTA_PAGADA = "CUOTA_PAGADA";
@@ -251,6 +255,35 @@ public class NotificacionServiceImpl implements NotificacionService {
                 : " en vehículo " + v.getPlaca() + (v.getParqueadero() == null ? "" : " (parqueadero " + v.getParqueadero().getNumero() + ")");
         crear(TIPO_VISITA, "Visita en portería: " + v.getVisitanteNombre() + vehiculo + ". Autorízala o recházala en 2 minutos",
                 v.getId(), v.getApartamento().getId(), v.getApartamento().getId());
+    }
+
+    @Override
+    public void avisarCorrespondencia(com.residencial.model.Correspondencia c) {
+        boolean recibo = com.residencial.model.Correspondencia.RECIBO.equals(c.getTipo());
+        String nota = c.getNota() == null ? "" : " (" + c.getNota() + ")";
+        crear(recibo ? TIPO_RECIBO : TIPO_CORRESPONDENCIA,
+                "Llegó " + queLlego(c) + nota + " a la portería. Recógelo cuando puedas",
+                c.getId(), c.getApartamento().getId(), c.getApartamento().getId());
+    }
+
+    @Override
+    public void avisarCorrespondenciaEntregada(com.residencial.model.Correspondencia c) {
+        String que = queLlego(c);
+        crear(TIPO_CORRESPONDENCIA_ENTREGADA,
+                Character.toUpperCase(que.charAt(0)) + que.substring(1) + " se entregó a " + c.getEntregadaA()
+                        + " a las " + c.getEntregadaEn().format(HORA),
+                c.getId(), c.getApartamento().getId(), c.getApartamento().getId());
+    }
+
+    // "un paquete de Servientrega", "el recibo de Enel", "una carta"
+    private static String queLlego(com.residencial.model.Correspondencia c) {
+        String de = c.getRemitente() == null ? "" : " de " + c.getRemitente();
+        return switch (c.getTipo()) {
+            case "RECIBO" -> "el recibo" + de;
+            case "CARTA" -> "una carta" + de;
+            case "DOCUMENTO" -> "un documento" + de;
+            default -> "un paquete" + de;
+        };
     }
 
     // Al guardarla también sale el aviso a los celulares de quien la recibe (AvisosPush)

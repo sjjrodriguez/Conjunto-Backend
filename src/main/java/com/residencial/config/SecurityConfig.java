@@ -189,6 +189,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/notificaciones", "/api/notificaciones/**").access(sesion())
                 // Portería (P6): la portería registra y consulta; el residente responde las de su apartamento
                 .requestMatchers(HttpMethod.GET, "/api/porteria/visitas/pendientes").access(residentes())
+                // P9 bloque 3: cada apartamento ve su correspondencia
+                .requestMatchers(HttpMethod.GET, "/api/porteria/correspondencia/mia").access(residentes())
                 .requestMatchers(HttpMethod.PATCH, "/api/porteria/visitas/*/respuesta").access(respondeVisita())
                 // P7 bloque 4: los guardias los maneja la administración; el turno lo abre la recepción
                 .requestMatchers("/api/porteria/guardias", "/api/porteria/guardias/**").access(admin())
