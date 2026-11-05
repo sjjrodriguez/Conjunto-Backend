@@ -208,6 +208,11 @@ public class PorteriaService {
         ConjuntoContexto.comoRaiz(() -> visitas.expirar(LocalDateTime.now(zona)));
     }
 
+    /** P8 bloque 5: para la portería (con el teléfono del apartamento y el guardia). */
+    public Visita aDTO(VisitaPorteria v) {
+        return aDTO(v, true);
+    }
+
     private Visita aDTO(VisitaPorteria v, boolean conTelefono) {
         Apartamento a = v.getApartamento();
         String telefono = conTelefono ? residentes.findByApartamentoIdOrderByIdAsc(a.getId()).stream()

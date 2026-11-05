@@ -24,6 +24,28 @@ public interface VisitaPorteriaRepository extends JpaRepository<VisitaPorteria, 
             + "and v.estado in ('PENDIENTE', 'AUTORIZADA')")
     List<VisitaPorteria> conParqueaderoOcupado();
 
+    /** P8 bloque 5: autorizadas sin salida; las de antes de [desde] solo si ocupan un parqueadero. */
+    @Query("select v from VisitaPorteria v join fetch v.apartamento left join fetch v.parqueadero where v.salidaEn is null "
+            + "and v.estado = 'AUTORIZADA' and (v.creadaEn >= :desde or v.parqueadero is not null) order by v.creadaEn desc, v.id desc")
+    List<VisitaPorteria> dentro(LocalDateTime desde);
+
+    /**
+     * P8 bloque 5: el historial. [patron] es "%texto%" en minúsculas y sin tildes: se compara con el
+     * nombre, el documento, la placa y "torre-apto", también en minúsculas y sin tildes.
+     */
+    @Query("select v from VisitaPorteria v join fetch v.apartamento a left join fetch v.parqueadero where v.creadaEn >= :desde and ("
+            + "function('translate', lower(v.visitanteNombre), 'áéíóúüñ', 'aeiouun') like :patron "
+            + "or lower(coalesce(v.visitanteDocumento, '')) like :patron "
+            + "or lower(coalesce(v.placa, '')) like :patron "
+            + "or lower(concat(a.torre, '-', a.apto)) like :patron "
+            + "or function('translate', lower(coalesce(v.motivo, '')), 'áéíóúüñ', 'aeiouun') like :patron) "
+            + "order by v.creadaEn desc, v.id desc")
+    List<VisitaPorteria> historial(LocalDateTime desde, String patron, org.springframework.data.domain.Pageable pagina);
+
+    long countByCreadaEnGreaterThanEqual(LocalDateTime desde);
+
+    long countByEstadoAndVenceEnAfter(String estado, LocalDateTime ahora);
+
     /** Las que nadie respondió a tiempo. */
     // Con su propia transacción: la abre la tarea programada, que no está en ninguna (P7)
     @Transactional
