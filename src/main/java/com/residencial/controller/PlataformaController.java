@@ -10,6 +10,7 @@ import com.residencial.security.AccesoService;
 import com.residencial.security.LimitadorLogin;
 import com.residencial.security.SesionVersion;
 import com.residencial.security.TokenService;
+import com.residencial.service.PlataformaPanelService;
 import com.residencial.service.PlataformaService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -31,6 +32,7 @@ import java.util.Locale;
 public class PlataformaController {
 
     private final PlataformaService plataforma;
+    private final PlataformaPanelService panel;
     private final OperadorPlataformaRepository operadores;
     private final PasswordEncoder encoder;
     private final TokenService tokens;
@@ -42,8 +44,9 @@ public class PlataformaController {
 
     public PlataformaController(PlataformaService plataforma, OperadorPlataformaRepository operadores,
                                 PasswordEncoder encoder, TokenService tokens, LimitadorLogin limitador,
-                                AccesoService acceso, SesionVersion sesiones) {
+                                AccesoService acceso, SesionVersion sesiones, PlataformaPanelService panel) {
         this.plataforma = plataforma;
+        this.panel = panel;
         this.operadores = operadores;
         this.encoder = encoder;
         this.tokens = tokens;
@@ -145,6 +148,32 @@ public class PlataformaController {
     public List<PlataformaDTO.Evento> auditoria(@RequestParam(required = false) Long conjunto) {
         operador();
         return plataforma.eventos(conjunto);
+    }
+
+    /** P8 bloque 6: las cifras de todos los conjuntos, lo pendiente y lo último de la auditoría. */
+    @GetMapping("/panel")
+    public PlataformaDTO.Panel panel() {
+        operador();
+        return panel.panel();
+    }
+
+    /** P8 bloque 6: un conjunto con sus cifras, sus cuentas de administración y su auditoría. */
+    @GetMapping("/conjuntos/{id}/detalle")
+    public PlataformaDTO.DetalleConjunto detalle(@PathVariable long id) {
+        operador();
+        return panel.detalle(id);
+    }
+
+    /** P8 bloque 6: la auditoría con filtros y páginas (la de arriba sigue para la app anterior). */
+    @GetMapping("/auditoria/buscar")
+    public PlataformaDTO.PaginaEventos buscarAuditoria(@RequestParam(required = false) Long conjunto,
+                                                      @RequestParam(required = false) String accion,
+                                                      @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate desde,
+                                                      @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate hasta,
+                                                      @RequestParam(required = false) String q,
+                                                      @RequestParam(required = false) Integer pagina) {
+        operador();
+        return panel.eventos(conjunto, accion, desde, hasta, q, pagina);
     }
 
     /** El operador de la sesión. SecurityConfig ya exige el rol; aquí se comprueba que siga activo. */

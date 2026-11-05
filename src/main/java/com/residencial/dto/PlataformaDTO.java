@@ -66,4 +66,27 @@ public final class PlataformaDTO {
     public record Acceso(Long conjuntoId, String usuario, String contrasenaTemporal) {}
 
     public record Evento(Long id, String operador, String accion, Long conjuntoId, String detalle, LocalDateTime fecha) {}
+
+    // P8 bloque 6: panel, detalle del conjunto y auditoría con filtros (PlataformaPanelService)
+
+    public record PorDepartamento(String departamento, long conjuntos, long activos) {}
+
+    /** Algo que la plataforma debería mirar (un conjunto activo sin administrador, por ejemplo). */
+    public record Pendiente(Long conjuntoId, String nombre, String municipio, String motivo) {}
+
+    public record Panel(long conjuntosActivos, long conjuntosSuspendidos, long conjuntosNuevosMes, long apartamentos,
+                        long residentes, long cuentasAdministracion, long celularesConSesion, long visitasSemana,
+                        java.util.List<PorDepartamento> porDepartamento, java.util.List<Pendiente> pendientes,
+                        java.util.List<EventoDetalle> ultimosEventos) {}
+
+    public record Cifras(long apartamentos, long propietarios, long arrendatarios, long residentesPendientes,
+                         long vehiculos, long guardias, long celularesConSesion, long visitasMes, long parqueaderos) {}
+
+    public record DetalleConjunto(ConjuntoResumen conjunto, Cifras cifras, java.util.List<CuentaAdministracion> cuentas,
+                                  LocalDateTime ultimaSesion, java.util.List<EventoDetalle> eventos) {}
+
+    public record EventoDetalle(Long id, String operador, String accion, Long conjuntoId, String conjunto, String detalle,
+                                LocalDateTime fecha) {}
+
+    public record PaginaEventos(java.util.List<EventoDetalle> eventos, boolean hayMas) {}
 }

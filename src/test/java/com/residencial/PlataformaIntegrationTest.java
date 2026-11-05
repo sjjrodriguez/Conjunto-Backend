@@ -87,6 +87,54 @@ class PlataformaIntegrationTest {
     }
 
     @Test
+    void panelDetalleYAuditoriaConFiltros() throws Exception {
+        String a = crear("Panel Torres", "Valle del Cauca", "Palmira", "admin.panel1");
+        long torres = ((Number) JsonPath.read(a, "$.conjuntoId")).longValue();
+        crear("Panel Mirador", "Antioquia", "Envigado", "admin.panel2");
+        mvc.perform(put("/api/plataforma/conjuntos/" + torres + "/estado").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"activo\":false,\"motivo\":\"Mora en el pago\"}"))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/api/plataforma/panel").header("Authorization", "Bearer " + token)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.conjuntosSuspendidos").value(1))
+                .andExpect(jsonPath("$.conjuntosActivos").value(greaterThanOrEqualTo(2)))
+                .andExpect(jsonPath("$.conjuntosNuevosMes").value(greaterThanOrEqualTo(2)))
+                .andExpect(jsonPath("$.porDepartamento[*].departamento", hasItems("Valle del Cauca", "Antioquia")))
+                .andExpect(jsonPath("$.ultimosEventos[0].accion").value("SUSPENDER_CONJUNTO"))
+                .andExpect(jsonPath("$.ultimosEventos[0].conjunto").value("Panel Torres"));
+
+        mvc.perform(get("/api/plataforma/conjuntos/" + torres + "/detalle").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.conjunto.nombre").value("Panel Torres"))
+                .andExpect(jsonPath("$.conjunto.activo").value(false))
+                .andExpect(jsonPath("$.cifras.apartamentos").value(0))
+                .andExpect(jsonPath("$.cifras.guardias").value(0))
+                .andExpect(jsonPath("$.cuentas[0].usuario").value("admin.panel1"))
+                .andExpect(jsonPath("$.eventos.length()").value(2))
+                .andExpect(jsonPath("$.eventos[0].detalle").value("Mora en el pago"));
+        mvc.perform(get("/api/plataforma/conjuntos/999999/detalle").header("Authorization", "Bearer " + token))
+                .andExpect(status().isNotFound());
+
+        mvc.perform(get("/api/plataforma/auditoria/buscar").param("accion", "crear_conjunto").header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.eventos.length()").value(2)).andExpect(jsonPath("$.hayMas").value(false));
+        mvc.perform(get("/api/plataforma/auditoria/buscar").param("q", "MORA").header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.eventos.length()").value(1));
+        mvc.perform(get("/api/plataforma/auditoria/buscar").param("q", "panel mirador").header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.eventos.length()").value(1));
+        mvc.perform(get("/api/plataforma/auditoria/buscar").param("conjunto", String.valueOf(torres))
+                        .param("desde", java.time.LocalDate.now().toString()).param("hasta", java.time.LocalDate.now().toString())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.eventos.length()").value(2));
+        mvc.perform(get("/api/plataforma/auditoria/buscar").param("desde", java.time.LocalDate.now().plusDays(1).toString())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.eventos.length()").value(0));
+        mvc.perform(get("/api/plataforma/auditoria/buscar").param("accion", "BORRAR_TODO").header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest());
+        // Sin token de plataforma, nada
+        mvc.perform(get("/api/plataforma/panel")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void elTokenDePlataformaNoSirveParaLosDatosDeUnConjuntoNiAlReves() throws Exception {
         mvc.perform(get("/api/apartamentos").header("Authorization", "Bearer " + token)).andExpect(status().isForbidden());
         mvc.perform(get("/api/notificaciones").header("Authorization", "Bearer " + token)).andExpect(status().isForbidden());
