@@ -33,6 +33,7 @@ class PorteriaIntegrationTest {
     @Autowired ApartamentoRepository aptoRepo;
     @Autowired VisitaPorteriaRepository visitaRepo;
     @Autowired NotificacionRepository notificacionRepo;
+    @Autowired ParqueaderoRepository parqueaderoRepo;
     @Autowired PasswordEncoder encoder;
 
     Apartamento apto7;
@@ -64,6 +65,7 @@ class PorteriaIntegrationTest {
     void limpiar() {
         notificacionRepo.deleteAll();
         visitaRepo.deleteAll();
+        parqueaderoRepo.deleteAll();
         aptoRepo.deleteAll();
         adminRepo.deleteAll();
     }
@@ -136,6 +138,63 @@ class PorteriaIntegrationTest {
     void validaElApartamentoYElNombre() throws Exception {
         enviar(post("/api/porteria/visitas"), porteria, "{\"torre\":\"7\",\"apto\":\"999\",\"visitante\":\"X\"}").andExpect(status().isNotFound());
         enviar(post("/api/porteria/visitas"), porteria, "{\"torre\":\"7\",\"apto\":\"701\",\"visitante\":\" \"}").andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void enVehiculoOcupaUnParqueaderoDeInvitadosHastaLaSalida() throws Exception {
+        var inv1 = parqueaderoRepo.save(new com.residencial.model.Parqueadero(null, "INV-01", "Invitados", null));
+        var inv2 = parqueaderoRepo.save(new com.residencial.model.Parqueadero(null, "INV-02", "Invitados", null));
+        parqueaderoRepo.save(new com.residencial.model.Parqueadero(null, "C-01", "Carro", null));
+
+        // Sin placa no entra en vehículo
+        enviar(post("/api/porteria/visitas"), porteria, "{\"torre\":\"7\",\"apto\":\"701\",\"visitante\":\"Ana\",\"tipoIngreso\":\"VEHICULO\"}")
+                .andExpect(status().isBadRequest());
+        // Sin elegir: el primero libre
+        int a = JsonPath.read(enviar(post("/api/porteria/visitas"), porteria,
+                "{\"torre\":\"7\",\"apto\":\"701\",\"visitante\":\"Ana\",\"tipoIngreso\":\"vehiculo\",\"placa\":\"abc 123\"}")
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.tipoIngreso").value("VEHICULO"))
+                .andExpect(jsonPath("$.placa").value("ABC123")).andExpect(jsonPath("$.parqueadero").value("INV-01"))
+                .andReturn().getResponse().getContentAsString(), "$.id");
+        assertThat(notificacionRepo.findAll()).anyMatch(n -> n.getMensaje().contains("en vehículo ABC123 (parqueadero INV-01)"));
+        // El ocupado no se puede volver a elegir; uno de carros tampoco
+        enviar(post("/api/porteria/visitas"), porteria, "{\"torre\":\"7\",\"apto\":\"701\",\"visitante\":\"Beto\",\"tipoIngreso\":\"VEHICULO\",\"placa\":\"XYZ9\",\"parqueaderoId\":" + inv1.getId() + "}")
+                .andExpect(status().isConflict());
+        int b = JsonPath.read(enviar(post("/api/porteria/visitas"), porteria,
+                "{\"torre\":\"7\",\"apto\":\"701\",\"visitante\":\"Beto\",\"tipoIngreso\":\"VEHICULO\",\"placa\":\"XYZ9\",\"parqueaderoId\":" + inv2.getId() + "}")
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.parqueadero").value("INV-02"))
+                .andReturn().getResponse().getContentAsString(), "$.id");
+        // Todos ocupados
+        enviar(post("/api/porteria/visitas"), porteria, "{\"torre\":\"7\",\"apto\":\"701\",\"visitante\":\"Carla\",\"tipoIngreso\":\"VEHICULO\",\"placa\":\"QQQ1\"}")
+                .andExpect(status().isConflict());
+        // A pie sí entra
+        enviar(post("/api/porteria/visitas"), porteria, "{\"torre\":\"7\",\"apto\":\"701\",\"visitante\":\"Carla\",\"tipoIngreso\":\"PEATONAL\"}")
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.parqueadero").doesNotExist());
+
+        mvc.perform(get("/api/porteria/parqueaderos").header("Authorization", porteria))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].numero").value("INV-01")).andExpect(jsonPath("$[0].libre").value(false))
+                .andExpect(jsonPath("$[0].placa").value("ABC123")).andExpect(jsonPath("$[0].visitaId").value(a));
+        mvc.perform(get("/api/porteria/parqueaderos").header("Authorization", residente7)).andExpect(status().isForbidden());
+
+        // Rechazada: el parqueadero se libera solo
+        enviar(patch("/api/porteria/visitas/" + b + "/respuesta"), residente7, "{\"decision\":\"RECHAZAR\"}").andExpect(status().isOk());
+        // Salida de la autorizada: también queda libre, y no se registra dos veces
+        enviar(patch("/api/porteria/visitas/" + a + "/respuesta"), residente7, "{\"decision\":\"AUTORIZAR\"}").andExpect(status().isOk());
+        mvc.perform(post("/api/porteria/visitas/" + a + "/salida").header("Authorization", residente7)).andExpect(status().isForbidden());
+        mvc.perform(post("/api/porteria/visitas/" + a + "/salida").header("Authorization", porteria))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.salidaEn").exists());
+        mvc.perform(post("/api/porteria/visitas/" + a + "/salida").header("Authorization", porteria)).andExpect(status().isConflict());
+        mvc.perform(get("/api/porteria/parqueaderos").header("Authorization", porteria))
+                .andExpect(jsonPath("$[0].libre").value(true)).andExpect(jsonPath("$[1].libre").value(true));
+    }
+
+    @Test
+    void sinParqueaderosDeInvitadosElVehiculoEntraSinPuesto() throws Exception {
+        enviar(post("/api/porteria/visitas"), porteria, "{\"torre\":\"7\",\"apto\":\"701\",\"visitante\":\"Dani\",\"tipoIngreso\":\"VEHICULO\",\"placa\":\"AAA111\"}")
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.tipoIngreso").value("VEHICULO"))
+                .andExpect(jsonPath("$.parqueadero").doesNotExist());
+        enviar(post("/api/porteria/visitas"), porteria, "{\"torre\":\"7\",\"apto\":\"701\",\"visitante\":\"Dani\",\"tipoIngreso\":\"BICI\"}")
+                .andExpect(status().isBadRequest());
     }
 
     private int registrar(String visitante) throws Exception {

@@ -3,9 +3,11 @@ package com.residencial.service;
 import com.residencial.conjunto.ConjuntoContexto;
 import com.residencial.exception.RecursoNoEncontradoException;
 import com.residencial.model.Apartamento;
+import com.residencial.model.Parqueadero;
 import com.residencial.model.Residente;
 import com.residencial.model.VisitaPorteria;
 import com.residencial.repository.ApartamentoRepository;
+import com.residencial.repository.ParqueaderoRepository;
 import com.residencial.repository.ResidenteRepository;
 import com.residencial.repository.VisitaPorteriaRepository;
 import com.residencial.security.AccesoService;
@@ -24,6 +26,9 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Portería (P6 bloque 5): el portero registra una visita, al apartamento le llega el aviso con
@@ -36,9 +41,20 @@ public class PorteriaService {
 
     public record Visita(Long id, Long apartamentoId, String torre, String apto, String visitante, String documento,
                          String placa, String motivo, String estado, LocalDateTime creadaEn, LocalDateTime venceEn,
-                         LocalDateTime respondidaEn, String canal, String telefono, String guardia) {}
+                         LocalDateTime respondidaEn, String canal, String telefono, String guardia,
+                         // P8 bloque 4: a pie o en vehículo, el parqueadero de invitados y cuándo salió
+                         String tipoIngreso, Long parqueaderoId, String parqueadero, LocalDateTime salidaEn) {}
 
-    public record Nueva(String torre, String apto, String visitante, String documento, String placa, String motivo) {}
+    /**
+     * tipoIngreso: PEATONAL (por defecto) o VEHICULO. Con vehículo la placa es obligatoria y, si el
+     * conjunto tiene parqueaderos de invitados, ocupa uno: parqueaderoId, o el primero libre.
+     */
+    public record Nueva(String torre, String apto, String visitante, String documento, String placa, String motivo,
+                        String tipoIngreso, Long parqueaderoId) {}
+
+    /** P8 bloque 4: un parqueadero de invitados y, si está ocupado, la visita que lo ocupa. */
+    public record ParqueaderoInvitados(Long id, String numero, boolean libre, Long visitaId, String visitante,
+                                       String placa, String torre, String apto, String estado, LocalDateTime desde) {}
 
     private final VisitaPorteriaRepository visitas;
     private final ApartamentoRepository apartamentos;
@@ -46,12 +62,15 @@ public class PorteriaService {
     private final NotificacionService notificaciones;
     private final AccesoService acceso;
     private final GuardiaService guardias;
+    private final ParqueaderoRepository parqueaderos;
     private final ZoneId zona;
 
     public PorteriaService(VisitaPorteriaRepository visitas, ApartamentoRepository apartamentos,
                            ResidenteRepository residentes, NotificacionService notificaciones, AccesoService acceso,
-                           GuardiaService guardias, @Value("${app.zona-horaria:America/Bogota}") String zona) {
+                           GuardiaService guardias, ParqueaderoRepository parqueaderos,
+                           @Value("${app.zona-horaria:America/Bogota}") String zona) {
         this.guardias = guardias;
+        this.parqueaderos = parqueaderos;
         this.visitas = visitas;
         this.apartamentos = apartamentos;
         this.residentes = residentes;
@@ -70,13 +89,22 @@ public class PorteriaService {
         List<Apartamento> encontrados = n.torre() == null || n.apto() == null ? List.of()
                 : apartamentos.findByTorreAndApto(n.torre().trim(), n.apto().trim());
         if (encontrados.isEmpty()) throw new RecursoNoEncontradoException("No existe ese apartamento");
+        String tipo = limpio(n.tipoIngreso()) == null ? VisitaPorteria.PEATONAL : n.tipoIngreso().trim().toUpperCase(Locale.ROOT);
+        if (!tipo.equals(VisitaPorteria.PEATONAL) && !tipo.equals(VisitaPorteria.VEHICULO)) {
+            throw invalido("El ingreso debe ser PEATONAL o VEHICULO");
+        }
+        String placa = limpio(n.placa());
+        if (placa != null) placa = placa.toUpperCase(Locale.ROOT).replaceAll("\\s+", "");
+        if (tipo.equals(VisitaPorteria.VEHICULO) && placa == null) throw invalido("Escribe la placa del vehículo");
         LocalDateTime ahora = LocalDateTime.now(zona);
+        visitas.expirar(ahora);
         VisitaPorteria v = new VisitaPorteria();
         v.setApartamento(encontrados.get(0));
         v.setVisitanteNombre(nombre);
         v.setVisitanteDocumento(limpio(n.documento()));
-        String placa = limpio(n.placa());
-        v.setPlaca(placa == null ? null : placa.toUpperCase(Locale.ROOT));
+        v.setPlaca(placa);
+        v.setTipoIngreso(tipo);
+        if (tipo.equals(VisitaPorteria.VEHICULO)) v.setParqueadero(parqueaderoParaVisita(n.parqueaderoId()));
         v.setMotivo(limpio(n.motivo()));
         v.setCreadaEn(ahora);
         v.setVenceEn(ahora.plusMinutes(VisitaPorteria.MINUTOS_VIGENCIA));
@@ -128,6 +156,51 @@ public class PorteriaService {
         return aDTO(visitas.save(v), personal);
     }
 
+    /**
+     * P8 bloque 4: el parqueadero de invitados para una visita en vehículo. Sin parqueaderos de
+     * invitados en el conjunto, la visita entra sin él; si los hay y están todos ocupados, 409.
+     */
+    private Parqueadero parqueaderoParaVisita(Long elegido) {
+        List<Parqueadero> deInvitados = parqueaderos.findByTipoOrderByNumeroAsc(Parqueadero.INVITADOS);
+        if (deInvitados.isEmpty()) {
+            if (elegido != null) throw new RecursoNoEncontradoException("Parqueadero no encontrado");
+            return null;
+        }
+        Set<Long> ocupados = visitas.conParqueaderoOcupado().stream().map(x -> x.getParqueadero().getId()).collect(Collectors.toSet());
+        Long id = elegido != null ? elegido : deInvitados.stream().map(Parqueadero::getId)
+                .filter(p -> !ocupados.contains(p)).findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "No hay parqueaderos de invitados libres"));
+        Parqueadero p = parqueaderos.paraAsignar(id).orElseThrow(() -> new RecursoNoEncontradoException("Parqueadero no encontrado"));
+        if (!Parqueadero.INVITADOS.equals(p.getTipo())) throw invalido("Ese parqueadero no es de invitados");
+        // Con la fila bloqueada se vuelve a mirar: otro portero pudo ocuparlo hace un instante
+        if (ocupados.contains(p.getId()) || visitas.conParqueaderoOcupado().stream().anyMatch(x -> x.getParqueadero().getId().equals(p.getId()))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "El parqueadero " + p.getNumero() + " está ocupado");
+        }
+        return p;
+    }
+
+    /** P8 bloque 4: los parqueaderos de invitados, libres u ocupados (y por quién). */
+    public List<ParqueaderoInvitados> parqueaderosInvitados() {
+        visitas.expirar(LocalDateTime.now(zona));
+        Map<Long, VisitaPorteria> ocupados = visitas.conParqueaderoOcupado().stream()
+                .collect(Collectors.toMap(x -> x.getParqueadero().getId(), x -> x, (a, b) -> a));
+        return parqueaderos.findByTipoOrderByNumeroAsc(Parqueadero.INVITADOS).stream().map(p -> {
+            VisitaPorteria v = ocupados.get(p.getId());
+            return v == null
+                    ? new ParqueaderoInvitados(p.getId(), p.getNumero(), true, null, null, null, null, null, null, null)
+                    : new ParqueaderoInvitados(p.getId(), p.getNumero(), false, v.getId(), v.getVisitanteNombre(), v.getPlaca(),
+                            v.getApartamento().getTorre(), v.getApartamento().getApto(), v.getEstado(), v.getCreadaEn());
+        }).toList();
+    }
+
+    /** P8 bloque 4: el visitante salió; si ocupaba un parqueadero de invitados, queda libre. */
+    public Visita registrarSalida(Long id) {
+        VisitaPorteria v = visitas.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("Visita no encontrada: " + id));
+        if (v.getSalidaEn() != null) throw new ResponseStatusException(HttpStatus.CONFLICT, "La salida ya estaba registrada");
+        v.setSalidaEn(LocalDateTime.now(zona));
+        return aDTO(visitas.save(v), true);
+    }
+
     /** Cada 15 segundos: las visitas sin respuesta pasan a EXPIRADA, en todos los conjuntos (P7). */
     @Scheduled(fixedDelayString = "${app.porteria.expiracion-ms:15000}")
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -142,7 +215,9 @@ public class PorteriaService {
                 .map(Residente::getTelefono).findFirst().orElse(null) : null;
         return new Visita(v.getId(), a.getId(), a.getTorre(), a.getApto(), v.getVisitanteNombre(), v.getVisitanteDocumento(),
                 v.getPlaca(), v.getMotivo(), v.getEstado(), v.getCreadaEn(), v.getVenceEn(), v.getRespondidaEn(),
-                v.getCanalRespuesta(), telefono, conTelefono ? v.getGuardiaNombre() : null);
+                v.getCanalRespuesta(), telefono, conTelefono ? v.getGuardiaNombre() : null,
+                v.getTipoIngreso(), v.getParqueadero() == null ? null : v.getParqueadero().getId(),
+                v.getParqueadero() == null ? null : v.getParqueadero().getNumero(), v.getSalidaEn());
     }
 
     private static int largo(String s) {

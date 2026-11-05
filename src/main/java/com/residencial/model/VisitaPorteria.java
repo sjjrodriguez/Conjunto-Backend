@@ -26,6 +26,9 @@ public class VisitaPorteria extends EntidadConjunto {
     public static final String EXPIRADA = "EXPIRADA";
     public static final String CANAL_APP = "APP";
     public static final String CANAL_LLAMADA = "LLAMADA";
+    // P8 bloque 4: cómo entra el visitante
+    public static final String PEATONAL = "PEATONAL";
+    public static final String VEHICULO = "VEHICULO";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -71,4 +74,21 @@ public class VisitaPorteria extends EntidadConjunto {
     // P7 bloque 4: el guardia que tenía el turno en la recepción (copia del nombre: el historial no cambia)
     @Column(name = "guardia_nombre", length = 150)
     private String guardiaNombre;
+
+    // P8 bloque 4: a pie o en vehículo; con vehículo, el parqueadero de invitados que ocupa hasta la salida
+    @Column(name = "tipo_ingreso", nullable = false, length = 20)
+    private String tipoIngreso = PEATONAL;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parqueadero_id", foreignKey = @ForeignKey(name = "fk_visita_parqueadero"))
+    @org.hibernate.annotations.OnDelete(action = org.hibernate.annotations.OnDeleteAction.SET_NULL)
+    private Parqueadero parqueadero;
+
+    @Column(name = "salida_en")
+    private LocalDateTime salidaEn;
+
+    /** Sigue dentro del conjunto: autorizada (o esperando respuesta) y sin salida registrada. */
+    public boolean dentro() {
+        return salidaEn == null && (PENDIENTE.equals(estado) || AUTORIZADA.equals(estado));
+    }
 }

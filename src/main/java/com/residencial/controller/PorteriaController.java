@@ -43,4 +43,16 @@ public class PorteriaController {
     public PorteriaService.Visita responder(@PathVariable Long id, @RequestBody Respuesta cuerpo) {
         return servicio.responder(id, cuerpo.decision());
     }
+
+    /** P8 bloque 4: portería y administración: el visitante salió (libera su parqueadero de invitados). */
+    @PostMapping("/visitas/{id}/salida")
+    public PorteriaService.Visita salida(@PathVariable Long id) {
+        return servicio.registrarSalida(id);
+    }
+
+    /** P8 bloque 4: portería y administración: los parqueaderos de invitados, libres u ocupados. */
+    @GetMapping("/parqueaderos")
+    public List<PorteriaService.ParqueaderoInvitados> parqueaderos() {
+        return servicio.parqueaderosInvitados();
+    }
 }

@@ -19,6 +19,11 @@ public interface VisitaPorteriaRepository extends JpaRepository<VisitaPorteria, 
             + "and v.venceEn > :ahora order by v.creadaEn desc")
     List<VisitaPorteria> pendientesDe(Long apto, LocalDateTime ahora);
 
+    /** P8 bloque 4: las visitas que ocupan un parqueadero de invitados (pendientes o autorizadas, sin salida). */
+    @Query("select v from VisitaPorteria v join fetch v.parqueadero join fetch v.apartamento where v.salidaEn is null "
+            + "and v.estado in ('PENDIENTE', 'AUTORIZADA')")
+    List<VisitaPorteria> conParqueaderoOcupado();
+
     /** Las que nadie respondió a tiempo. */
     // Con su propia transacción: la abre la tarea programada, que no está en ninguna (P7)
     @Transactional
