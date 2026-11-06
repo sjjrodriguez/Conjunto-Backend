@@ -37,6 +37,7 @@ import java.util.List;
 public class ResidenteServiceImpl implements ResidenteService {
 
     static final int LONGITUD_MINIMA_CONTRASENA = 6;
+    private static final java.util.regex.Pattern CORREO = java.util.regex.Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
     private final ResidenteRepository repo;
     private final ApartamentoRepository aptoRepo;
@@ -129,6 +130,11 @@ public class ResidenteServiceImpl implements ResidenteService {
             acceso.verificarApartamento(r.getApartamento().getId());
             estado.exigirQueViva(r.getApartamento().getId());
             dto.setTipoHabitante(r.getTipoHabitante());
+        } else if (dto.getCorreo() != null) {
+            // P10: la administración también corrige el correo (ahí llegan los códigos de un celular nuevo)
+            String nuevo = dto.getCorreo().trim().toLowerCase();
+            if (!nuevo.isEmpty() && !CORREO.matcher(nuevo).matches()) throw invalido("El correo no es válido");
+            r.setCorreo(nuevo.isEmpty() ? null : nuevo);
         }
         copiarDatos(dto, r);
         return toDTO(repo.save(r));
