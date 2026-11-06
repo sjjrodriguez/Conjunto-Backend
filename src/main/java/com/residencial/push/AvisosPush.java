@@ -66,6 +66,7 @@ public class AvisosPush {
 
     private final DispositivoRepository dispositivos;
     private final EnviadorPush enviador;
+    private final com.residencial.security.EstadoApartamento estado;
 
     @Async
     @TransactionalEventListener(fallbackExecution = true)
@@ -75,6 +76,11 @@ public class AvisosPush {
                 // Las de la administración llegan al administrador y al contador
                 ? dispositivos.findByRolIn(List.of(TokenService.ROL_ADMIN, TokenService.ROL_CONTADOR))
                 : dispositivos.findByApartamentoId(destinatario);
+        // P10: si el apartamento está arrendado, los avisos del hogar no le llegan al propietario
+        if (destinatario != null && com.residencial.security.EstadoApartamento.AVISOS_DEL_HOGAR.contains(evento.notificacion().getTipo())
+                && estado.arrendado(destinatario)) {
+            celulares = celulares.stream().filter(d -> !TokenService.ROL_PROPIETARIO.equals(d.getRol())).toList();
+        }
         List<String> tokens = deApp(celulares, destinatario == null ? "ADMIN" : "RESIDENTE");
         if (tokens.isEmpty()) return;
         Set<String> invalidos = enviador.enviar(tokens, datos(evento.notificacion()));

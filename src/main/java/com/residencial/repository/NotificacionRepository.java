@@ -39,6 +39,11 @@ public interface NotificacionRepository extends JpaRepository<Notificacion, Long
 
     long countByLeidaFalseAndDestinatarioApartamentoId(Long apartamentoId);
 
+    // P10: el propietario de un apartamento arrendado no ve los avisos del hogar
+    List<Notificacion> findTop50ByDestinatarioApartamentoIdAndTipoNotInOrderByFechaDescIdDesc(Long apartamentoId, java.util.Collection<String> tipos);
+
+    long countByLeidaFalseAndDestinatarioApartamentoIdAndTipoNotIn(Long apartamentoId, java.util.Collection<String> tipos);
+
     @Modifying
     @Query("update Notificacion n set n.leida = true where n.leida = false and n.destinatarioApartamentoId = :apartamentoId")
     int marcarTodasLeidasApartamento(Long apartamentoId);

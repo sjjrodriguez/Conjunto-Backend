@@ -64,13 +64,16 @@ public class NotificacionServiceImpl implements NotificacionService {
     private final AccesoService acceso;
     private final ApplicationEventPublisher eventos;
     private final ZoneId zonaHoraria;
+    private final com.residencial.security.EstadoApartamento estado;
 
     public NotificacionServiceImpl(NotificacionRepository repo,
                                    AccesoService acceso,
                                    ApplicationEventPublisher eventos,
+                                   com.residencial.security.EstadoApartamento estado,
                                    @Value("${app.zona-horaria:America/Bogota}") String zonaHoraria) {
         this.repo = repo;
         this.acceso = acceso;
+        this.estado = estado;
         this.eventos = eventos;
         this.zonaHoraria = ZoneId.of(zonaHoraria);
     }
@@ -97,6 +100,8 @@ public class NotificacionServiceImpl implements NotificacionService {
         Long apto = apartamentoDeLaSesion();
         List<Notificacion> lista = apto == null
                 ? repo.findTop50ByDestinatarioApartamentoIdIsNullOrderByFechaDescIdDesc()
+                : estado.sinAvisosDelHogar(apto)
+                ? repo.findTop50ByDestinatarioApartamentoIdAndTipoNotInOrderByFechaDescIdDesc(apto, com.residencial.security.EstadoApartamento.AVISOS_DEL_HOGAR)
                 : repo.findTop50ByDestinatarioApartamentoIdOrderByFechaDescIdDesc(apto);
         return lista.stream().map(this::toDTO).collect(Collectors.toList());
     }
@@ -105,7 +110,9 @@ public class NotificacionServiceImpl implements NotificacionService {
     public long contarNoLeidas() {
         if (esPorteria()) return 0;
         Long apto = apartamentoDeLaSesion();
-        return apto == null ? repo.countByLeidaFalseAndDestinatarioApartamentoIdIsNull()
+        if (apto == null) return repo.countByLeidaFalseAndDestinatarioApartamentoIdIsNull();
+        return estado.sinAvisosDelHogar(apto)
+                ? repo.countByLeidaFalseAndDestinatarioApartamentoIdAndTipoNotIn(apto, com.residencial.security.EstadoApartamento.AVISOS_DEL_HOGAR)
                 : repo.countByLeidaFalseAndDestinatarioApartamentoId(apto);
     }
 
