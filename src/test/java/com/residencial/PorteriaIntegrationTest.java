@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-/** P6 bloque 5: la portería registra visitas, el apartamento responde en 2 minutos y la portería no ve nada más. */
+/** P6 bloque 5: la portería registra visitas, el apartamento responde en 5 minutos (P10) y la portería no ve nada más. */
 @SpringBootTest
 @AutoConfigureMockMvc
 class PorteriaIntegrationTest {
@@ -94,10 +94,10 @@ class PorteriaIntegrationTest {
     }
 
     @Test
-    void laVisitaSinRespuestaExpiraALosDosMinutos() throws Exception {
+    void laVisitaSinRespuestaExpiraALosCincoMinutos() throws Exception {
         int id = registrar("Ana Gómez");
         VisitaPorteria v = visitaRepo.findById((long) id).orElseThrow();
-        assertThat(v.getVenceEn()).isAfter(v.getCreadaEn().plusSeconds(100)).isBefore(v.getCreadaEn().plusSeconds(130));
+        assertThat(v.getVenceEn()).isAfter(v.getCreadaEn().plusSeconds(280)).isBefore(v.getCreadaEn().plusSeconds(310));
         v.setVenceEn(LocalDateTime.now().minusSeconds(1));
         visitaRepo.save(v);
 
