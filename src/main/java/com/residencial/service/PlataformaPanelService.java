@@ -132,9 +132,11 @@ public class PlataformaPanelService {
         params.add(p * EVENTOS_POR_PAGINA);
         List<PlataformaDTO.EventoDetalle> lista = jdbc.query(sql.toString(), (rs, i) -> {
             Timestamp f = rs.getTimestamp("fecha");
+            // wasNull() se pregunta enseguida: después de leer otra columna ya no se refiere a esta
             long cid = rs.getLong("conjunto_id");
+            Long conjuntoId = rs.wasNull() ? null : cid;
             return new PlataformaDTO.EventoDetalle(rs.getLong("id"), rs.getString("operador_usuario"), rs.getString("accion"),
-                    rs.wasNull() ? null : cid, rs.getString("conjunto_nombre"), rs.getString("detalle"),
+                    conjuntoId, rs.getString("conjunto_nombre"), rs.getString("detalle"),
                     f == null ? null : f.toLocalDateTime());
         }, params.toArray());
         boolean hayMas = lista.size() > EVENTOS_POR_PAGINA;
