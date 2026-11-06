@@ -46,6 +46,10 @@ public class Conjunto {
     @com.fasterxml.jackson.annotation.JsonIgnore
     private String codigoSecreto = com.residencial.security.CodigoConjunto.nuevoSecreto();
 
+    // P10: teléfono de la portería, para llamar desde la alerta de una visita
+    @Column(name = "telefono_porteria", length = 20)
+    private String telefonoPorteria;
+
     public Conjunto(String nombre, String departamento, String municipio, String direccion) {
         this.nombre = nombre;
         this.departamento = departamento;

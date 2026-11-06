@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
 
 /**
  * Portería (P6 bloque 5): el portero registra una visita, al apartamento le llega el aviso con
- * prioridad alta y tiene 2 minutos para autorizarla o rechazarla; si no responde, expira.
+ * prioridad alta y tiene 5 minutos (P10; antes 2) para autorizarla o rechazarla; si no responde, expira.
  * Si el residente contesta por teléfono, el portero registra su respuesta ("por llamada").
  */
 @Service

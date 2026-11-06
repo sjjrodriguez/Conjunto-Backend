@@ -78,6 +78,8 @@ public class SecurityConfig {
                 // P9 bloque 2: el código del conjunto lo manda la app antes del login; el de hoy lo ven la administración y la portería
                 .requestMatchers(HttpMethod.POST, "/api/conjuntos/*/codigo").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/codigo-conjunto").access(portero())
+                // P10: el teléfono de la portería lo lee cualquiera con sesión y lo cambia la administración
+                .requestMatchers(HttpMethod.PUT, "/api/telefono-porteria").access(admin())
                 // P7 bloque 3: la app de plataforma. Su token no sirve en ninguna otra ruta (autenticado, sesion)
                 .requestMatchers(HttpMethod.POST, "/api/plataforma/login").permitAll()
                 .requestMatchers("/api/plataforma", "/api/plataforma/**").access(plataforma())

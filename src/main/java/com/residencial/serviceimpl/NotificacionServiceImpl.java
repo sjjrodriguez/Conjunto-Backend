@@ -260,7 +260,7 @@ public class NotificacionServiceImpl implements NotificacionService {
         // P8 bloque 4: si llega en vehículo, con la placa y el parqueadero de invitados
         String vehiculo = !com.residencial.model.VisitaPorteria.VEHICULO.equals(v.getTipoIngreso()) ? ""
                 : " en vehículo " + v.getPlaca() + (v.getParqueadero() == null ? "" : " (parqueadero " + v.getParqueadero().getNumero() + ")");
-        crear(TIPO_VISITA, "Visita en portería: " + v.getVisitanteNombre() + vehiculo + ". Autorízala o recházala en 2 minutos",
+        crear(TIPO_VISITA, "Visita en portería: " + v.getVisitanteNombre() + vehiculo + ". Autorízala o recházala en " + com.residencial.model.VisitaPorteria.MINUTOS_VIGENCIA + " minutos",
                 v.getId(), v.getApartamento().getId(), v.getApartamento().getId());
     }
 
