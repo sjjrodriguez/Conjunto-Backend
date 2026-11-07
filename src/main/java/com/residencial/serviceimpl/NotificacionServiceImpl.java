@@ -64,6 +64,8 @@ public class NotificacionServiceImpl implements NotificacionService {
     /** P11: de las notificaciones de la administración, las únicas que ve (y le llegan al celular) el contador. */
     public static final java.util.Set<String> TIPOS_CONTADOR = java.util.Set.of(
             TIPO_COMPROBANTE, TIPO_SOLICITUD_APROBADA, TIPO_SOLICITUD_RECHAZADA);
+    /** P11: las que son solo del contador: el administrador no las ve (son sus propias respuestas). */
+    public static final java.util.Set<String> SOLO_CONTADOR = java.util.Set.of(TIPO_SOLICITUD_APROBADA, TIPO_SOLICITUD_RECHAZADA);
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter HORA = DateTimeFormatter.ofPattern("HH:mm");
 
@@ -114,7 +116,7 @@ public class NotificacionServiceImpl implements NotificacionService {
                 .stream().map(this::toDTO).collect(Collectors.toList());
         Long apto = apartamentoDeLaSesion();
         List<Notificacion> lista = apto == null
-                ? repo.findTop50ByDestinatarioApartamentoIdIsNullOrderByFechaDescIdDesc()
+                ? repo.findTop50ByDestinatarioApartamentoIdIsNullAndTipoNotInOrderByFechaDescIdDesc(SOLO_CONTADOR)
                 : estado.sinAvisosDelHogar(apto)
                 ? repo.findTop50ByDestinatarioApartamentoIdAndTipoNotInOrderByFechaDescIdDesc(apto, com.residencial.security.EstadoApartamento.AVISOS_DEL_HOGAR)
                 : repo.findTop50ByDestinatarioApartamentoIdOrderByFechaDescIdDesc(apto);
@@ -126,7 +128,7 @@ public class NotificacionServiceImpl implements NotificacionService {
         if (esPorteria()) return 0;
         if (esContador()) return repo.countByLeidaFalseAndDestinatarioApartamentoIdIsNullAndTipoIn(TIPOS_CONTADOR);
         Long apto = apartamentoDeLaSesion();
-        if (apto == null) return repo.countByLeidaFalseAndDestinatarioApartamentoIdIsNull();
+        if (apto == null) return repo.countByLeidaFalseAndDestinatarioApartamentoIdIsNullAndTipoNotIn(SOLO_CONTADOR);
         return estado.sinAvisosDelHogar(apto)
                 ? repo.countByLeidaFalseAndDestinatarioApartamentoIdAndTipoNotIn(apto, com.residencial.security.EstadoApartamento.AVISOS_DEL_HOGAR)
                 : repo.countByLeidaFalseAndDestinatarioApartamentoId(apto);
@@ -138,7 +140,7 @@ public class NotificacionServiceImpl implements NotificacionService {
         if (esPorteria()) return;
         if (esContador()) { repo.marcarTodasLeidasContador(TIPOS_CONTADOR); return; }
         Long apto = apartamentoDeLaSesion();
-        if (apto == null) repo.marcarTodasLeidasAdmin(); else repo.marcarTodasLeidasApartamento(apto);
+        if (apto == null) repo.marcarTodasLeidasAdmin(SOLO_CONTADOR); else repo.marcarTodasLeidasApartamento(apto);
     }
 
     @Override
@@ -147,7 +149,7 @@ public class NotificacionServiceImpl implements NotificacionService {
         if (esPorteria()) return;
         if (esContador()) { repo.eliminarTodasContador(TIPOS_CONTADOR); return; }
         Long apto = apartamentoDeLaSesion();
-        if (apto == null) repo.eliminarTodasAdmin(); else repo.eliminarTodasApartamento(apto);
+        if (apto == null) repo.eliminarTodasAdmin(SOLO_CONTADOR); else repo.eliminarTodasApartamento(apto);
     }
 
     // Si no existe o es de otro, la misma respuesta: no se revela que existe
@@ -156,7 +158,7 @@ public class NotificacionServiceImpl implements NotificacionService {
     public void marcarLeida(Long id) {
         if (esPorteria()) throw new RecursoNoEncontradoException("Notificación no encontrada");
         Long apto = apartamentoDeLaSesion();
-        int cambiadas = esContador() ? repo.marcarLeidaContador(id, TIPOS_CONTADOR) : apto == null ? repo.marcarLeidaAdmin(id) : repo.marcarLeidaApartamento(id, apto);
+        int cambiadas = esContador() ? repo.marcarLeidaContador(id, TIPOS_CONTADOR) : apto == null ? repo.marcarLeidaAdmin(id, SOLO_CONTADOR) : repo.marcarLeidaApartamento(id, apto);
         if (cambiadas == 0) throw new RecursoNoEncontradoException("Notificación no encontrada");
     }
 
@@ -165,7 +167,7 @@ public class NotificacionServiceImpl implements NotificacionService {
     public void eliminar(Long id) {
         if (esPorteria()) throw new RecursoNoEncontradoException("Notificación no encontrada");
         Long apto = apartamentoDeLaSesion();
-        int borradas = esContador() ? repo.eliminarContador(id, TIPOS_CONTADOR) : apto == null ? repo.eliminarAdmin(id) : repo.eliminarApartamento(id, apto);
+        int borradas = esContador() ? repo.eliminarContador(id, TIPOS_CONTADOR) : apto == null ? repo.eliminarAdmin(id, SOLO_CONTADOR) : repo.eliminarApartamento(id, apto);
         if (borradas == 0) throw new RecursoNoEncontradoException("Notificación no encontrada");
     }
 
@@ -318,6 +320,15 @@ public class NotificacionServiceImpl implements NotificacionService {
             case "DOCUMENTO" -> "un documento" + de;
             default -> "un paquete" + de;
         };
+    }
+
+    @Override
+    public void avisarSolicitudRevisada(com.residencial.model.SolicitudContable s, String resumen) {
+        boolean aprobada = com.residencial.model.SolicitudContable.APROBADA.equals(s.getEstado());
+        crear(aprobada ? TIPO_SOLICITUD_APROBADA : TIPO_SOLICITUD_RECHAZADA,
+                (aprobada ? "Aprobada — " : "Devuelta para corregir — ") + resumen
+                        + (aprobada || s.getMotivoRechazo() == null ? "" : ". Motivo: " + s.getMotivoRechazo()),
+                s.getId(), null, null);
     }
 
     // Al guardarla también sale el aviso a los celulares de quien la recibe (AvisosPush)

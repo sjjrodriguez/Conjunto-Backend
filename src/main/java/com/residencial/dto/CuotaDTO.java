@@ -31,12 +31,19 @@ public class CuotaDTO {
     private LocalDateTime pagadaEn;
     // P5: el contador registró un pago sin comprobante y espera al administrador
     private Boolean pagoPorAprobar;
+    // P11: concepto, la referencia con la que se paga (Wompi) y, si se pagó en la oficina, cómo
+    private String concepto;
+    private String descripcion;
+    private String referenciaPago;
+    private String medioPago;
+    private String pagoReferencia;
+    private String pagoNota;
 
     public CuotaDTO(Long id, Long apartamentoId, String torre, String apto, String periodo, BigDecimal valor,
                     LocalDate fechaLimite, String estado, Boolean vencida, Boolean tieneComprobante, String comprobanteTipo,
                     LocalDateTime comprobanteSubidoEn, String motivoRechazo, LocalDateTime pagadaEn) {
         this(id, apartamentoId, torre, apto, periodo, valor, fechaLimite, estado, vencida, tieneComprobante, comprobanteTipo,
-                comprobanteSubidoEn, motivoRechazo, pagadaEn, null);
+                comprobanteSubidoEn, motivoRechazo, pagadaEn, null, null, null, null, null, null, null);
     }
 
     /** Cuerpo de POST /api/cuotas/generar: la cuota del mes para todos los apartamentos. */

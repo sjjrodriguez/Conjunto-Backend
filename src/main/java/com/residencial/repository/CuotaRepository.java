@@ -24,4 +24,13 @@ public interface CuotaRepository extends JpaRepository<Cuota, Long> {
 
     @Query("select c.apartamento.id from Cuota c where c.periodo = :periodo")
     Set<Long> apartamentosConPeriodo(String periodo);
+
+    // P11: las de un mes y un concepto, y las que creó una solicitud
+    @Query("select c.apartamento.id from Cuota c where c.periodo = :periodo and c.concepto = :concepto")
+    Set<Long> apartamentosConPeriodoYConcepto(String periodo, String concepto);
+
+    @EntityGraph(attributePaths = "apartamento")
+    List<Cuota> findBySolicitudId(Long solicitudId);
+
+    boolean existsByApartamentoIdAndPeriodoAndConcepto(Long apartamentoId, String periodo, String concepto);
 }

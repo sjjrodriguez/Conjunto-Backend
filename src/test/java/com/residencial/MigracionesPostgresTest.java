@@ -67,11 +67,11 @@ class MigracionesPostgresTest {
         // Si las tablas no coincidieran con las entidades, el contexto no habría arrancado
         Integer aplicadas = jdbc.queryForObject(
                 "select count(*) from flyway_schema_history where success", Integer.class);
-        assertThat(aplicadas).isEqualTo(33);
+        assertThat(aplicadas).isEqualTo(34);
         Integer tablas = jdbc.queryForObject(
                 "select count(*) from information_schema.tables where table_schema = 'public'"
                         + " and table_name <> 'flyway_schema_history'", Integer.class);
-        assertThat(tablas).isEqualTo(46); // V30, mensaje_visita; V28, correspondencia; V26, minuta_porteria; V15 añade configuracion_conjunto; V16, publicacion_lectura; V17, 4 tablas; V18, 2; V19, 5; V20, conjunto; V21, 2; V22, 1; V23, 2
+        assertThat(tablas).isEqualTo(47); // V34, solicitud_contable_historial; V30, mensaje_visita; V28, correspondencia; V26, minuta_porteria; V15 añade configuracion_conjunto; V16, publicacion_lectura; V17, 4 tablas; V18, 2; V19, 5; V20, conjunto; V21, 2; V22, 1; V23, 2
         // V24: RLS activado en todas las tablas (la API pública de Supabase no ve nada)
         Integer sinRls = jdbc.queryForObject(
                 "select count(*) from pg_tables where schemaname = 'public' and not rowsecurity"
@@ -106,7 +106,7 @@ class MigracionesPostgresTest {
         assertThat(flyway.info().applied()[0].getVersion().getVersion()).isEqualTo("1");
         assertThat(resultado.migrationsExecuted).isEqualTo(flyway.info().applied().length - 1);
         MigrationInfo actual = flyway.info().current();
-        assertThat(actual.getVersion().getVersion()).isEqualTo("33");
+        assertThat(actual.getVersion().getVersion()).isEqualTo("34");
         // Los datos siguen ahí
         try (Connection c = existente.getConnection(); Statement st = c.createStatement();
              var rs = st.executeQuery("select count(*) from apartamento")) {

@@ -19,6 +19,10 @@ public class SolicitudContable extends EntidadConjunto {
 
     public static final String FACTURACION = "FACTURACION";
     public static final String PAGO_MANUAL = "PAGO_MANUAL";
+    // P11: lo que el contador cambia en la cartera de un apartamento
+    public static final String CUOTA_NUEVA = "CUOTA_NUEVA";
+    public static final String CUOTA_CAMBIO = "CUOTA_CAMBIO";
+    public static final String CUOTA_ANULAR = "CUOTA_ANULAR";
     public static final String PENDIENTE = "PENDIENTE";
     public static final String APROBADA = "APROBADA";
     public static final String RECHAZADA = "RECHAZADA";
@@ -57,4 +61,33 @@ public class SolicitudContable extends EntidadConjunto {
 
     @Column(name = "motivo_rechazo", columnDefinition = "TEXT")
     private String motivoRechazo;
+
+    // --- P11: versiones, edición después de aprobada y el detalle completo (JSON) ---
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "apartamento_id")
+    private Apartamento apartamento;
+
+    @Column(nullable = false)
+    private int version = 1;
+
+    /** true: el contador editó algo ya aprobado y la edición espera al administrador. */
+    @Column(nullable = false)
+    private boolean edicion;
+
+    /** Lo que pide esta versión (JSON). */
+    @Column(columnDefinition = "TEXT")
+    private String detalle;
+
+    /** Lo último que aprobó el administrador (JSON), para comparar una edición. */
+    @Column(name = "detalle_aprobado", columnDefinition = "TEXT")
+    private String detalleAprobado;
+
+    @Column(length = 500)
+    private String nota;
+
+    @Column(name = "revisada_por", length = 100)
+    private String revisadaPor;
+
+    @Column(name = "actualizada_en")
+    private LocalDateTime actualizadaEn;
 }

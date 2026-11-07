@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 /** Cuota de administración de un apartamento en un mes (P4 bloque 7). */
 @Entity
 @Table(name = "cuota",
-        uniqueConstraints = @UniqueConstraint(name = "uk_cuota_apartamento_periodo", columnNames = {"apartamento_id", "periodo"}),
+        uniqueConstraints = @UniqueConstraint(name = "uk_cuota_apartamento_periodo_concepto", columnNames = {"apartamento_id", "periodo", "concepto"}),
         indexes = {
                 @Index(name = "idx_cuota_periodo", columnList = "periodo"),
                 @Index(name = "idx_cuota_estado", columnList = "estado")
@@ -58,6 +58,41 @@ public class Cuota extends EntidadConjunto {
     private String motivoRechazo;
 
     private LocalDateTime pagadaEn;
+
+    // --- P11: concepto, referencia de pago fija (Wompi la usa) y la solicitud que la creó ---
+    public static final String ADMINISTRACION = "Administración";
+
+    @Column(nullable = false, length = 80)
+    private String concepto = ADMINISTRACION;
+
+    @Column(length = 300)
+    private String descripcion;
+
+    @Column(name = "referencia_pago", length = 40, unique = true)
+    private String referenciaPago = nuevaReferencia();
+
+    private static final String LETRAS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    private static final java.security.SecureRandom AZAR = new java.security.SecureRandom();
+
+    /** "MC-7K2Q9XHB": la referencia con la que se paga esta cuota (sin letras que se confunden). */
+    public static String nuevaReferencia() {
+        StringBuilder r = new StringBuilder("MC-");
+        for (int i = 0; i < 8; i++) r.append(LETRAS.charAt(AZAR.nextInt(LETRAS.length())));
+        return r.toString();
+    }
+
+    @Column(name = "solicitud_id")
+    private Long solicitudId;
+
+    // Pagada en la oficina (efectivo, transferencia...): cómo y con qué soporte
+    @Column(name = "medio_pago", length = 30)
+    private String medioPago;
+
+    @Column(name = "pago_referencia", length = 80)
+    private String pagoReferencia;
+
+    @Column(name = "pago_nota", length = 300)
+    private String pagoNota;
 
     public Cuota(Apartamento apartamento, String periodo, BigDecimal valor, LocalDate fechaLimite) {
         this.apartamento = apartamento;

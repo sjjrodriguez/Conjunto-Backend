@@ -91,7 +91,9 @@ public class WompiService {
 
         TransaccionPago t = new TransaccionPago();
         t.setCuotaId(c.getId());
-        t.setReferencia("MC-" + c.getId() + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12));
+        // P11: empieza por la referencia de la cuota (la que ve el residente en su factura)
+        String base = c.getReferenciaPago() != null ? c.getReferenciaPago() : "MC-" + c.getId();
+        t.setReferencia(base + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase());
         t.setMontoCentavos(centavos);
         t.setCreadaEn(LocalDateTime.now(zona));
         transacciones.save(t);

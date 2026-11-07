@@ -50,6 +50,10 @@ public class Apartamento extends EntidadConjunto {
     @Column(name = "token_version", nullable = false)
     private int tokenVersion;
 
+    /** P11: coeficiente de copropiedad (para facturar por coeficiente). Null = sin definir. */
+    @Column(precision = 9, scale = 6)
+    private java.math.BigDecimal coeficiente;
+
     public Apartamento(Long id, String torre, String apto, String contrasena, String citofono1, String citofono2) {
         this.id = id;
         this.torre = torre;

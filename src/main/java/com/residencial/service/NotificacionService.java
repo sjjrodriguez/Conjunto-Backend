@@ -48,6 +48,9 @@ public interface NotificacionService {
     // P6 bloque 5: hay una visita en la portería esperando que el apartamento responda
     void avisarVisita(com.residencial.model.VisitaPorteria visita);
 
+    /** P11: el administrador aprobó o devolvió lo que mandó el contador (solo lo ve el contador). */
+    void avisarSolicitudRevisada(com.residencial.model.SolicitudContable s, String resumen);
+
     /** P11: entró un visitante frecuente (sin pedir autorización). */
     void avisarVisitaFrecuente(com.residencial.model.VisitaPorteria visita);
 

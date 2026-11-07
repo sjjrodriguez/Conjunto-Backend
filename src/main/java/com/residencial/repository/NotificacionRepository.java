@@ -14,25 +14,25 @@ import java.util.List;
 public interface NotificacionRepository extends JpaRepository<Notificacion, Long> {
 
     // --- Administrador ---
-    List<Notificacion> findTop50ByDestinatarioApartamentoIdIsNullOrderByFechaDescIdDesc();
+    List<Notificacion> findTop50ByDestinatarioApartamentoIdIsNullAndTipoNotInOrderByFechaDescIdDesc(java.util.Collection<String> fuera);
 
-    long countByLeidaFalseAndDestinatarioApartamentoIdIsNull();
-
-    @Modifying
-    @Query("update Notificacion n set n.leida = true where n.leida = false and n.destinatarioApartamentoId is null")
-    int marcarTodasLeidasAdmin();
+    long countByLeidaFalseAndDestinatarioApartamentoIdIsNullAndTipoNotIn(java.util.Collection<String> fuera);
 
     @Modifying
-    @Query("update Notificacion n set n.leida = true where n.id = :id and n.destinatarioApartamentoId is null")
-    int marcarLeidaAdmin(Long id);
+    @Query("update Notificacion n set n.leida = true where n.leida = false and n.destinatarioApartamentoId is null and n.tipo not in :fuera")
+    int marcarTodasLeidasAdmin(java.util.Collection<String> fuera);
 
     @Modifying
-    @Query("delete from Notificacion n where n.destinatarioApartamentoId is null")
-    int eliminarTodasAdmin();
+    @Query("update Notificacion n set n.leida = true where n.id = :id and n.destinatarioApartamentoId is null and n.tipo not in :fuera")
+    int marcarLeidaAdmin(Long id, java.util.Collection<String> fuera);
 
     @Modifying
-    @Query("delete from Notificacion n where n.id = :id and n.destinatarioApartamentoId is null")
-    int eliminarAdmin(Long id);
+    @Query("delete from Notificacion n where n.destinatarioApartamentoId is null and n.tipo not in :fuera")
+    int eliminarTodasAdmin(java.util.Collection<String> fuera);
+
+    @Modifying
+    @Query("delete from Notificacion n where n.id = :id and n.destinatarioApartamentoId is null and n.tipo not in :fuera")
+    int eliminarAdmin(Long id, java.util.Collection<String> fuera);
 
     // --- P11: el contador solo ve, de las de la administración, los tipos que le tocan ---
     List<Notificacion> findTop50ByDestinatarioApartamentoIdIsNullAndTipoInOrderByFechaDescIdDesc(java.util.Collection<String> tipos);

@@ -181,6 +181,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/administradores", "/api/administradores/**").access(admin())
                 // Cartera de la administración (P5): estadísticas y solicitudes del contador; revisar, el administrador
                 .requestMatchers(HttpMethod.PUT, "/api/cartera/solicitudes/*").access(admin())
+                // P11: corregir o editar una solicitud es del contador
+                .requestMatchers(HttpMethod.PUT, "/api/cartera/solicitudes/*/propuesta")
+                        .access(regla(AuthorityAuthorizationManager.hasRole(TokenService.ROL_CONTADOR)))
                 .requestMatchers("/api/cartera", "/api/cartera/**").access(cartera())
 
                 // Chat (P5): ChatService decide quién ve qué conversación; el contador no entra

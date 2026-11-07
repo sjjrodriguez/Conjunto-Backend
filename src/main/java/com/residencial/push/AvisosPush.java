@@ -56,6 +56,8 @@ public class AvisosPush {
             Map.entry("PUBLICACION", "Nueva publicación"),
             Map.entry("VISITA_PORTERIA", "Visita en portería"),
             Map.entry("VISITA_FRECUENTE", "Entró un visitante frecuente"),
+            Map.entry("SOLICITUD_CONTABLE_APROBADA", "Solicitud aprobada"),
+            Map.entry("SOLICITUD_CONTABLE_RECHAZADA", "Solicitud devuelta para corregir"),
             Map.entry("CORRESPONDENCIA", "Llegó correspondencia"),
             Map.entry("RECIBO", "Llegó un recibo"),
             Map.entry("CORRESPONDENCIA_ENTREGADA", "Correspondencia entregada"),
@@ -81,7 +83,9 @@ public class AvisosPush {
         Long destinatario = evento.notificacion().getDestinatarioApartamentoId();
         List<Dispositivo> celulares = destinatario == null
                 // Las de la administración llegan al administrador; al contador solo las suyas (P11)
-                ? (com.residencial.serviceimpl.NotificacionServiceImpl.TIPOS_CONTADOR.contains(evento.notificacion().getTipo())
+                ? (com.residencial.serviceimpl.NotificacionServiceImpl.SOLO_CONTADOR.contains(evento.notificacion().getTipo())
+                        ? dispositivos.findByRol(TokenService.ROL_CONTADOR)
+                        : com.residencial.serviceimpl.NotificacionServiceImpl.TIPOS_CONTADOR.contains(evento.notificacion().getTipo())
                         ? dispositivos.findByRolIn(List.of(TokenService.ROL_ADMIN, TokenService.ROL_CONTADOR))
                         : dispositivos.findByRol(TokenService.ROL_ADMIN))
                 : dispositivos.findByApartamentoId(destinatario);

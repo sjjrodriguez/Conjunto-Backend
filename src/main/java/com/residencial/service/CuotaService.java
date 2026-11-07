@@ -24,7 +24,5 @@ public interface CuotaService {
     void recalcularCartera(Long apartamentoId);
 
     // P5 bloque 7: lo que manda el contador espera al administrador; estadísticas de la cartera
-    List<CuotaDTO.Solicitud> listarSolicitudes(String estado);
-    CuotaDTO.Solicitud revisarSolicitud(Long id, boolean aprobada, String motivo);
     CuotaDTO.Estadisticas estadisticas(String periodo);
 }

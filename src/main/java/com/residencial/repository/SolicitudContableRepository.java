@@ -23,4 +23,13 @@ public interface SolicitudContableRepository extends JpaRepository<SolicitudCont
     Set<Long> cuotasConPagoPorAprobar();
 
     boolean existsByTipoAndEstadoAndPeriodo(String tipo, String estado, String periodo);
+
+    // P11: lo de un apartamento y lo que sigue abierto sobre una cuota
+    @EntityGraph(attributePaths = {"cuota", "cuota.apartamento", "apartamento"})
+    List<SolicitudContable> findByApartamentoIdOrderByCreadaEnDesc(Long apartamentoId);
+
+    @Query("select count(s) > 0 from SolicitudContable s where s.cuota.id = :cuotaId and s.estado = 'PENDIENTE'")
+    boolean hayPendienteDeCuota(Long cuotaId);
+
+    long countByEstadoAndSolicitadaPor(String estado, String solicitadaPor);
 }
