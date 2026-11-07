@@ -11,6 +11,10 @@ import java.util.List;
 
 public interface VisitaPorteriaRepository extends JpaRepository<VisitaPorteria, Long> {
 
+    /** P10 bloque 7: las rechazadas hace poco (chat abierto) de un apartamento. */
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "apartamento")
+    List<VisitaPorteria> findByApartamentoIdAndEstadoAndRespondidaEnAfterOrderByRespondidaEnDesc(Long apartamentoId, String estado, LocalDateTime desde);
+
     /** Las visitas recientes para la portería, con su apartamento en la misma consulta. */
     @Query("select v from VisitaPorteria v join fetch v.apartamento where v.creadaEn >= :desde order by v.creadaEn desc, v.id desc")
     List<VisitaPorteria> recientes(LocalDateTime desde);

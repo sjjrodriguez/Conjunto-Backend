@@ -43,6 +43,12 @@ public class CorrespondenciaController {
         return servicio.entregar(id, cuerpo);
     }
 
+    /** P10 bloque 7: la foto del paquete (portería o el apartamento al que llegó; regla en SecurityConfig). */
+    @GetMapping("/{id}/foto")
+    public com.residencial.service.FotosPorteria.Enlace foto(@PathVariable Long id) {
+        return servicio.foto(id);
+    }
+
     @GetMapping("/mia")
     public List<CorrespondenciaService.Item> mia() {
         return servicio.delApartamento();

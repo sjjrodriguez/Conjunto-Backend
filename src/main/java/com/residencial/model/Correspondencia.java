@@ -69,4 +69,8 @@ public class Correspondencia extends EntidadConjunto {
 
     @Column(name = "entregada_por", length = 150)
     private String entregadaPor;
+
+    // P10 bloque 7: foto del paquete que tomó la portería (ruta en el bucket privado)
+    @Column(name = "foto_ruta", length = 200)
+    private String fotoRuta;
 }

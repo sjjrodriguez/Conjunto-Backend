@@ -34,6 +34,12 @@ public class AvisosPush {
      */
     public record MensajeChatNuevo(Long conversacionId, Long apartamentoId, String participante, String mensaje) {}
 
+    /**
+     * P10 bloque 7: mensaje en el chat de una visita rechazada. Si lo escribió el residente va a la
+     * portería; si no, a los celulares del apartamento (sin el propietario si está arrendado).
+     */
+    public record MensajeVisitaNuevo(Long visitaId, Long apartamentoId, boolean deResidente, String mensaje) {}
+
     // Título del aviso en el celular según el tipo de notificación
     private static final Map<String, String> TITULOS = Map.ofEntries(
             Map.entry("RESERVA", "Nueva reserva"),
@@ -104,6 +110,29 @@ public class AvisosPush {
         datos.put("titulo", "Chat");
         datos.put("mensaje", evento.mensaje());
         datos.put("referenciaId", String.valueOf(evento.conversacionId()));
+        Set<String> invalidos = enviador.enviar(tokens, datos);
+        if (!invalidos.isEmpty()) dispositivos.borrarTokens(invalidos);
+    }
+
+    @Async
+    @TransactionalEventListener(fallbackExecution = true)
+    public void alEscribirVisita(MensajeVisitaNuevo evento) {
+        List<String> tokens;
+        if (evento.deResidente()) {
+            tokens = deApp(dispositivos.findByRol(TokenService.ROL_PORTERIA), "RECEPCION");
+        } else {
+            List<Dispositivo> celulares = dispositivos.findByApartamentoId(evento.apartamentoId());
+            if (estado.arrendado(evento.apartamentoId())) {
+                celulares = celulares.stream().filter(d -> !TokenService.ROL_PROPIETARIO.equals(d.getRol())).toList();
+            }
+            tokens = deApp(celulares, "RESIDENTE");
+        }
+        if (tokens.isEmpty()) return;
+        Map<String, String> datos = new HashMap<>();
+        datos.put("tipo", "CHAT_VISITA");
+        datos.put("titulo", evento.deResidente() ? "Mensaje de un residente" : "Mensaje de la portería");
+        datos.put("mensaje", evento.mensaje());
+        datos.put("referenciaId", String.valueOf(evento.visitaId()));
         Set<String> invalidos = enviador.enviar(tokens, datos);
         if (!invalidos.isEmpty()) dispositivos.borrarTokens(invalidos);
     }

@@ -43,14 +43,26 @@ public class PorteriaService {
                          String placa, String motivo, String estado, LocalDateTime creadaEn, LocalDateTime venceEn,
                          LocalDateTime respondidaEn, String canal, String telefono, String guardia,
                          // P8 bloque 4: a pie o en vehículo, el parqueadero de invitados y cuándo salió
-                         String tipoIngreso, Long parqueaderoId, String parqueadero, LocalDateTime salidaEn) {}
+                         String tipoIngreso, Long parqueaderoId, String parqueadero, LocalDateTime salidaEn,
+                         // P10 bloque 7: si hay foto del visitante (fotoUrl solo para el residente que la responde
+                         // y al registrarla), hasta cuándo está abierto el chat y cuántos mensajes escribió el residente
+                         boolean tieneFoto, String fotoUrl, LocalDateTime chatHasta, long mensajesResidente) {}
+
+    /** P10 bloque 7: un mensaje del chat de una visita rechazada. */
+    public record MensajeChat(Long id, boolean deResidente, String autor, String texto, LocalDateTime creadoEn) {}
+
+    /** P10 bloque 7: el chat de una visita: abierto mientras no pasen {@link VisitaPorteria#MINUTOS_CHAT} minutos. */
+    public record Chat(Long visitaId, String visitante, String torre, String apto, boolean abierto,
+                       LocalDateTime cierraEn, List<MensajeChat> mensajes) {}
+
+    public record NuevoMensaje(String texto) {}
 
     /**
      * tipoIngreso: PEATONAL (por defecto) o VEHICULO. Con vehículo la placa es obligatoria y, si el
      * conjunto tiene parqueaderos de invitados, ocupa uno: parqueaderoId, o el primero libre.
      */
     public record Nueva(String torre, String apto, String visitante, String documento, String placa, String motivo,
-                        String tipoIngreso, Long parqueaderoId) {}
+                        String tipoIngreso, Long parqueaderoId, String fotoId) {}
 
     /** P8 bloque 4: un parqueadero de invitados y, si está ocupado, la visita que lo ocupa. */
     public record ParqueaderoInvitados(Long id, String numero, boolean libre, Long visitaId, String visitante,
@@ -64,11 +76,19 @@ public class PorteriaService {
     private final GuardiaService guardias;
     private final ParqueaderoRepository parqueaderos;
     private final ZoneId zona;
+    private final FotosPorteria fotos;
+    private final com.residencial.repository.MensajeVisitaRepository mensajes;
+    private final org.springframework.context.ApplicationEventPublisher eventos;
 
     public PorteriaService(VisitaPorteriaRepository visitas, ApartamentoRepository apartamentos,
                            ResidenteRepository residentes, NotificacionService notificaciones, AccesoService acceso,
                            GuardiaService guardias, ParqueaderoRepository parqueaderos,
-                           @Value("${app.zona-horaria:America/Bogota}") String zona) {
+                           @Value("${app.zona-horaria:America/Bogota}") String zona, FotosPorteria fotos,
+                           com.residencial.repository.MensajeVisitaRepository mensajes,
+                           org.springframework.context.ApplicationEventPublisher eventos) {
+        this.fotos = fotos;
+        this.mensajes = mensajes;
+        this.eventos = eventos;
         this.guardias = guardias;
         this.parqueaderos = parqueaderos;
         this.visitas = visitas;
@@ -106,6 +126,7 @@ public class PorteriaService {
         v.setTipoIngreso(tipo);
         if (tipo.equals(VisitaPorteria.VEHICULO)) v.setParqueadero(parqueaderoParaVisita(n.parqueaderoId()));
         v.setMotivo(limpio(n.motivo()));
+        v.setFotoRuta(fotos.rutaDe(n.fotoId()));
         v.setCreadaEn(ahora);
         v.setVenceEn(ahora.plusMinutes(VisitaPorteria.MINUTOS_VIGENCIA));
         v.setRegistradaPor(acceso.tokenActual().map(Jwt::getSubject).orElse(null));
@@ -113,22 +134,108 @@ public class PorteriaService {
         v.setGuardiaNombre(guardias.delTurno().map(g -> g.getNombre()).orElse(null));
         v = visitas.save(v);
         notificaciones.avisarVisita(v);
-        return aDTO(v, true);
+        return aDTO(v, true, fotos.enlace(v.getFotoRuta()), 0);
     }
 
     /** Las últimas 24 horas, para la portería y la administración. */
     public List<Visita> recientes() {
         LocalDateTime ahora = LocalDateTime.now(zona);
         visitas.expirar(ahora);
-        return visitas.recientes(ahora.minusHours(24)).stream().map(v -> aDTO(v, true)).toList();
+        List<VisitaPorteria> lista = visitas.recientes(ahora.minusHours(24));
+        Map<Long, Long> escritos = mensajesDelResidente(lista);
+        return lista.stream().map(v -> aDTO(v, true, null, escritos.getOrDefault(v.getId(), 0L))).toList();
     }
 
-    /** Las que espera el apartamento de la sesión. */
+    /** Las que espera el apartamento de la sesión, con el enlace de la foto del visitante. */
     public List<Visita> pendientesDelApartamento() {
         Long apto = acceso.apartamentoActual().orElseThrow(() -> new AccessDeniedException("Sin apartamento"));
         LocalDateTime ahora = LocalDateTime.now(zona);
         visitas.expirar(ahora);
-        return visitas.pendientesDe(apto, ahora).stream().map(v -> aDTO(v, false)).toList();
+        List<VisitaPorteria> lista = visitas.pendientesDe(apto, ahora);
+        List<String> rutas = lista.stream().map(VisitaPorteria::getFotoRuta).filter(java.util.Objects::nonNull).toList();
+        Map<String, String> enlaces = rutas.isEmpty() ? Map.of() : fotos.enlaces(rutas);
+        return lista.stream().map(v -> aDTO(v, false, v.getFotoRuta() == null ? null : enlaces.get(v.getFotoRuta()), 0)).toList();
+    }
+
+    /** P10 bloque 7: las visitas rechazadas del apartamento de la sesión con el chat todavía abierto. */
+    @Transactional(readOnly = true)
+    public List<Visita> chatsDelApartamento() {
+        Long apto = acceso.apartamentoActual().orElseThrow(() -> new AccessDeniedException("Sin apartamento"));
+        LocalDateTime desde = LocalDateTime.now(zona).minusMinutes(VisitaPorteria.MINUTOS_CHAT);
+        return visitas.findByApartamentoIdAndEstadoAndRespondidaEnAfterOrderByRespondidaEnDesc(apto, VisitaPorteria.RECHAZADA, desde)
+                .stream().map(v -> aDTO(v, false, null, 0)).toList();
+    }
+
+    /** P10 bloque 7: subir la foto antes de registrar la visita o la correspondencia. */
+    public FotosPorteria.Subida subirFoto(org.springframework.web.multipart.MultipartFile archivo) {
+        return fotos.subir(archivo);
+    }
+
+    /** P10 bloque 7: el enlace de la foto del visitante, para la portería o el apartamento de la visita. */
+    @Transactional(readOnly = true)
+    public FotosPorteria.Enlace foto(Long id) {
+        VisitaPorteria v = visitaVisible(id);
+        if (v.getFotoRuta() == null) throw new RecursoNoEncontradoException("Esta visita no tiene foto");
+        return new FotosPorteria.Enlace(fotos.enlace(v.getFotoRuta()));
+    }
+
+    /** P10 bloque 7: el chat de una visita rechazada (la portería o el apartamento de la visita). */
+    @Transactional(readOnly = true)
+    public Chat chat(Long id) {
+        VisitaPorteria v = visitaVisible(id);
+        LocalDateTime hasta = v.chatHasta();
+        if (hasta == null) throw new ResponseStatusException(HttpStatus.CONFLICT, "Solo hay chat cuando la visita se rechaza");
+        Apartamento a = v.getApartamento();
+        return new Chat(v.getId(), v.getVisitanteNombre(), a.getTorre(), a.getApto(), hasta.isAfter(LocalDateTime.now(zona)), hasta,
+                mensajes.findByVisitaIdOrderByCreadoEnAscIdAsc(v.getId()).stream()
+                        .map(m -> new MensajeChat(m.getId(), m.isDeResidente(), m.getAutor(), m.getTexto(), m.getCreadoEn())).toList());
+    }
+
+    /** P10 bloque 7: escribir en el chat mientras esté abierto; al otro lado le llega el aviso. */
+    public MensajeChat escribir(Long id, NuevoMensaje cuerpo) {
+        String texto = cuerpo == null ? null : limpio(cuerpo.texto());
+        if (texto == null) throw invalido("Escribe el mensaje");
+        if (texto.length() > 500) throw invalido("El mensaje es muy largo (máximo 500 caracteres)");
+        VisitaPorteria v = visitaVisible(id);
+        LocalDateTime hasta = v.chatHasta();
+        LocalDateTime ahora = LocalDateTime.now(zona);
+        if (hasta == null) throw new ResponseStatusException(HttpStatus.CONFLICT, "Solo hay chat cuando la visita se rechaza");
+        if (!hasta.isAfter(ahora)) throw new ResponseStatusException(HttpStatus.CONFLICT, "El chat de esta visita ya se cerró");
+        boolean deResidente = !esPersonal();
+        Apartamento a = v.getApartamento();
+        com.residencial.model.MensajeVisita m = new com.residencial.model.MensajeVisita();
+        m.setVisita(v);
+        m.setDeResidente(deResidente);
+        m.setAutor(deResidente ? "Apto " + a.getTorre() + "-" + a.getApto()
+                : guardias.delTurno().map(g -> g.getNombre()).orElse("Portería"));
+        m.setTexto(texto);
+        m.setCreadoEn(ahora);
+        m = mensajes.save(m);
+        eventos.publishEvent(new com.residencial.push.AvisosPush.MensajeVisitaNuevo(v.getId(), a.getId(), deResidente,
+                (deResidente ? "Apto " + a.getTorre() + "-" + a.getApto() : "Portería") + ": " + texto));
+        return new MensajeChat(m.getId(), m.isDeResidente(), m.getAutor(), m.getTexto(), m.getCreadoEn());
+    }
+
+    /** La visita si la sesión es de la portería o la administración, o del apartamento de la visita. */
+    private VisitaPorteria visitaVisible(Long id) {
+        VisitaPorteria v = visitas.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("Visita no encontrada: " + id));
+        if (!esPersonal()) {
+            Long suyo = acceso.apartamentoActual().orElse(null);
+            if (suyo == null || !suyo.equals(v.getApartamento().getId())) throw new AccessDeniedException("Esa visita no es de tu apartamento");
+        }
+        return v;
+    }
+
+    private boolean esPersonal() {
+        String rol = acceso.tokenActual().map(t -> t.getClaimAsString(TokenService.CLAIM_ROL)).orElse(null);
+        return TokenService.ROL_PORTERIA.equals(rol) || TokenService.ROL_ADMIN.equals(rol);
+    }
+
+    private Map<Long, Long> mensajesDelResidente(List<VisitaPorteria> lista) {
+        List<Long> rechazadas = lista.stream().filter(v -> v.chatHasta() != null).map(VisitaPorteria::getId).toList();
+        if (rechazadas.isEmpty()) return Map.of();
+        return mensajes.delResidentePorVisita(rechazadas).stream()
+                .collect(Collectors.toMap(f -> (Long) f[0], f -> (Long) f[1]));
     }
 
     public Visita responder(Long id, String decision) {
@@ -153,7 +260,7 @@ public class PorteriaService {
         v.setRespondidaEn(ahora);
         v.setRespondidaPor(sesion.getSubject());
         v.setCanalRespuesta(personal ? VisitaPorteria.CANAL_LLAMADA : VisitaPorteria.CANAL_APP);
-        return aDTO(visitas.save(v), personal);
+        return aDTO(visitas.save(v), personal, null, 0);
     }
 
     /**
@@ -198,7 +305,7 @@ public class PorteriaService {
         VisitaPorteria v = visitas.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("Visita no encontrada: " + id));
         if (v.getSalidaEn() != null) throw new ResponseStatusException(HttpStatus.CONFLICT, "La salida ya estaba registrada");
         v.setSalidaEn(LocalDateTime.now(zona));
-        return aDTO(visitas.save(v), true);
+        return aDTO(visitas.save(v), true, null, 0);
     }
 
     /** Cada 15 segundos: las visitas sin respuesta pasan a EXPIRADA, en todos los conjuntos (P7). */
@@ -210,10 +317,10 @@ public class PorteriaService {
 
     /** P8 bloque 5: para la portería (con el teléfono del apartamento y el guardia). */
     public Visita aDTO(VisitaPorteria v) {
-        return aDTO(v, true);
+        return aDTO(v, true, null, 0);
     }
 
-    private Visita aDTO(VisitaPorteria v, boolean conTelefono) {
+    private Visita aDTO(VisitaPorteria v, boolean conTelefono, String fotoUrl, long mensajesResidente) {
         Apartamento a = v.getApartamento();
         String telefono = conTelefono ? residentes.findByApartamentoIdOrderByIdAsc(a.getId()).stream()
                 .filter(r -> Residente.APROBADO.equals(r.getEstado()) && r.getTelefono() != null && !r.getTelefono().isBlank())
@@ -222,7 +329,8 @@ public class PorteriaService {
                 v.getPlaca(), v.getMotivo(), v.getEstado(), v.getCreadaEn(), v.getVenceEn(), v.getRespondidaEn(),
                 v.getCanalRespuesta(), telefono, conTelefono ? v.getGuardiaNombre() : null,
                 v.getTipoIngreso(), v.getParqueadero() == null ? null : v.getParqueadero().getId(),
-                v.getParqueadero() == null ? null : v.getParqueadero().getNumero(), v.getSalidaEn());
+                v.getParqueadero() == null ? null : v.getParqueadero().getNumero(), v.getSalidaEn(),
+                v.getFotoRuta() != null, fotoUrl, v.chatHasta(), mensajesResidente);
     }
 
     private static int largo(String s) {

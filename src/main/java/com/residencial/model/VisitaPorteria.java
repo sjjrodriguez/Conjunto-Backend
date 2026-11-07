@@ -88,6 +88,18 @@ public class VisitaPorteria extends EntidadConjunto {
     @Column(name = "salida_en")
     private LocalDateTime salidaEn;
 
+    // P10 bloque 7: foto de la cara que tomó la portería (ruta en el bucket privado)
+    @Column(name = "foto_ruta", length = 200)
+    private String fotoRuta;
+
+    /** P10 bloque 7: si la rechazan, el residente y la portería pueden escribirse durante este tiempo. */
+    public static final int MINUTOS_CHAT = 30;
+
+    /** Hasta cuándo está abierto el chat de la visita rechazada (null si no aplica). */
+    public LocalDateTime chatHasta() {
+        return RECHAZADA.equals(estado) && respondidaEn != null ? respondidaEn.plusMinutes(MINUTOS_CHAT) : null;
+    }
+
     /** Sigue dentro del conjunto: autorizada (o esperando respuesta) y sin salida registrada. */
     public boolean dentro() {
         return salidaEn == null && (PENDIENTE.equals(estado) || AUTORIZADA.equals(estado));

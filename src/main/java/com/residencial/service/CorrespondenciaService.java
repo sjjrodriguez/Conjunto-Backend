@@ -33,9 +33,11 @@ public class CorrespondenciaService {
 
     public record Item(Long id, Long apartamentoId, String torre, String apto, String tipo, String remitente, String nota,
                        String estado, LocalDateTime recibidaEn, String guardia, LocalDateTime entregadaEn,
-                       String entregadaA, String entregadaPor) {}
+                       String entregadaA, String entregadaPor,
+                       // P10 bloque 7: foto del paquete que tomó la portería (se ve con GET /{id}/foto)
+                       boolean tieneFoto) {}
 
-    public record Nueva(String torre, String apto, String tipo, String remitente, String nota) {}
+    public record Nueva(String torre, String apto, String tipo, String remitente, String nota, String fotoId) {}
 
     public record NuevoReciboParaTodos(String remitente, String nota) {}
 
@@ -49,10 +51,12 @@ public class CorrespondenciaService {
     private final GuardiaService guardias;
     private final AccesoService acceso;
     private final ZoneId zona;
+    private final FotosPorteria fotos;
 
     public CorrespondenciaService(CorrespondenciaRepository repo, ApartamentoRepository apartamentos,
                                   NotificacionService notificaciones, GuardiaService guardias, AccesoService acceso,
-                                  @Value("${app.zona-horaria:America/Bogota}") String zona) {
+                                  @Value("${app.zona-horaria:America/Bogota}") String zona, FotosPorteria fotos) {
+        this.fotos = fotos;
         this.repo = repo;
         this.apartamentos = apartamentos;
         this.notificaciones = notificaciones;
@@ -68,6 +72,7 @@ public class CorrespondenciaService {
                 : apartamentos.findByTorreAndApto(n.torre().trim(), n.apto().trim());
         if (encontrados.isEmpty()) throw new RecursoNoEncontradoException("No existe ese apartamento");
         Correspondencia c = nueva(encontrados.get(0), tipo, validar(n.remitente(), 150, "El remitente"), validar(n.nota(), 300, "La nota"), null);
+        c.setFotoRuta(fotos.rutaDe(n.fotoId()));
         c = repo.save(c);
         notificaciones.avisarCorrespondencia(c);
         return aItem(c);
@@ -129,6 +134,20 @@ public class CorrespondenciaService {
         return repo.delApartamento(apto, LocalDateTime.now(zona).minusDays(60)).stream().map(this::aItem).toList();
     }
 
+    /** P10 bloque 7: la foto del paquete, para la portería o el apartamento al que llegó. */
+    @Transactional(readOnly = true)
+    public FotosPorteria.Enlace foto(Long id) {
+        Correspondencia c = repo.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("No se encontró esa correspondencia"));
+        String rol = acceso.tokenActual().map(t -> t.getClaimAsString(com.residencial.security.TokenService.CLAIM_ROL)).orElse(null);
+        boolean personal = com.residencial.security.TokenService.ROL_PORTERIA.equals(rol) || com.residencial.security.TokenService.ROL_ADMIN.equals(rol);
+        if (!personal) {
+            Long suyo = acceso.apartamentoActual().orElse(null);
+            if (suyo == null || !suyo.equals(c.getApartamento().getId())) throw new AccessDeniedException("Esa correspondencia no es de tu apartamento");
+        }
+        if (c.getFotoRuta() == null) throw new RecursoNoEncontradoException("Esta correspondencia no tiene foto");
+        return new FotosPorteria.Enlace(fotos.enlace(c.getFotoRuta()));
+    }
+
     private Correspondencia nueva(Apartamento a, String tipo, String remitente, String nota, String lote) {
         Correspondencia c = new Correspondencia();
         c.setApartamento(a);
@@ -145,7 +164,8 @@ public class CorrespondenciaService {
     private Item aItem(Correspondencia c) {
         Apartamento a = c.getApartamento();
         return new Item(c.getId(), a.getId(), a.getTorre(), a.getApto(), c.getTipo(), c.getRemitente(), c.getNota(),
-                c.getEstado(), c.getRecibidaEn(), c.getGuardiaNombre(), c.getEntregadaEn(), c.getEntregadaA(), c.getEntregadaPor());
+                c.getEstado(), c.getRecibidaEn(), c.getGuardiaNombre(), c.getEntregadaEn(), c.getEntregadaA(), c.getEntregadaPor(),
+                c.getFotoRuta() != null);
     }
 
     private static boolean coincide(Correspondencia c, String q) {

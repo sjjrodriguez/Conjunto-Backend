@@ -50,6 +50,36 @@ public class PorteriaController {
         return servicio.registrarSalida(id);
     }
 
+    /** P10 bloque 7: portería y administración: la foto (campo "archivo") antes de registrar la visita o el paquete. */
+    @PostMapping(value = "/fotos", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<com.residencial.service.FotosPorteria.Subida> subirFoto(
+            @RequestPart("archivo") org.springframework.web.multipart.MultipartFile archivo) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(servicio.subirFoto(archivo));
+    }
+
+    /** P10 bloque 7: la foto del visitante (portería o el apartamento de la visita). */
+    @GetMapping("/visitas/{id}/foto")
+    public com.residencial.service.FotosPorteria.Enlace foto(@PathVariable Long id) {
+        return servicio.foto(id);
+    }
+
+    /** P10 bloque 7: residentes: sus visitas rechazadas con el chat abierto. */
+    @GetMapping("/visitas/chats")
+    public List<PorteriaService.Visita> chats() {
+        return servicio.chatsDelApartamento();
+    }
+
+    /** P10 bloque 7: el chat temporal de una visita rechazada. */
+    @GetMapping("/visitas/{id}/chat")
+    public PorteriaService.Chat chat(@PathVariable Long id) {
+        return servicio.chat(id);
+    }
+
+    @PostMapping("/visitas/{id}/chat")
+    public ResponseEntity<PorteriaService.MensajeChat> escribir(@PathVariable Long id, @RequestBody PorteriaService.NuevoMensaje cuerpo) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(servicio.escribir(id, cuerpo));
+    }
+
     /** P8 bloque 4: portería y administración: los parqueaderos de invitados, libres u ocupados. */
     @GetMapping("/parqueaderos")
     public List<PorteriaService.ParqueaderoInvitados> parqueaderos() {
