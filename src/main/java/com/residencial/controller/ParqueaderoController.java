@@ -35,7 +35,7 @@ public class ParqueaderoController {
 
     @PutMapping("/{id}/asignacion")
     public ParqueaderoDTO asignar(@PathVariable Long id, @RequestBody ParqueaderoDTO.Asignacion asignacion) {
-        return service.asignar(id, asignacion.vehiculoId());
+        return service.asignar(id, asignacion.vehiculoId(), asignacion.apartamentoId());
     }
 
     @DeleteMapping("/{id}")

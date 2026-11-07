@@ -34,6 +34,7 @@ public class ParqueaderoServiceImpl {
 
     private final ParqueaderoRepository repo;
     private final VehiculoRepository vehiculos;
+    private final com.residencial.repository.ApartamentoRepository apartamentos;
 
     @Transactional(readOnly = true)
     public List<ParqueaderoDTO> listar(String tipo, String estado) {
@@ -80,11 +81,36 @@ public class ParqueaderoServiceImpl {
         return repo.saveAll(nuevos).stream().map(ParqueaderoServiceImpl::toDTO).toList();
     }
 
-    /** Asigna el parqueadero a un vehículo aprobado de su misma categoría; null lo libera. */
+    /** Como antes de P11: a un vehículo aprobado de su misma categoría; null lo libera. */
     public ParqueaderoDTO asignar(Long id, Long vehiculoId) {
+        return asignar(id, vehiculoId, null);
+    }
+
+    /**
+     * P11: a un apartamento y, si se indica, a uno de sus vehículos de la misma categoría (con el
+     * vehículo basta: el apartamento es el suyo). Si el apartamento tiene un solo vehículo aprobado
+     * de esa categoría sin parqueadero, queda vinculado. Los dos null lo liberan.
+     */
+    public ParqueaderoDTO asignar(Long id, Long vehiculoId, Long apartamentoId) {
         Parqueadero p = buscar(id);
-        if (vehiculoId == null) {
+        if (vehiculoId == null && apartamentoId == null) {
             p.setVehiculo(null);
+            p.setApartamento(null);
+            return toDTO(repo.save(p));
+        }
+        if (vehiculoId == null) {
+            if (Parqueadero.INVITADOS.equals(p.getTipo())) throw invalido("Los parqueaderos de invitados no se asignan a un apartamento");
+            Apartamento a = apartamentos.findById(apartamentoId)
+                    .orElseThrow(() -> new RecursoNoEncontradoException("Apartamento no encontrado: " + apartamentoId));
+            // Cambia de apartamento: el vehículo del anterior deja de usarlo
+            if (p.getVehiculo() != null && !p.getVehiculo().getApartamento().getId().equals(a.getId())) p.setVehiculo(null);
+            p.setApartamento(a);
+            if (p.getVehiculo() == null) {
+                List<Vehiculo> candidatos = vehiculos.findByApartamentoId(a.getId()).stream()
+                        .filter(v -> Vehiculo.APROBADO.equals(v.getEstado()) && p.getTipo().equals(v.getTipo()))
+                        .filter(v -> repo.findByVehiculoId(v.getId()).isEmpty()).toList();
+                if (candidatos.size() == 1) p.setVehiculo(candidatos.get(0));
+            }
             return toDTO(repo.save(p));
         }
         if (Parqueadero.INVITADOS.equals(p.getTipo())) throw invalido("Los parqueaderos de invitados no se asignan a un apartamento");
@@ -101,8 +127,10 @@ public class ParqueaderoServiceImpl {
         return repo.save(p).getNumero();
     }
 
+    /** El vehículo ya no usa el parqueadero; el parqueadero sigue siendo del apartamento (P11). */
     public void liberarDe(Long vehiculoId) {
         repo.findByVehiculoId(vehiculoId).ifPresent(p -> {
+            if (p.getApartamento() == null) p.setApartamento(p.getVehiculo().getApartamento());
             p.setVehiculo(null);
             repo.saveAndFlush(p);
         });
@@ -129,8 +157,11 @@ public class ParqueaderoServiceImpl {
             throw invalido("El parqueadero " + p.getNumero() + " es de " + p.getTipo().toLowerCase(Locale.ROOT)
                     + " y el vehículo es " + v.getTipo().toLowerCase(Locale.ROOT));
         }
-        if (!p.libre() && !p.getVehiculo().getId().equals(v.getId())) {
-            throw invalido("El parqueadero " + p.getNumero() + " ya está asignado; libéralo primero");
+        // P11: ocupado por otro apartamento, o por otro vehículo sin apartamento propio
+        Apartamento dueno = p.getApartamento() != null ? p.getApartamento() : p.getVehiculo() == null ? null : p.getVehiculo().getApartamento();
+        if (dueno != null && !dueno.getId().equals(v.getApartamento().getId())) {
+            throw invalido("El parqueadero " + p.getNumero() + " ya está asignado a la torre " + dueno.getTorre()
+                    + " apto " + dueno.getApto() + "; libéralo primero");
         }
         // Un vehículo usa un solo parqueadero: si tenía otro, queda libre
         repo.findByVehiculoId(v.getId()).filter(otro -> !otro.getId().equals(p.getId())).ifPresent(otro -> {
@@ -138,6 +169,7 @@ public class ParqueaderoServiceImpl {
             repo.saveAndFlush(otro);
         });
         p.setVehiculo(v);
+        p.setApartamento(v.getApartamento());
     }
 
     private Parqueadero buscar(Long id) {
@@ -163,7 +195,7 @@ public class ParqueaderoServiceImpl {
 
     private static ParqueaderoDTO toDTO(Parqueadero p) {
         Vehiculo v = p.getVehiculo();
-        Apartamento a = v == null ? null : v.getApartamento();
+        Apartamento a = p.getApartamento() != null ? p.getApartamento() : v == null ? null : v.getApartamento();
         String descripcion = v == null ? null : String.join(" · ",
                 java.util.stream.Stream.of(v.getTipo(), v.getMarca(), v.getColor()).filter(x -> x != null && !x.isBlank()).toList());
         return new ParqueaderoDTO(p.getId(), p.getNumero(), p.getTipo(), p.libre() ? LIBRE : ASIGNADO,

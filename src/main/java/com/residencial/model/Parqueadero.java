@@ -34,7 +34,17 @@ public class Parqueadero extends EntidadConjunto {
     @OnDelete(action = OnDeleteAction.SET_NULL)
     private Vehiculo vehiculo;
 
+    // P11: el apartamento al que pertenece (con o sin vehículo). Null y sin vehículo = libre
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "apartamento_id")
+    @OnDelete(action = OnDeleteAction.SET_NULL)
+    private Apartamento apartamento;
+
+    public Parqueadero(Long id, String numero, String tipo, Vehiculo vehiculo) {
+        this(id, numero, tipo, vehiculo, vehiculo == null ? null : vehiculo.getApartamento());
+    }
+
     public boolean libre() {
-        return vehiculo == null;
+        return vehiculo == null && apartamento == null;
     }
 }

@@ -111,12 +111,45 @@ class ParqueaderosIntegrationTest {
         enviar(put("/api/parqueaderos/" + invitados + "/asignacion"), admin, "{\"vehiculoId\":" + otro.getId() + "}")
                 .andExpect(status().isBadRequest());
 
-        // Ocupado no se borra; al eliminar el vehículo queda libre
+        // Ocupado no se borra; P11: al eliminar el vehículo sigue siendo del apartamento hasta liberarlo
         mvc.perform(delete("/api/parqueaderos/" + c01).header("Authorization", admin)).andExpect(status().isBadRequest());
         vehiculoRepo.delete(vehiculoRepo.findById(otro.getId()).orElseThrow());
+        mvc.perform(get("/api/parqueaderos?estado=asignado").header("Authorization", admin))
+                .andExpect(jsonPath("$[0].numero").value("C-01")).andExpect(jsonPath("$[0].apto").value("202"))
+                .andExpect(jsonPath("$[0].placa").doesNotExist());
+        enviar(put("/api/parqueaderos/" + c01 + "/asignacion"), admin, "{}").andExpect(jsonPath("$.estado").value("LIBRE"));
         mvc.perform(delete("/api/parqueaderos/" + c01).header("Authorization", admin)).andExpect(status().isNoContent());
 
         mvc.perform(get("/api/parqueaderos").header("Authorization", propietario)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void seAsignaAlApartamentoConOSinVehiculo() throws Exception {
+        // P11 bloque 5: sin vehículos de esa categoría, igual se asigna al apartamento
+        enviar(post("/api/parqueaderos/generar"), admin, "{\"tipo\":\"carro\",\"cantidad\":2}").andExpect(status().isOk());
+        enviar(post("/api/parqueaderos/generar"), admin, "{\"tipo\":\"invitados\",\"cantidad\":1}").andExpect(status().isOk());
+        long c01 = parqueaderoRepo.findAll().stream().filter(p -> p.getNumero().equals("C-01")).findFirst().orElseThrow().getId();
+        long c02 = parqueaderoRepo.findAll().stream().filter(p -> p.getNumero().equals("C-02")).findFirst().orElseThrow().getId();
+        long inv = parqueaderoRepo.findAll().stream().filter(p -> p.getTipo().equals("Invitados")).findFirst().orElseThrow().getId();
+
+        enviar(put("/api/parqueaderos/" + c01 + "/asignacion"), admin, "{\"apartamentoId\":" + apto.getId() + "}")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.estado").value("ASIGNADO"))
+                .andExpect(jsonPath("$.torre").value("2")).andExpect(jsonPath("$.placa").doesNotExist());
+        // Con un solo carro aprobado sin parqueadero, queda vinculado solo
+        Vehiculo carro = vehiculoRepo.save(new Vehiculo(null, "CCC333", null, null, "Carro", vecino, Vehiculo.APROBADO, null));
+        enviar(put("/api/parqueaderos/" + c02 + "/asignacion"), admin, "{\"apartamentoId\":" + vecino.getId() + "}")
+                .andExpect(jsonPath("$.apto").value("202")).andExpect(jsonPath("$.placa").value("CCC333"));
+        // Reasignar directo a otro apartamento: el carro del anterior deja de usarlo
+        enviar(put("/api/parqueaderos/" + c02 + "/asignacion"), admin, "{\"apartamentoId\":" + apto.getId() + "}")
+                .andExpect(jsonPath("$.torre").value("2")).andExpect(jsonPath("$.apto").value(apto.getApto()))
+                .andExpect(jsonPath("$.placa").doesNotExist());
+        // Con el vehículo de otro apartamento no (está ocupado); de invitados tampoco
+        enviar(put("/api/parqueaderos/" + c02 + "/asignacion"), admin, "{\"vehiculoId\":" + carro.getId() + "}")
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.mensaje").value(containsString("libéralo")));
+        enviar(put("/api/parqueaderos/" + inv + "/asignacion"), admin, "{\"apartamentoId\":" + apto.getId() + "}")
+                .andExpect(status().isBadRequest());
+        enviar(put("/api/parqueaderos/" + c02 + "/asignacion"), admin, "{\"apartamentoId\":999999}")
+                .andExpect(status().isNotFound());
     }
 
     @Test
