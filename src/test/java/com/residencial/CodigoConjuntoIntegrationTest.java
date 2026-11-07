@@ -101,9 +101,15 @@ class CodigoConjuntoIntegrationTest {
         mvc.perform(post("/api/auth/apartamento/login").header("X-Conjunto", principal.getId()).header(CodigoConjunto.CABECERA, deOtro)
                         .contentType(MediaType.APPLICATION_JSON).content(login))
                 .andExpect(status().isPreconditionRequired());
-        // La administración no lo necesita
+        // P11: la administración y la portería también lo necesitan
         mvc.perform(post("/api/auth/admin/login").header("X-Conjunto", principal.getId()).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"usuario\":\"admin\",\"contrasena\":\"admin123\"}"))
+                .andExpect(status().isPreconditionRequired());
+        mvc.perform(post("/api/auth/admin/login").header("X-Conjunto", principal.getId()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"usuario\":\"portero\",\"contrasena\":\"portero123\"}"))
+                .andExpect(status().isPreconditionRequired());
+        mvc.perform(post("/api/auth/admin/login").header("X-Conjunto", principal.getId()).header(CodigoConjunto.CABECERA, pase)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"usuario\":\"admin\",\"contrasena\":\"admin123\"}"))
                 .andExpect(status().isOk());
     }
 
@@ -145,7 +151,8 @@ class CodigoConjuntoIntegrationTest {
     }
 
     private String token(String ruta, String json) throws Exception {
-        String cuerpo = mvc.perform(post(ruta).header("X-Conjunto", principal.getId()).contentType(MediaType.APPLICATION_JSON).content(json))
+        String cuerpo = mvc.perform(post(ruta).header("X-Conjunto", principal.getId())
+                        .header(CodigoConjunto.CABECERA, codigos.emitirPase(principal)).contentType(MediaType.APPLICATION_JSON).content(json))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         return JsonPath.read(cuerpo, "$.token");
     }

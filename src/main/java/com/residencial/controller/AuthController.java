@@ -58,6 +58,9 @@ public class AuthController {
 
     @PostMapping("/admin/login")
     public ResponseEntity<?> loginAdmin(@RequestBody LoginDTO.AdminLoginRequest request, HttpServletRequest http) {
+        // P11: las apps de administración y portería también piden el código del conjunto la
+        // primera vez (la plataforma entra por su propio login y no lo necesita)
+        codigoConjunto.exigirPase(http, ConjuntoContexto.actual());
         String clave = http.getRemoteAddr() + "|" + ConjuntoContexto.actual() + "|admin|" + normalizar(request.getUsuario());
         limitador.verificar(clave);
         Administrador admin = authService.loginAdmin(request.getUsuario(), request.getContrasena());
