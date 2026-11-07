@@ -54,6 +54,12 @@ public class ApartamentoController {
         return service.cambiarOcupacionYBanderas(id, cambio);
     }
 
+    /** P11: reactiva al arrendatario que se desactivó al pasar a "vive el propietario". */
+    @PutMapping("/{id}/arrendatario/activar")
+    public ApartamentoDTO activarArrendatario(@PathVariable Long id) {
+        return service.activarArrendatario(id);
+    }
+
     @PutMapping("/{id}/contrasena")
     public ResponseEntity<Void> cambiarContrasena(@PathVariable Long id,
                                                   @Valid @RequestBody CambioContrasenaRequest request) {

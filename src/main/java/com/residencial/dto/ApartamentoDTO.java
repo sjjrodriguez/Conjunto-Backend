@@ -36,5 +36,12 @@ public class ApartamentoDTO {
 
     /** Cuerpo de PATCH /api/apartamentos/{id}/ocupacion-y-banderas: lo que no se envía no cambia. */
     public record OcupacionYBanderas(String tipoOcupacion, Boolean arrendatarioVeCartera,
-                                     Boolean arrendatarioPuedePagar, Boolean arrendatarioVeObras) {}
+                                     Boolean arrendatarioPuedePagar, Boolean arrendatarioVeObras,
+                                     /* P11: DESACTIVAR o ELIMINAR al arrendatario (y su hogar); null = no tocarlo */
+                                     String arrendatario) {
+        public OcupacionYBanderas(String tipoOcupacion, Boolean arrendatarioVeCartera,
+                                  Boolean arrendatarioPuedePagar, Boolean arrendatarioVeObras) {
+            this(tipoOcupacion, arrendatarioVeCartera, arrendatarioPuedePagar, arrendatarioVeObras, null);
+        }
+    }
 }

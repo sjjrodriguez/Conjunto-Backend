@@ -140,6 +140,10 @@ public class RegistroServiceImpl implements RegistroService {
                 if (Residente.RECHAZADO.equals(r.getEstado()) || r.getContrasena() == null) continue;
                 if (!passwordEncoder.matches(contrasena, r.getContrasena())) continue;
                 if (r.puedeEntrar()) return r;
+                if (Residente.INACTIVO.equals(r.getEstado())) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                            "Tu cuenta está desactivada. Comunícate con la administración");
+                }
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                         Residente.APROBADO.equals(r.getEstado())
                                 ? "Tu registro espera la aprobación del propietario"
@@ -163,7 +167,7 @@ public class RegistroServiceImpl implements RegistroService {
     }
 
     private boolean vigente(Residente r) {
-        return !Residente.RECHAZADO.equals(r.getEstado());
+        return !Residente.RECHAZADO.equals(r.getEstado()) && !Residente.INACTIVO.equals(r.getEstado());
     }
 
     private Apartamento apartamento(String torre, String apto) {

@@ -36,6 +36,7 @@ public class ApartamentoServiceImpl implements ApartamentoService {
     private final DispositivoRepository dispositivos;
     private final EstadoApartamento estado;
     private final CupoApartamentoRepository cuposApto;
+    private final com.residencial.security.SesionVersion sesiones;
 
     private ApartamentoDTO toDTO(Apartamento a) {
         ApartamentoDTO dto = new ApartamentoDTO(a.getId(), a.getTorre(), a.getApto());
@@ -123,6 +124,7 @@ public class ApartamentoServiceImpl implements ApartamentoService {
     }
 
     @Override
+    @Transactional
     public ApartamentoDTO cambiarOcupacionYBanderas(Long id, ApartamentoDTO.OcupacionYBanderas cambio) {
         Apartamento a = repo.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("Apartamento no encontrado: " + id));
         if (cambio.tipoOcupacion() != null) {
@@ -130,11 +132,55 @@ public class ApartamentoServiceImpl implements ApartamentoService {
             if (!List.of(Apartamento.OCUPA_PROPIETARIO, Apartamento.OCUPA_ARRENDATARIO, Apartamento.OCUPA_DESOCUPADO).contains(tipo)) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La ocupación debe ser PROPIETARIO, ARRENDATARIO o DESOCUPADO");
             }
+            if (cambio.arrendatario() != null && !Apartamento.OCUPA_ARRENDATARIO.equals(tipo)) {
+                quitarArrendatario(a.getId(), cambio.arrendatario().trim().toUpperCase(java.util.Locale.ROOT));
+            }
             a.setTipoOcupacion(tipo);
         }
         if (cambio.arrendatarioVeCartera() != null) a.setArrendatarioVeCartera(cambio.arrendatarioVeCartera());
         if (cambio.arrendatarioPuedePagar() != null) a.setArrendatarioPuedePagar(cambio.arrendatarioPuedePagar());
         if (cambio.arrendatarioVeObras() != null) a.setArrendatarioVeObras(cambio.arrendatarioVeObras());
+        return detalle(repo.save(a));
+    }
+
+    /**
+     * P11: el apartamento deja de estar arrendado. DESACTIVAR: el arrendatario y su hogar quedan
+     * INACTIVO (no entran; se pueden reactivar). ELIMINAR: se borran. En los dos casos se cierran
+     * sus sesiones y se quitan sus celulares registrados.
+     */
+    private void quitarArrendatario(Long apartamentoId, String accion) {
+        if (!List.of("DESACTIVAR", "ELIMINAR").contains(accion)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Indica si el arrendatario se desactiva o se elimina");
+        }
+        List<Residente> hogar = residentes.findByApartamentoIdOrderByIdAsc(apartamentoId).stream()
+                .filter(r -> r.esArrendatario() && !Residente.RECHAZADO.equals(r.getEstado()))
+                .toList();
+        for (Residente r : hogar) {
+            sesiones.revocar("residente:" + r.getId());
+            if ("ELIMINAR".equals(accion)) residentes.delete(r);
+            else { r.setEstado(Residente.INACTIVO); residentes.save(r); }
+        }
+        dispositivos.deleteAll(dispositivos.findByApartamentoId(apartamentoId).stream()
+                .filter(d -> com.residencial.security.TokenService.ROL_ARRENDATARIO.equals(d.getRol())).toList());
+    }
+
+    @Override
+    @Transactional
+    public ApartamentoDTO activarArrendatario(Long id) {
+        Apartamento a = repo.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("Apartamento no encontrado: " + id));
+        List<Residente> todos = residentes.findByApartamentoIdOrderByIdAsc(id);
+        List<Residente> inactivos = todos.stream()
+                .filter(r -> r.esArrendatario() && Residente.INACTIVO.equals(r.getEstado())).toList();
+        if (inactivos.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No hay un arrendatario desactivado en este apartamento");
+        }
+        boolean hayOtro = todos.stream().anyMatch(r -> r.esArrendatario() && r.isTitular()
+                && !Residente.INACTIVO.equals(r.getEstado()) && !Residente.RECHAZADO.equals(r.getEstado()));
+        if (hayOtro) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "El apartamento ya tiene otro arrendatario: quítalo primero");
+        }
+        inactivos.forEach(r -> { r.setEstado(Residente.APROBADO); residentes.save(r); });
+        a.setTipoOcupacion(Apartamento.OCUPA_ARRENDATARIO);
         return detalle(repo.save(a));
     }
 

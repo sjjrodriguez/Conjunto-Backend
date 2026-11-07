@@ -175,7 +175,7 @@ public class ResidenteServiceImpl implements ResidenteService {
     public ResidenteDTO arrendatarioDe(Long apartamentoId) {
         acceso.verificarApartamento(apartamentoId);
         return repo.findTitulares(apartamentoId, Residente.ARRENDATARIO).stream()
-                .filter(r -> !Residente.RECHAZADO.equals(r.getEstado()))
+                .filter(r -> !Residente.RECHAZADO.equals(r.getEstado()) && !Residente.INACTIVO.equals(r.getEstado()))
                 .reduce((a, b) -> b).map(this::toDTO).orElse(null);
     }
 

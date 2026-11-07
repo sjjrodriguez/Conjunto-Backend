@@ -19,6 +19,8 @@ public class Residente extends EntidadConjunto {
     public static final String PENDIENTE = "PENDIENTE";
     public static final String APROBADO = "APROBADO";
     public static final String RECHAZADO = "RECHAZADO";
+    /** P11: arrendatario desactivado por la administración (no entra; se puede reactivar). */
+    public static final String INACTIVO = "INACTIVO";
     public static final String PROPIETARIO = "PROPIETARIO";
     public static final String ARRENDATARIO = "ARRENDATARIO";
 
