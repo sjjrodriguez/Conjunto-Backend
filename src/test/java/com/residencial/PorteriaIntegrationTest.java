@@ -4,6 +4,8 @@ import com.jayway.jsonpath.JsonPath;
 import com.residencial.model.Administrador;
 import com.residencial.model.Apartamento;
 import com.residencial.model.VisitaPorteria;
+import com.residencial.model.VisitanteFrecuente;
+import com.residencial.model.Notificacion;
 import com.residencial.repository.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,6 +36,7 @@ class PorteriaIntegrationTest {
     @Autowired VisitaPorteriaRepository visitaRepo;
     @Autowired NotificacionRepository notificacionRepo;
     @Autowired ParqueaderoRepository parqueaderoRepo;
+    @Autowired VisitanteFrecuenteRepository frecuenteRepo;
     @Autowired PasswordEncoder encoder;
 
     Apartamento apto7;
@@ -65,6 +68,7 @@ class PorteriaIntegrationTest {
     void limpiar() {
         notificacionRepo.deleteAll();
         visitaRepo.deleteAll();
+        frecuenteRepo.deleteAll();
         parqueaderoRepo.deleteAll();
         aptoRepo.deleteAll();
         adminRepo.deleteAll();
@@ -195,6 +199,40 @@ class PorteriaIntegrationTest {
                 .andExpect(jsonPath("$.parqueadero").doesNotExist());
         enviar(post("/api/porteria/visitas"), porteria, "{\"torre\":\"7\",\"apto\":\"701\",\"visitante\":\"Dani\",\"tipoIngreso\":\"BICI\"}")
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void elVisitanteFrecuenteEntraSinPreguntar() throws Exception {
+        // P11 bloque 4: Ana está en los frecuentes del 701 (con documento) y Luis sin documento
+        frecuenteRepo.save(new VisitanteFrecuente(null, apto7, "Ana María Gómez", "1.020.304", null, java.time.LocalDateTime.now()));
+        frecuenteRepo.save(new VisitanteFrecuente(null, apto7, "Luis Peña", null, null, java.time.LocalDateTime.now()));
+
+        mvc.perform(get("/api/porteria/frecuentes?torre=7&apto=701").header("Authorization", porteria))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].nombre").value("Ana María Gómez")).andExpect(jsonPath("$[0].documento").value("1.020.304"));
+        mvc.perform(get("/api/porteria/frecuentes?torre=7&apto=701").header("Authorization", residente7))
+                .andExpect(status().isForbidden());
+
+        // El mismo documento escrito distinto: entra sin preguntar y al apartamento solo le llega el aviso
+        enviar(post("/api/porteria/visitas"), porteria,
+                "{\"torre\":\"7\",\"apto\":\"701\",\"visitante\":\"ana maria\",\"documento\":\"1020304\"}")
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.estado").value("AUTORIZADA")).andExpect(jsonPath("$.canal").value("FRECUENTE"));
+        // Sin documento, por el nombre (sin tildes ni mayúsculas)
+        enviar(post("/api/porteria/visitas"), porteria, "{\"torre\":\"7\",\"apto\":\"701\",\"visitante\":\"  LUIS   pena \"}")
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.estado").value("AUTORIZADA"));
+        // El nombre de Ana pero otro documento: se pregunta como siempre
+        enviar(post("/api/porteria/visitas"), porteria,
+                "{\"torre\":\"7\",\"apto\":\"701\",\"visitante\":\"Ana María Gómez\",\"documento\":\"999\"}")
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.estado").value("PENDIENTE"));
+        // Y en otro apartamento no es frecuente
+        enviar(post("/api/porteria/visitas"), porteria, "{\"torre\":\"8\",\"apto\":\"801\",\"visitante\":\"Luis Peña\"}")
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.estado").value("PENDIENTE"));
+
+        assertThat(notificacionRepo.findAll()).extracting(Notificacion::getTipo)
+                .containsExactlyInAnyOrder("VISITA_FRECUENTE", "VISITA_FRECUENTE", "VISITA_PORTERIA", "VISITA_PORTERIA");
+        mvc.perform(get("/api/porteria/visitas/pendientes").header("Authorization", residente7))
+                .andExpect(jsonPath("$.length()").value(1));
     }
 
     private int registrar(String visitante) throws Exception {

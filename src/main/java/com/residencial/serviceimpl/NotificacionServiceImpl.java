@@ -42,6 +42,7 @@ public class NotificacionServiceImpl implements NotificacionService {
     public static final String TIPO_REGISTRO = "REGISTRO";
     public static final String TIPO_PUBLICACION = "PUBLICACION";
     public static final String TIPO_VISITA = "VISITA_PORTERIA";
+    public static final String TIPO_VISITA_FRECUENTE = "VISITA_FRECUENTE";
     // P9 bloque 3
     public static final String TIPO_CORRESPONDENCIA = "CORRESPONDENCIA";
     public static final String TIPO_RECIBO = "RECIBO";
@@ -271,6 +272,14 @@ public class NotificacionServiceImpl implements NotificacionService {
         String texto = p.getTexto().isBlank() ? "Nueva publicación con adjuntos" : p.getTexto().replaceAll("\\s+", " ");
         String resumen = "Nueva publicación de la administración — " + (texto.length() > 90 ? texto.substring(0, 90) + "…" : texto);
         for (Long apto : apartamentos) crear(TIPO_PUBLICACION, resumen, p.getId(), apto, apto);
+    }
+
+    @Override
+    public void avisarVisitaFrecuente(com.residencial.model.VisitaPorteria v) {
+        String vehiculo = !com.residencial.model.VisitaPorteria.VEHICULO.equals(v.getTipoIngreso()) ? ""
+                : " en vehículo " + v.getPlaca();
+        crear(TIPO_VISITA_FRECUENTE, "Entró " + v.getVisitanteNombre() + vehiculo + ", visitante frecuente de tu apartamento",
+                v.getId(), v.getApartamento().getId(), v.getApartamento().getId());
     }
 
     @Override

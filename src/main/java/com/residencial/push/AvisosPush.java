@@ -55,6 +55,7 @@ public class AvisosPush {
             Map.entry("REGISTRO", "Nuevo registro por aprobar"),
             Map.entry("PUBLICACION", "Nueva publicación"),
             Map.entry("VISITA_PORTERIA", "Visita en portería"),
+            Map.entry("VISITA_FRECUENTE", "Entró un visitante frecuente"),
             Map.entry("CORRESPONDENCIA", "Llegó correspondencia"),
             Map.entry("RECIBO", "Llegó un recibo"),
             Map.entry("CORRESPONDENCIA_ENTREGADA", "Correspondencia entregada"),

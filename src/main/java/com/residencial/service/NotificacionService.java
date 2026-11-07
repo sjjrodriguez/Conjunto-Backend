@@ -48,6 +48,9 @@ public interface NotificacionService {
     // P6 bloque 5: hay una visita en la portería esperando que el apartamento responda
     void avisarVisita(com.residencial.model.VisitaPorteria visita);
 
+    /** P11: entró un visitante frecuente (sin pedir autorización). */
+    void avisarVisitaFrecuente(com.residencial.model.VisitaPorteria visita);
+
     // P9 bloque 3: llegó correspondencia o un recibo a la portería, y cuándo la recogieron
     void avisarCorrespondencia(com.residencial.model.Correspondencia correspondencia);
     void avisarCorrespondenciaEntregada(com.residencial.model.Correspondencia correspondencia);

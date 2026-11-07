@@ -25,7 +25,7 @@ public class EstadoApartamento {
      * arrendatario y no al propietario, que conserva los suyos (cartera, obras, publicaciones y
      * solicitudes de su arrendatario).
      */
-    public static final Set<String> AVISOS_DEL_HOGAR = Set.of("VISITA_PORTERIA", "CORRESPONDENCIA", "RECIBO",
+    public static final Set<String> AVISOS_DEL_HOGAR = Set.of("VISITA_PORTERIA", "VISITA_FRECUENTE", "CORRESPONDENCIA", "RECIBO",
             "CORRESPONDENCIA_ENTREGADA", "RESERVA_APROBADA", "RESERVA_RECHAZADA", "VEHICULO_APROBADO", "VEHICULO_RECHAZADO");
 
     /** P10: si a la sesión actual (propietario de un apartamento arrendado) no le tocan los avisos del hogar. */

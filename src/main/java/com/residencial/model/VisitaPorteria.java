@@ -27,6 +27,8 @@ public class VisitaPorteria extends EntidadConjunto {
     public static final String EXPIRADA = "EXPIRADA";
     public static final String CANAL_APP = "APP";
     public static final String CANAL_LLAMADA = "LLAMADA";
+    /** P11: entró sin preguntar porque es un visitante frecuente del apartamento. */
+    public static final String CANAL_FRECUENTE = "FRECUENTE";
     // P8 bloque 4: cómo entra el visitante
     public static final String PEATONAL = "PEATONAL";
     public static final String VEHICULO = "VEHICULO";

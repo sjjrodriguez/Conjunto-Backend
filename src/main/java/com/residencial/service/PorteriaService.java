@@ -79,13 +79,16 @@ public class PorteriaService {
     private final FotosPorteria fotos;
     private final com.residencial.repository.MensajeVisitaRepository mensajes;
     private final org.springframework.context.ApplicationEventPublisher eventos;
+    private final com.residencial.repository.VisitanteFrecuenteRepository frecuentes;
 
     public PorteriaService(VisitaPorteriaRepository visitas, ApartamentoRepository apartamentos,
                            ResidenteRepository residentes, NotificacionService notificaciones, AccesoService acceso,
                            GuardiaService guardias, ParqueaderoRepository parqueaderos,
                            @Value("${app.zona-horaria:America/Bogota}") String zona, FotosPorteria fotos,
                            com.residencial.repository.MensajeVisitaRepository mensajes,
-                           org.springframework.context.ApplicationEventPublisher eventos) {
+                           org.springframework.context.ApplicationEventPublisher eventos,
+                           com.residencial.repository.VisitanteFrecuenteRepository frecuentes) {
+        this.frecuentes = frecuentes;
         this.fotos = fotos;
         this.mensajes = mensajes;
         this.eventos = eventos;
@@ -132,9 +135,53 @@ public class PorteriaService {
         v.setRegistradaPor(acceso.tokenActual().map(Jwt::getSubject).orElse(null));
         // P7 bloque 4: el guardia del turno de la recepción
         v.setGuardiaNombre(guardias.delTurno().map(g -> g.getNombre()).orElse(null));
+        // P11: un visitante frecuente del apartamento entra sin preguntar; al apartamento solo se le avisa
+        boolean frecuente = esFrecuente(v.getApartamento().getId(), nombre, v.getVisitanteDocumento());
+        if (frecuente) {
+            v.setEstado(VisitaPorteria.AUTORIZADA);
+            v.setRespondidaEn(ahora);
+            v.setCanalRespuesta(VisitaPorteria.CANAL_FRECUENTE);
+        }
         v = visitas.save(v);
-        notificaciones.avisarVisita(v);
+        if (frecuente) notificaciones.avisarVisitaFrecuente(v); else notificaciones.avisarVisita(v);
         return aDTO(v, true, fotos.enlace(v.getFotoRuta()), 0);
+    }
+
+    /** P11: un visitante frecuente de un apartamento, para que la portería lo elija al registrar. */
+    public record Frecuente(String nombre, String documento) {}
+
+    /** P11: los visitantes frecuentes de un apartamento (la portería los ve al escribir torre y apto). */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<Frecuente> frecuentesDe(String torre, String apto) {
+        if (limpio(torre) == null || limpio(apto) == null) return List.of();
+        return apartamentos.findByTorreAndApto(torre.trim(), apto.trim()).stream().findFirst()
+                .map(a -> frecuentes.findByApartamentoIdOrderByNombreCompletoAsc(a.getId()).stream()
+                        .map(f -> new Frecuente(f.getNombreCompleto(), f.getIdentificacion())).toList())
+                .orElse(List.of());
+    }
+
+    /**
+     * P11: si [nombre] es un visitante frecuente del apartamento. Si los dos tienen documento, debe
+     * ser el mismo; si no, el nombre (sin tildes, mayúsculas ni espacios de más).
+     */
+    private boolean esFrecuente(Long apartamentoId, String nombre, String documento) {
+        String n = normalNombre(nombre);
+        String d = normalDocumento(documento);
+        return frecuentes.findByApartamentoIdOrderByNombreCompletoAsc(apartamentoId).stream().anyMatch(f -> {
+            String fd = normalDocumento(f.getIdentificacion());
+            if (d != null && fd != null) return d.equals(fd);
+            return n.equals(normalNombre(f.getNombreCompleto()));
+        });
+    }
+
+    private static String normalNombre(String s) {
+        return s == null ? "" : PorteriaTableroService.sinTildes(s).toLowerCase(Locale.ROOT).replaceAll("\\s+", " ").trim();
+    }
+
+    private static String normalDocumento(String s) {
+        if (s == null) return null;
+        String d = s.replaceAll("[^0-9A-Za-z]", "").toUpperCase(Locale.ROOT);
+        return d.isEmpty() ? null : d;
     }
 
     /** Las últimas 24 horas, para la portería y la administración. */

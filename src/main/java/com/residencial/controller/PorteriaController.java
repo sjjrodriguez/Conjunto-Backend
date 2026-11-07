@@ -33,6 +33,12 @@ public class PorteriaController {
     }
 
     /** Residentes: las visitas que esperan respuesta en su apartamento. */
+    /** P11: portería y administración: los visitantes frecuentes de un apartamento (entran sin preguntar). */
+    @GetMapping("/frecuentes")
+    public List<PorteriaService.Frecuente> frecuentes(@RequestParam String torre, @RequestParam String apto) {
+        return servicio.frecuentesDe(torre, apto);
+    }
+
     @GetMapping("/visitas/pendientes")
     public List<PorteriaService.Visita> pendientes() {
         return servicio.pendientesDelApartamento();
