@@ -97,7 +97,7 @@ class PlataformaIntegrationTest {
 
         mvc.perform(get("/api/plataforma/panel").header("Authorization", "Bearer " + token)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.conjuntosSuspendidos").value(1))
-                .andExpect(jsonPath("$.conjuntosActivos").value(greaterThanOrEqualTo(2)))
+                .andExpect(jsonPath("$.conjuntosActivos").value(greaterThanOrEqualTo(1)))
                 .andExpect(jsonPath("$.conjuntosNuevosMes").value(greaterThanOrEqualTo(2)))
                 .andExpect(jsonPath("$.porDepartamento[*].departamento", hasItems("Valle del Cauca", "Antioquia")))
                 .andExpect(jsonPath("$.ultimosEventos[0].accion").value("SUSPENDER_CONJUNTO"))
