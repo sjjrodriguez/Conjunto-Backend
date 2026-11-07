@@ -13,6 +13,13 @@ public interface TurnoTrabajadorRepository extends JpaRepository<TurnoTrabajador
     @Query("select t from TurnoTrabajador t join fetch t.trabajador where t.fecha between :desde and :hasta order by t.fecha, t.horaInicio")
     List<TurnoTrabajador> entre(LocalDate desde, LocalDate hasta);
 
+    // P11 bloque 8
+    long countByTrabajadorId(Long trabajadorId);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("delete from TurnoTrabajador t where t.trabajador.id = :trabajadorId")
+    int borrarDeTrabajador(Long trabajadorId);
+
     /** Turnos del mismo trabajador y día que se cruzan con [inicio, fin), sin contar el [excluir]. */
     @Query("select t from TurnoTrabajador t where t.trabajador.id = :trabajador and t.fecha = :fecha "
             + "and t.horaInicio < :fin and t.horaFin > :inicio and t.id <> :excluir")

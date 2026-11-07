@@ -144,6 +144,17 @@ public class PersonalConjuntoService {
         return w;
     }
 
+    /**
+     * P11: borrar un trabajador registrado por error. Si ya tiene nómina se conserva (es historial):
+     * hay que desactivarlo.
+     */
+    public void eliminarTrabajador(Long id) {
+        TrabajadorConjunto w = buscarTrabajador(id);
+        if (nominas.countByTrabajadorId(id) > 0) throw invalido("Tiene nómina registrada: desactívalo en vez de borrarlo");
+        turnos.borrarDeTrabajador(id);
+        trabajadores.delete(w);
+    }
+
     // ---------- Turnos ----------
 
     @Transactional(readOnly = true)
@@ -171,6 +182,45 @@ public class PersonalConjuntoService {
         return aDTO(turnos.save(turno));
     }
 
+    /** P11: cambiar la fecha o las horas de un turno (sin cruzarse con otro del mismo trabajador). */
+    public Turno actualizarTurno(Long id, Turno t) {
+        TurnoTrabajador turno = turnos.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("Turno no encontrado: " + id));
+        if (t.trabajadorId() != null && !t.trabajadorId().equals(turno.getTrabajador().getId())) {
+            TrabajadorConjunto w = buscarTrabajador(t.trabajadorId());
+            if (!w.isActivo()) throw invalido("El trabajador está inactivo");
+            turno.setTrabajador(w);
+        }
+        if (t.fecha() != null) turno.setFecha(t.fecha());
+        if (t.horaInicio() != null) turno.setHoraInicio(t.horaInicio());
+        if (t.horaFin() != null) turno.setHoraFin(t.horaFin());
+        if (!turno.getHoraInicio().isBefore(turno.getHoraFin())) throw invalido("La hora de inicio debe ser anterior a la de fin");
+        if (!turnos.cruzados(turno.getTrabajador().getId(), turno.getFecha(), turno.getHoraInicio(), turno.getHoraFin(), turno.getId()).isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ese trabajador ya tiene un turno que se cruza con ese horario");
+        }
+        return aDTO(turnos.save(turno));
+    }
+
+    /**
+     * P11: copia los turnos de la semana anterior a la semana que empieza en [lunes]. Los que se
+     * cruzarían con uno que ya existe o son de trabajadores inactivos se saltan.
+     */
+    public List<Turno> copiarSemana(LocalDate lunes) {
+        if (lunes == null) throw invalido("Indica el lunes de la semana");
+        List<Turno> creados = new java.util.ArrayList<>();
+        for (TurnoTrabajador t : turnos.entre(lunes.minusDays(7), lunes.minusDays(1))) {
+            if (!t.getTrabajador().isActivo()) continue;
+            LocalDate fecha = t.getFecha().plusDays(7);
+            if (!turnos.cruzados(t.getTrabajador().getId(), fecha, t.getHoraInicio(), t.getHoraFin(), -1L).isEmpty()) continue;
+            TurnoTrabajador nuevo = new TurnoTrabajador();
+            nuevo.setTrabajador(t.getTrabajador());
+            nuevo.setFecha(fecha);
+            nuevo.setHoraInicio(t.getHoraInicio());
+            nuevo.setHoraFin(t.getHoraFin());
+            creados.add(aDTO(turnos.save(nuevo)));
+        }
+        return creados;
+    }
+
     public void eliminarTurno(Long id) {
         if (!turnos.existsById(id)) throw new RecursoNoEncontradoException("Turno no encontrado: " + id);
         turnos.deleteById(id);
@@ -194,6 +244,25 @@ public class PersonalConjuntoService {
             n.setSalarioBase(w.getSalarioBase());
             n.setNeto(w.getSalarioBase());
             nominas.save(n);
+        }
+        return nomina(p);
+    }
+
+    /** P11: lo que se le ha pagado a un trabajador, mes a mes. */
+    @Transactional(readOnly = true)
+    public List<Nomina> nominaDe(Long trabajadorId) {
+        buscarTrabajador(trabajadorId);
+        return nominas.deTrabajador(trabajadorId).stream().map(PersonalConjuntoService::aDTO).toList();
+    }
+
+    /** P11: marca como pagada toda la nómina generada del mes. */
+    public List<Nomina> pagarNomina(String periodo) {
+        String p = periodo(periodo);
+        for (NominaTrabajador n : nominas.delPeriodo(p)) {
+            if (NominaTrabajador.GENERADA.equals(n.getEstado())) {
+                n.setEstado(NominaTrabajador.PAGADA);
+                nominas.save(n);
+            }
         }
         return nomina(p);
     }

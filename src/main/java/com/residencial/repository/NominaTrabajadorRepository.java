@@ -12,4 +12,10 @@ public interface NominaTrabajadorRepository extends JpaRepository<NominaTrabajad
     List<NominaTrabajador> delPeriodo(String periodo);
 
     boolean existsByTrabajadorIdAndPeriodo(Long trabajadorId, String periodo);
+
+    // P11 bloque 8: la nómina de un trabajador, del mes más reciente al más viejo
+    @Query("select n from NominaTrabajador n join fetch n.trabajador where n.trabajador.id = :trabajadorId order by n.periodo desc")
+    List<NominaTrabajador> deTrabajador(Long trabajadorId);
+
+    long countByTrabajadorId(Long trabajadorId);
 }

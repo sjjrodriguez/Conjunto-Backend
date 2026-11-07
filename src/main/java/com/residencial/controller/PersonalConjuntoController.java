@@ -54,7 +54,26 @@ public class PersonalConjuntoController {
     @PutMapping("/trabajadores/{id}")
     public Trabajador actualizarTrabajador(@PathVariable Long id, @RequestBody Trabajador t) { return servicio.actualizarTrabajador(id, t); }
 
+    /** P11: borrar uno registrado por error (si ya tiene nómina, hay que desactivarlo). */
+    @DeleteMapping("/trabajadores/{id}")
+    public ResponseEntity<Void> eliminarTrabajador(@PathVariable Long id) {
+        servicio.eliminarTrabajador(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/trabajadores/{id}/nomina")
+    public List<Nomina> nominaDe(@PathVariable Long id) { return servicio.nominaDe(id); }
+
     // Turnos
+    @PutMapping("/turnos/{id}")
+    public Turno actualizarTurno(@PathVariable Long id, @RequestBody Turno t) { return servicio.actualizarTurno(id, t); }
+
+    /** P11: la semana anterior copiada a la que empieza en [lunes]. */
+    @PostMapping("/turnos/copiar-semana")
+    public List<Turno> copiarSemana(@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate lunes) {
+        return servicio.copiarSemana(lunes);
+    }
+
     @GetMapping("/turnos")
     public List<Turno> turnos(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
                               @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
@@ -78,6 +97,9 @@ public class PersonalConjuntoController {
 
     @PostMapping("/nomina/generar")
     public List<Nomina> generarNomina(@RequestParam String periodo) { return servicio.generarNomina(periodo); }
+
+    @PostMapping("/nomina/pagar")
+    public List<Nomina> pagarNomina(@RequestParam String periodo) { return servicio.pagarNomina(periodo); }
 
     @PatchMapping("/nomina/{id}")
     public Nomina ajustarNomina(@PathVariable Long id, @RequestBody CambioNomina c) { return servicio.ajustarNomina(id, c); }

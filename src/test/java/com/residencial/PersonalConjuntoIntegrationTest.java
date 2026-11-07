@@ -160,6 +160,40 @@ class PersonalConjuntoIntegrationTest {
         return "{\"trabajadorId\":" + trabajador + ",\"fecha\":\"2026-11-10\",\"horaInicio\":\"" + inicio + ":00\",\"horaFin\":\"" + fin + ":00\"}";
     }
 
+    @Test
+    void turnosSeEditanYSeCopiaLaSemanaYLaNominaSePagaDeUnaVez() throws Exception {
+        // P11 bloque 8
+        int w = JsonPath.read(enviar(post("/api/personal-conjunto/trabajadores"), admin,
+                "{\"nombreCompleto\":\"Rosa Díaz\",\"documento\":\"777\",\"cargo\":\"aseo\",\"salarioBase\":1500000}")
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(), "$.id");
+        java.time.LocalDate lunes = java.time.LocalDate.of(2026, 11, 2);
+        int t = JsonPath.read(enviar(post("/api/personal-conjunto/turnos"), admin, "{\"trabajadorId\":" + w + ",\"fecha\":\""
+                + lunes + "\",\"horaInicio\":\"06:00\",\"horaFin\":\"14:00\"}").andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString(), "$.id");
+        enviar(put("/api/personal-conjunto/turnos/" + t), admin, "{\"horaInicio\":\"07:00\",\"horaFin\":\"15:00\"}")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.horaInicio").value("07:00:00"));
+        enviar(put("/api/personal-conjunto/turnos/" + t), admin, "{\"horaInicio\":\"16:00\",\"horaFin\":\"15:00\"}")
+                .andExpect(status().isBadRequest());
+        // Copiar a la semana siguiente; repetirlo no duplica
+        mvc.perform(post("/api/personal-conjunto/turnos/copiar-semana?lunes=" + lunes.plusDays(7)).header("Authorization", admin))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].fecha").value(lunes.plusDays(7).toString()));
+        mvc.perform(post("/api/personal-conjunto/turnos/copiar-semana?lunes=" + lunes.plusDays(7)).header("Authorization", admin))
+                .andExpect(jsonPath("$.length()").value(0));
+
+        mvc.perform(post("/api/personal-conjunto/nomina/generar?periodo=2026-11").header("Authorization", admin)).andExpect(status().isOk());
+        mvc.perform(post("/api/personal-conjunto/nomina/pagar?periodo=2026-11").header("Authorization", admin))
+                .andExpect(jsonPath("$[*].estado", org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.is("PAGADA"))));
+        mvc.perform(get("/api/personal-conjunto/trabajadores/" + w + "/nomina").header("Authorization", admin))
+                .andExpect(jsonPath("$[0].periodo").value("2026-11")).andExpect(jsonPath("$[0].estado").value("PAGADA"));
+        // Con nómina no se borra: se desactiva
+        mvc.perform(delete("/api/personal-conjunto/trabajadores/" + w).header("Authorization", admin)).andExpect(status().isBadRequest());
+        int otro = JsonPath.read(enviar(post("/api/personal-conjunto/trabajadores"), admin,
+                "{\"nombreCompleto\":\"Error\",\"documento\":\"888\",\"cargo\":\"otro\"}")
+                .andReturn().getResponse().getContentAsString(), "$.id");
+        mvc.perform(delete("/api/personal-conjunto/trabajadores/" + otro).header("Authorization", admin)).andExpect(status().isNoContent());
+    }
+
     private ResultActions enviar(MockHttpServletRequestBuilder req, String auth, String json) throws Exception {
         return mvc.perform(req.header("Authorization", auth).contentType(MediaType.APPLICATION_JSON).content(json));
     }
