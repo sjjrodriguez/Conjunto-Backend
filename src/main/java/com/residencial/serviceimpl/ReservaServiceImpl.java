@@ -124,7 +124,7 @@ public class ReservaServiceImpl implements ReservaService {
     private ReservaDTO toDTO(Reserva r) {
         // La hora de fin siempre va: guardada o calculada con la duración fija
         return new ReservaDTO(r.getId(), r.getFecha(), r.getHora(), r.getEstado(), r.getZonaComun().getId(),
-                r.getApartamento().getId(), intervalo(r).fin().toLocalTime(), r.getAsistentes());
+                r.getApartamento().getId(), intervalo(r).fin().toLocalTime(), r.getAsistentes(), r.getMotivoRespuesta());
     }
 
     @Override
@@ -252,6 +252,14 @@ public class ReservaServiceImpl implements ReservaService {
     @Override
     @Transactional
     public ReservaDTO cambiarEstado(Long id, String nuevoEstado) {
+        return cambiarEstado(id, nuevoEstado, null);
+    }
+
+    @Override
+    @Transactional
+    public ReservaDTO cambiarEstado(Long id, String nuevoEstado, String motivo) {
+        String limpio = motivo == null || motivo.isBlank() ? null : motivo.strip();
+        if (limpio != null && limpio.length() > 300) throw error("El motivo puede tener máximo 300 caracteres");
         String estado = Catalogo.ESTADO_RESERVA.normalizar(nuevoEstado);
         return repo.findById(id).map(r -> {
             if ("APROBADA".equals(estado) && !"APROBADA".equals(r.getEstado())) {
@@ -262,6 +270,7 @@ public class ReservaServiceImpl implements ReservaService {
             }
             boolean cambio = !estado.equals(r.getEstado());
             r.setEstado(estado);
+            if (cambio) r.setMotivoRespuesta("PENDIENTE".equals(estado) ? null : limpio);
             Reserva guardada = repo.save(r);
             // El residente se entera de que su reserva fue aprobada o rechazada
             if (cambio && !"PENDIENTE".equals(estado)) notificaciones.avisarReservaRevisada(guardada);

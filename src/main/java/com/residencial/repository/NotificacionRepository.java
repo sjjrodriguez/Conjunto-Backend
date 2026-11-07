@@ -34,6 +34,21 @@ public interface NotificacionRepository extends JpaRepository<Notificacion, Long
     @Query("delete from Notificacion n where n.id = :id and n.destinatarioApartamentoId is null")
     int eliminarAdmin(Long id);
 
+    // --- P11: el contador solo ve, de las de la administración, los tipos que le tocan ---
+    List<Notificacion> findTop50ByDestinatarioApartamentoIdIsNullAndTipoInOrderByFechaDescIdDesc(java.util.Collection<String> tipos);
+    long countByLeidaFalseAndDestinatarioApartamentoIdIsNullAndTipoIn(java.util.Collection<String> tipos);
+    @Modifying
+    @Query("update Notificacion n set n.leida = true where n.leida = false and n.destinatarioApartamentoId is null and n.tipo in :tipos")
+    int marcarTodasLeidasContador(java.util.Collection<String> tipos);
+    @Modifying
+    @Query("update Notificacion n set n.leida = true where n.id = :id and n.destinatarioApartamentoId is null and n.tipo in :tipos")
+    int marcarLeidaContador(Long id, java.util.Collection<String> tipos);
+    @Modifying
+    @Query("delete from Notificacion n where n.destinatarioApartamentoId is null and n.tipo in :tipos")
+    int eliminarTodasContador(java.util.Collection<String> tipos);
+    @Modifying
+    @Query("delete from Notificacion n where n.id = :id and n.destinatarioApartamentoId is null and n.tipo in :tipos")
+    int eliminarContador(Long id, java.util.Collection<String> tipos);
     // --- Residentes de un apartamento ---
     List<Notificacion> findTop50ByDestinatarioApartamentoIdOrderByFechaDescIdDesc(Long apartamentoId);
 

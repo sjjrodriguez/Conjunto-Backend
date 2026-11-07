@@ -10,6 +10,9 @@ public interface ReservaService {
     List<ReservaDTO> listarPorApartamento(Long apartamentoId);
     ReservaDTO guardar(ReservaDTO dto);
     ReservaDTO cambiarEstado(Long id, String nuevoEstado);
+
+    /** P11: con el motivo que escribió la administración (opcional). */
+    ReservaDTO cambiarEstado(Long id, String nuevoEstado, String motivo);
     void eliminar(Long id);
 
     /** Lo ocupado de una zona entre dos fechas (incluidas), para el calendario. */

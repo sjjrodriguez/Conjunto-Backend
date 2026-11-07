@@ -19,9 +19,11 @@ public class ReservaDTO {
     // (app.reservas.duracion-horas); al leerla siempre viene calculada.
     private LocalTime horaFin;
     private Integer asistentes;
+    // P11: por qué la aprobaron o rechazaron (si la administración lo escribió)
+    private String motivo;
 
     public ReservaDTO(Long id, LocalDate fecha, LocalTime hora, String estado, Long zonaComunId, Long apartamentoId) {
-        this(id, fecha, hora, estado, zonaComunId, apartamentoId, null, null);
+        this(id, fecha, hora, estado, zonaComunId, apartamentoId, null, null, null);
     }
 
     /** Nombre más claro para la hora de inicio; es la misma que "hora". */

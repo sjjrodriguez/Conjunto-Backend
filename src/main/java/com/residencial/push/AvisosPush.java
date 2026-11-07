@@ -79,8 +79,10 @@ public class AvisosPush {
     public void alCrear(NotificacionCreada evento) {
         Long destinatario = evento.notificacion().getDestinatarioApartamentoId();
         List<Dispositivo> celulares = destinatario == null
-                // Las de la administración llegan al administrador y al contador
-                ? dispositivos.findByRolIn(List.of(TokenService.ROL_ADMIN, TokenService.ROL_CONTADOR))
+                // Las de la administración llegan al administrador; al contador solo las suyas (P11)
+                ? (com.residencial.serviceimpl.NotificacionServiceImpl.TIPOS_CONTADOR.contains(evento.notificacion().getTipo())
+                        ? dispositivos.findByRolIn(List.of(TokenService.ROL_ADMIN, TokenService.ROL_CONTADOR))
+                        : dispositivos.findByRol(TokenService.ROL_ADMIN))
                 : dispositivos.findByApartamentoId(destinatario);
         // P10: si el apartamento está arrendado, los avisos del hogar no le llegan al propietario
         if (destinatario != null && com.residencial.security.EstadoApartamento.AVISOS_DEL_HOGAR.contains(evento.notificacion().getTipo())

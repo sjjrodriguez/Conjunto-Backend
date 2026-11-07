@@ -45,8 +45,18 @@ public class Reserva extends EntidadConjunto {
     // Cuántas personas asisten (P4); no puede pasar el aforo de la zona
     private Integer asistentes;
 
+    /** P11: lo que escribió la administración al aprobarla o rechazarla. */
+    @Column(name = "motivo_respuesta", length = 300)
+    private String motivoRespuesta;
+
     /** Reserva como antes de P4: sin hora de fin ni asistentes. */
     public Reserva(Long id, LocalDate fecha, LocalTime hora, String estado, ZonaComun zonaComun, Apartamento apartamento) {
         this(id, fecha, hora, estado, zonaComun, apartamento, null, null);
+    }
+
+    /** Sin motivo de respuesta (se pone al aprobarla o rechazarla). */
+    public Reserva(Long id, LocalDate fecha, LocalTime hora, String estado, ZonaComun zonaComun, Apartamento apartamento,
+                   LocalTime horaFin, Integer asistentes) {
+        this(id, fecha, hora, estado, zonaComun, apartamento, horaFin, asistentes, null);
     }
 }

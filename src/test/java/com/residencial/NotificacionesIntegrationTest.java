@@ -148,6 +148,52 @@ class NotificacionesIntegrationTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void elContadorSoloVeSusAvisos() throws Exception {
+        // P11: la administración recibe el vehículo por aprobar; el contador no lo ve, pero sí el comprobante
+        adminRepo.save(new Administrador(null, "conta", encoder.encode("conta12345"), Administrador.CONTADOR));
+        String contador = "Bearer " + token("/api/auth/admin/login", "{\"usuario\":\"conta\",\"contrasena\":\"conta12345\"}");
+        enviar(post("/api/vehiculos"), propietario,
+                "{\"placa\":\"DDD444\",\"tipo\":\"Carro\",\"apartamentoId\":" + apto.getId() + "}");
+        Notificacion comprobante = notificacionRepo.save(new Notificacion(null, "COMPROBANTE", "Comprobante por revisar",
+                java.time.LocalDateTime.now(), false, null, apto.getId(), null));
+
+        mvc.perform(get("/api/notificaciones").header("Authorization", admin))
+                .andExpect(jsonPath("$.length()").value(2));
+        mvc.perform(get("/api/notificaciones").header("Authorization", contador))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].tipo").value("COMPROBANTE"));
+        mvc.perform(get("/api/notificaciones/no-leidas").header("Authorization", contador))
+                .andExpect(jsonPath("$.total").value(1));
+        // Tampoco puede marcar ni borrar las del administrador
+        Long vehiculo = notificacionRepo.findAll().stream().filter(n -> !n.getId().equals(comprobante.getId()))
+                .findFirst().orElseThrow().getId();
+        mvc.perform(delete("/api/notificaciones/" + vehiculo).header("Authorization", contador))
+                .andExpect(status().isNotFound());
+        mvc.perform(delete("/api/notificaciones").header("Authorization", contador))
+                .andExpect(status().isNoContent());
+        mvc.perform(get("/api/notificaciones").header("Authorization", admin))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].tipo").value("VEHICULO"));
+    }
+
+    @Test
+    void elMotivoDeLaReservaLlegaAlResidente() throws Exception {
+        LocalDate dia = LocalDate.now(ZoneId.of("America/Bogota")).plusDays(3);
+        String respuesta = enviar(post("/api/reservas"), propietario, "{\"fecha\":\"" + dia + "\",\"hora\":\"09:00\","
+                + "\"zonaComunId\":" + gimnasio.getId() + ",\"apartamentoId\":" + apto.getId() + "}")
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        Integer id = JsonPath.read(respuesta, "$.id");
+
+        enviar(put("/api/reservas/" + id + "/estado"), admin, "{\"estado\":\"RECHAZADA\",\"motivo\":\"Mantenimiento ese dia\"}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.motivo").value("Mantenimiento ese dia"));
+        mvc.perform(get("/api/notificaciones").header("Authorization", propietario))
+                .andExpect(jsonPath("$[0].mensaje").value(containsString("Motivo: Mantenimiento ese dia")));
+        mvc.perform(get("/api/reservas/apartamento/" + apto.getId()).header("Authorization", propietario))
+                .andExpect(jsonPath("$[0].motivo").value("Mantenimiento ese dia"));
+    }
+
     private ResultActions enviar(org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder req,
                                  String auth, String json) throws Exception {
         return mvc.perform(req.header("Authorization", auth).contentType(MediaType.APPLICATION_JSON).content(json));

@@ -42,7 +42,7 @@ public class ReservaController {
             @PathVariable Long id,
             @RequestBody Map<String, String> body) {
         String nuevoEstado = body.get("estado");
-        ReservaDTO updated = service.cambiarEstado(id, nuevoEstado);
+        ReservaDTO updated = service.cambiarEstado(id, nuevoEstado, body.get("motivo"));
         return updated != null ? ResponseEntity.ok(updated) : ResponseEntity.notFound().build();
     }
 

@@ -57,6 +57,12 @@ public class NotificacionServiceImpl implements NotificacionService {
     public static final String TIPO_PERSONAL = "PERSONAL_OBRA";
     public static final String TIPO_PERSONAL_APROBADO = "PERSONAL_OBRA_APROBADO";
     public static final String TIPO_PERSONAL_RECHAZADO = "PERSONAL_OBRA_RECHAZADO";
+    // P11: las respuestas del administrador a lo que mandó el contador
+    public static final String TIPO_SOLICITUD_APROBADA = "SOLICITUD_CONTABLE_APROBADA";
+    public static final String TIPO_SOLICITUD_RECHAZADA = "SOLICITUD_CONTABLE_RECHAZADA";
+    /** P11: de las notificaciones de la administración, las únicas que ve (y le llegan al celular) el contador. */
+    public static final java.util.Set<String> TIPOS_CONTADOR = java.util.Set.of(
+            TIPO_COMPROBANTE, TIPO_SOLICITUD_APROBADA, TIPO_SOLICITUD_RECHAZADA);
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter HORA = DateTimeFormatter.ofPattern("HH:mm");
 
@@ -94,9 +100,17 @@ public class NotificacionServiceImpl implements NotificacionService {
                 .equals(t.getClaimAsString(com.residencial.security.TokenService.CLAIM_ROL))).orElse(false);
     }
 
+    /** P11: el contador no ve los avisos que son solo del administrador. */
+    private boolean esContador() {
+        return acceso.tokenActual().map(t -> com.residencial.security.TokenService.ROL_CONTADOR
+                .equals(t.getClaimAsString(com.residencial.security.TokenService.CLAIM_ROL))).orElse(false);
+    }
+
     @Override
     public List<NotificacionDTO> listarRecientes() {
         if (esPorteria()) return List.of();
+        if (esContador()) return repo.findTop50ByDestinatarioApartamentoIdIsNullAndTipoInOrderByFechaDescIdDesc(TIPOS_CONTADOR)
+                .stream().map(this::toDTO).collect(Collectors.toList());
         Long apto = apartamentoDeLaSesion();
         List<Notificacion> lista = apto == null
                 ? repo.findTop50ByDestinatarioApartamentoIdIsNullOrderByFechaDescIdDesc()
@@ -109,6 +123,7 @@ public class NotificacionServiceImpl implements NotificacionService {
     @Override
     public long contarNoLeidas() {
         if (esPorteria()) return 0;
+        if (esContador()) return repo.countByLeidaFalseAndDestinatarioApartamentoIdIsNullAndTipoIn(TIPOS_CONTADOR);
         Long apto = apartamentoDeLaSesion();
         if (apto == null) return repo.countByLeidaFalseAndDestinatarioApartamentoIdIsNull();
         return estado.sinAvisosDelHogar(apto)
@@ -120,6 +135,7 @@ public class NotificacionServiceImpl implements NotificacionService {
     @Transactional
     public void marcarTodasLeidas() {
         if (esPorteria()) return;
+        if (esContador()) { repo.marcarTodasLeidasContador(TIPOS_CONTADOR); return; }
         Long apto = apartamentoDeLaSesion();
         if (apto == null) repo.marcarTodasLeidasAdmin(); else repo.marcarTodasLeidasApartamento(apto);
     }
@@ -128,6 +144,7 @@ public class NotificacionServiceImpl implements NotificacionService {
     @Transactional
     public void eliminarTodas() {
         if (esPorteria()) return;
+        if (esContador()) { repo.eliminarTodasContador(TIPOS_CONTADOR); return; }
         Long apto = apartamentoDeLaSesion();
         if (apto == null) repo.eliminarTodasAdmin(); else repo.eliminarTodasApartamento(apto);
     }
@@ -138,7 +155,7 @@ public class NotificacionServiceImpl implements NotificacionService {
     public void marcarLeida(Long id) {
         if (esPorteria()) throw new RecursoNoEncontradoException("Notificación no encontrada");
         Long apto = apartamentoDeLaSesion();
-        int cambiadas = apto == null ? repo.marcarLeidaAdmin(id) : repo.marcarLeidaApartamento(id, apto);
+        int cambiadas = esContador() ? repo.marcarLeidaContador(id, TIPOS_CONTADOR) : apto == null ? repo.marcarLeidaAdmin(id) : repo.marcarLeidaApartamento(id, apto);
         if (cambiadas == 0) throw new RecursoNoEncontradoException("Notificación no encontrada");
     }
 
@@ -147,7 +164,7 @@ public class NotificacionServiceImpl implements NotificacionService {
     public void eliminar(Long id) {
         if (esPorteria()) throw new RecursoNoEncontradoException("Notificación no encontrada");
         Long apto = apartamentoDeLaSesion();
-        int borradas = apto == null ? repo.eliminarAdmin(id) : repo.eliminarApartamento(id, apto);
+        int borradas = esContador() ? repo.eliminarContador(id, TIPOS_CONTADOR) : apto == null ? repo.eliminarAdmin(id) : repo.eliminarApartamento(id, apto);
         if (borradas == 0) throw new RecursoNoEncontradoException("Notificación no encontrada");
     }
 
@@ -180,7 +197,8 @@ public class NotificacionServiceImpl implements NotificacionService {
     public void avisarReservaRevisada(Reserva r) {
         boolean aprobada = "APROBADA".equals(r.getEstado());
         crear(aprobada ? TIPO_RESERVA_APROBADA : TIPO_RESERVA_RECHAZADA,
-                (aprobada ? "Reserva aprobada — " : "Reserva rechazada — ") + cuando(r),
+                (aprobada ? "Reserva aprobada — " : "Reserva rechazada — ") + cuando(r)
+                        + (r.getMotivoRespuesta() == null ? "" : ". Motivo: " + r.getMotivoRespuesta()),
                 r.getId(), r.getApartamento().getId(), r.getApartamento().getId());
     }
 
