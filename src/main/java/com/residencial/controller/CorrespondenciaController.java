@@ -53,4 +53,18 @@ public class CorrespondenciaController {
     public List<CorrespondenciaService.Item> mia() {
         return servicio.delApartamento();
     }
+
+    /** P11: el residente quita de su lista algo ya recogido. */
+    @DeleteMapping("/mia/{id}")
+    public ResponseEntity<Void> quitarMia(@PathVariable Long id) {
+        servicio.ocultarDelApartamento(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** P11: la portería quita de su lista algo ya entregado (el registro se conserva). */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> quitar(@PathVariable Long id) {
+        servicio.ocultarDeLaPorteria(id);
+        return ResponseEntity.noContent().build();
+    }
 }

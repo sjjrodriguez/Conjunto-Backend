@@ -14,13 +14,13 @@ public interface CorrespondenciaRepository extends JpaRepository<Correspondencia
     List<Correspondencia> pendientes();
 
     /** Lo entregado desde [desde], lo más reciente primero. */
-    @Query("select c from Correspondencia c join fetch c.apartamento where c.estado = 'ENTREGADA' and c.entregadaEn >= :desde "
+    @Query("select c from Correspondencia c join fetch c.apartamento where c.estado = 'ENTREGADA' and c.ocultaPorteria = false and c.entregadaEn >= :desde "
             + "order by c.entregadaEn desc, c.id desc")
     List<Correspondencia> entregadasDesde(LocalDateTime desde);
 
     /** La de un apartamento: todo lo pendiente y lo recibido desde [desde]. */
     @Query("select c from Correspondencia c join fetch c.apartamento where c.apartamento.id = :apto "
-            + "and (c.estado = 'PENDIENTE' or c.recibidaEn >= :desde) order by c.recibidaEn desc, c.id desc")
+            + "and c.ocultaResidente = false and (c.estado = 'PENDIENTE' or c.recibidaEn >= :desde) order by c.recibidaEn desc, c.id desc")
     List<Correspondencia> delApartamento(Long apto, LocalDateTime desde);
 
     long countByEstado(String estado);

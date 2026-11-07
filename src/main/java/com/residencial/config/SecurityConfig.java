@@ -193,6 +193,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/porteria/visitas/pendientes").access(residentes())
                 // P9 bloque 3: cada apartamento ve su correspondencia
                 .requestMatchers(HttpMethod.GET, "/api/porteria/correspondencia/mia").access(residentes())
+                .requestMatchers(HttpMethod.DELETE, "/api/porteria/correspondencia/mia/*").access(residentes())
                 .requestMatchers(HttpMethod.PATCH, "/api/porteria/visitas/*/respuesta").access(respondeVisita())
                 // P10 bloque 7: la foto del visitante o del paquete y el chat de la visita rechazada; el
                 // servicio deja al residente solo los de su apartamento. La foto la sube la portería

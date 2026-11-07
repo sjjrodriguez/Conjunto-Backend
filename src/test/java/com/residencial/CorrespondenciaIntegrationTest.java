@@ -106,6 +106,42 @@ class CorrespondenciaIntegrationTest {
     }
 
     @Test
+    void loEntregadoSeQuitaDeCadaListaSinBorrarElRegistro() throws Exception {
+        // P11 bloque 2: el residente y la portería lo quitan cada uno de su lista
+        int id = JsonPath.read(enviar(post("/api/porteria/correspondencia"), porteria,
+                        "{\"torre\":\"5\",\"apto\":\"502\",\"tipo\":\"paquete\",\"remitente\":\"Rappi\"}")
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(), "$.id");
+
+        // Pendiente: todavía no se puede quitar
+        mvc.perform(delete("/api/porteria/correspondencia/mia/" + id).header("Authorization", residente502))
+                .andExpect(status().isBadRequest());
+        enviar(post("/api/porteria/correspondencia/" + id + "/entrega"), porteria, "{\"recibidaPor\":\"Laura\"}")
+                .andExpect(status().isOk());
+
+        // Otro apartamento no la encuentra; la portería no usa la ruta del residente
+        mvc.perform(delete("/api/porteria/correspondencia/mia/" + id).header("Authorization", residente1001))
+                .andExpect(status().isNotFound());
+        mvc.perform(delete("/api/porteria/correspondencia/mia/" + id).header("Authorization", porteria))
+                .andExpect(status().isForbidden());
+        mvc.perform(delete("/api/porteria/correspondencia/" + id).header("Authorization", residente502))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(delete("/api/porteria/correspondencia/mia/" + id).header("Authorization", residente502))
+                .andExpect(status().isNoContent());
+        mvc.perform(get("/api/porteria/correspondencia/mia").header("Authorization", residente502))
+                .andExpect(jsonPath("$", hasSize(0)));
+        // La portería todavía la ve hasta quitarla ella
+        mvc.perform(get("/api/porteria/correspondencia?estado=ENTREGADA").header("Authorization", porteria))
+                .andExpect(jsonPath("$", hasSize(1)));
+        mvc.perform(delete("/api/porteria/correspondencia/" + id).header("Authorization", porteria))
+                .andExpect(status().isNoContent());
+        mvc.perform(get("/api/porteria/correspondencia?estado=ENTREGADA").header("Authorization", porteria))
+                .andExpect(jsonPath("$", hasSize(0)));
+        // El registro sigue en la base
+        assertThat(correspondenciaRepo.findById((long) id)).isPresent();
+    }
+
+    @Test
     void reciboParaTodosLlegaACadaApartamento() throws Exception {
         enviar(post("/api/porteria/correspondencia/recibos"), admin, "{\"remitente\":\"Enel\",\"nota\":\"Octubre\"}")
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.creadas").value(3));

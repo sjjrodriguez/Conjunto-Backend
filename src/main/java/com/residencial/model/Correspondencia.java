@@ -73,4 +73,12 @@ public class Correspondencia extends EntidadConjunto {
     // P10 bloque 7: foto del paquete que tomó la portería (ruta en el bucket privado)
     @Column(name = "foto_ruta", length = 200)
     private String fotoRuta;
+
+    /** P11: el apartamento la quitó de su lista (solo lo entregado). */
+    @Column(name = "oculta_residente", nullable = false)
+    private boolean ocultaResidente;
+
+    /** P11: la portería la quitó de su lista de entregados. */
+    @Column(name = "oculta_porteria", nullable = false)
+    private boolean ocultaPorteria;
 }

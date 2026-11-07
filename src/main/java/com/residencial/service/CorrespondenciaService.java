@@ -134,6 +134,24 @@ public class CorrespondenciaService {
         return repo.delApartamento(apto, LocalDateTime.now(zona).minusDays(60)).stream().map(this::aItem).toList();
     }
 
+    /** P11: el residente quita de su lista algo ya entregado. Lo de otro apartamento no existe para él. */
+    public void ocultarDelApartamento(Long id) {
+        Long apto = acceso.apartamentoActual().orElseThrow(() -> new AccessDeniedException("Sin apartamento"));
+        Correspondencia c = repo.findById(id).filter(x -> x.getApartamento().getId().equals(apto))
+                .orElseThrow(() -> new RecursoNoEncontradoException("No se encontró esa correspondencia"));
+        if (!Correspondencia.ENTREGADA.equals(c.getEstado())) throw invalido("Solo se puede quitar lo que ya recogiste");
+        c.setOcultaResidente(true);
+        repo.save(c);
+    }
+
+    /** P11: la portería quita de su lista algo ya entregado; el registro se conserva. */
+    public void ocultarDeLaPorteria(Long id) {
+        Correspondencia c = repo.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("No se encontró esa correspondencia"));
+        if (!Correspondencia.ENTREGADA.equals(c.getEstado())) throw invalido("Solo se puede quitar lo que ya se entregó");
+        c.setOcultaPorteria(true);
+        repo.save(c);
+    }
+
     /** P10 bloque 7: la foto del paquete, para la portería o el apartamento al que llegó. */
     @Transactional(readOnly = true)
     public FotosPorteria.Enlace foto(Long id) {
