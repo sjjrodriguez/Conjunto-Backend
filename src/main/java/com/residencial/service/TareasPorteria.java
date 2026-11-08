@@ -24,8 +24,8 @@ import java.util.function.Function;
 /**
  * P12: tareas de la portería que corren solas, en todos los conjuntos.
  *
- * - Recordatorio: si un visitante autorizado lleva [horasRecordatorio] adentro sin salida, se le
- *   pregunta al apartamento si sigue adentro (y luego cada [horasRecordatorio] mientras siga, hasta
+ * - Recordatorio: si un visitante autorizado lleva [minutosRecordatorio] (3 h) adentro sin salida, se le
+ *   pregunta al apartamento si sigue adentro (y luego cada [minutosRecordatorio] mientras siga, hasta
  *   que pasen las 24 h en que la portería lo cuenta como dentro). De noche no se envía.
  * - Retención: las fotos de visitantes, de paquetes y de quien recoge se borran a los
  *   [diasFotos] días; el registro (nombre, horas) se conserva sin la foto.
@@ -42,7 +42,7 @@ public class TareasPorteria {
     private final AlmacenArchivos almacen;
     private final TransactionTemplate tx;
     private final ZoneId zona;
-    private final int horasRecordatorio;
+    private final int minutosRecordatorio;
     private final int diasFotos;
     private final int horaSilencioDesde;
     private final int horaSilencioHasta;
@@ -50,7 +50,7 @@ public class TareasPorteria {
     public TareasPorteria(VisitaPorteriaRepository visitas, CorrespondenciaRepository correspondencia,
                           NotificacionService notificaciones, AlmacenArchivos almacenArchivos, TransactionTemplate tx,
                           @Value("${app.zona-horaria:America/Bogota}") String zona,
-                          @Value("${app.porteria.recordatorio-horas:3}") int horasRecordatorio,
+                          @Value("${app.porteria.recordatorio-minutos:180}") int minutosRecordatorio,
                           @Value("${app.porteria.retencion-fotos-dias:90}") int diasFotos,
                           @Value("${app.porteria.silencio-desde:22}") int horaSilencioDesde,
                           @Value("${app.porteria.silencio-hasta:6}") int horaSilencioHasta) {
@@ -60,7 +60,7 @@ public class TareasPorteria {
         this.almacen = almacenArchivos;
         this.tx = tx;
         this.zona = ZoneId.of(zona);
-        this.horasRecordatorio = horasRecordatorio;
+        this.minutosRecordatorio = minutosRecordatorio;
         this.diasFotos = diasFotos;
         this.horaSilencioDesde = horaSilencioDesde;
         this.horaSilencioHasta = horaSilencioHasta;
@@ -76,9 +76,9 @@ public class TareasPorteria {
 
     /** Envía los recordatorios que tocan a [ahora]; devuelve cuántos. */
     public int recordar(LocalDateTime ahora) {
-        if (horasRecordatorio <= 0) return 0;
+        if (minutosRecordatorio <= 0) return 0;
         LocalDateTime ventana = ahora.minusHours(PorteriaTableroService.HORAS_DENTRO);
-        LocalDateTime limite = ahora.minusHours(horasRecordatorio);
+        LocalDateTime limite = ahora.minusMinutes(minutosRecordatorio);
         // Se buscan como raíz (todos los conjuntos); la notificación se crea dentro de su conjunto
         List<long[]> pendientes = ConjuntoContexto.comoRaiz(() -> tx.execute(s -> visitas.paraRecordar(ventana, limite)
                 .stream().map(v -> new long[]{v.getId(), v.getConjuntoId()}).toList()));

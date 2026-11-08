@@ -64,6 +64,7 @@ public class DatosDemo implements CommandLineRunner {
     private final CuotaService cuotaService;
     private final ConjuntoRepository conjuntoRepo;
     private final GuardiaPorteriaRepository guardiaRepo;
+    private final javax.sql.DataSource dataSource;
 
     private GuardiaPorteria guardia(String nombre, String documento, String pin) {
         GuardiaPorteria g = new GuardiaPorteria();
@@ -76,6 +77,10 @@ public class DatosDemo implements CommandLineRunner {
     @Override
     public void run(String... args) {
         LocalDate hoy = LocalDate.now(ZoneId.of("America/Bogota"));
+        // P12: la demo no corre Flyway; se cargan los textos legales vigentes (los de la migración V38)
+        // para que la app pida aceptarlos como en producción
+        new org.springframework.jdbc.datasource.init.ResourceDatabasePopulator(
+                new org.springframework.core.io.ClassPathResource("db/migration/V38__textos_legales_v2.sql")).execute(dataSource);
 
         // P7: dos conjuntos para probar el selector; todo lo demás va al primero
         conjuntoRepo.save(new Conjunto("Conjunto Demo", "Bogotá D.C.", "Bogotá D.C.", "Calle 100 # 10-20"));
