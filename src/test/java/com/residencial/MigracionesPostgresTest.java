@@ -71,7 +71,7 @@ class MigracionesPostgresTest {
         Integer tablas = jdbc.queryForObject(
                 "select count(*) from information_schema.tables where table_schema = 'public'"
                         + " and table_name <> 'flyway_schema_history'", Integer.class);
-        assertThat(tablas).isEqualTo(47); // V34, solicitud_contable_historial; V30, mensaje_visita; V28, correspondencia; V26, minuta_porteria; V15 añade configuracion_conjunto; V16, publicacion_lectura; V17, 4 tablas; V18, 2; V19, 5; V20, conjunto; V21, 2; V22, 1; V23, 2
+        assertThat(tablas).isEqualTo(48); // V37, mensaje_correspondencia; V34, solicitud_contable_historial; V30, mensaje_visita; V28, correspondencia; V26, minuta_porteria; V15 añade configuracion_conjunto; V16, publicacion_lectura; V17, 4 tablas; V18, 2; V19, 5; V20, conjunto; V21, 2; V22, 1; V23, 2
         // V24: RLS activado en todas las tablas (la API pública de Supabase no ve nada)
         Integer sinRls = jdbc.queryForObject(
                 "select count(*) from pg_tables where schemaname = 'public' and not rowsecurity"
