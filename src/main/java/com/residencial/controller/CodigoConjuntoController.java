@@ -45,7 +45,7 @@ public class CodigoConjuntoController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "El conjunto no existe"));
         if (!codigos.valido(c, intento.codigo())) {
             limitador.registrarFallo(clave);
-            return ResponseEntity.badRequest().body(new MensajeError("El código no es correcto. Pídelo de nuevo en la portería"));
+            return ResponseEntity.badRequest().body(new MensajeError("El código no es correcto o ya cambió. Pídelo de nuevo"));
         }
         limitador.limpiar(clave);
         return ResponseEntity.ok(new Pase(c.getId(), codigos.emitirPase(c)));
