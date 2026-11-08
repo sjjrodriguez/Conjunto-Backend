@@ -61,6 +61,9 @@ public interface NotificacionService {
     void avisarCorrespondencia(com.residencial.model.Correspondencia correspondencia);
     void avisarCorrespondenciaEntregada(com.residencial.model.Correspondencia correspondencia);
 
+    /** P12 bloque 3: la portería pide autorizar la entrega a quien la recoge. */
+    void avisarSolicitudEntrega(com.residencial.model.Correspondencia correspondencia);
+
     // P5 bloque 7: el contador mandó algo a aprobar
     void avisarSolicitudContable(com.residencial.model.SolicitudContable solicitud, String resumen);
 }

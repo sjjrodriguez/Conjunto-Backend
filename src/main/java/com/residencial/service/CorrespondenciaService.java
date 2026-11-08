@@ -3,8 +3,12 @@ package com.residencial.service;
 import com.residencial.exception.RecursoNoEncontradoException;
 import com.residencial.model.Apartamento;
 import com.residencial.model.Correspondencia;
+import com.residencial.model.MensajeCorrespondencia;
+import com.residencial.model.VisitaPorteria;
 import com.residencial.repository.ApartamentoRepository;
 import com.residencial.repository.CorrespondenciaRepository;
+import com.residencial.repository.MensajeCorrespondenciaRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import com.residencial.security.AccesoService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -35,7 +39,30 @@ public class CorrespondenciaService {
                        String estado, LocalDateTime recibidaEn, String guardia, LocalDateTime entregadaEn,
                        String entregadaA, String entregadaPor,
                        // P10 bloque 7: foto del paquete que tomó la portería (se ve con GET /{id}/foto)
-                       boolean tieneFoto) {}
+                       boolean tieneFoto,
+                       // P12 bloque 3: la solicitud de entrega que autoriza el residente
+                       Solicitud solicitud) {}
+
+    /**
+     * P12 bloque 3: quién quiere recogerla y qué respondió el apartamento. estado: PENDIENTE,
+     * AUTORIZADA, RECHAZADA o EXPIRADA; canal: APP o LLAMADA. fotoUrl solo para el residente que
+     * responde; chatHasta si la rechazaron.
+     */
+    public record Solicitud(String estado, String recoge, String documento, boolean tieneFoto, String fotoUrl,
+                            LocalDateTime creadaEn, LocalDateTime venceEn, LocalDateTime respondidaEn, String canal,
+                            LocalDateTime chatHasta, long mensajesResidente) {}
+
+    /** P12 bloque 3: la portería pide autorizar la entrega a [recoge] (con documento y foto, si los hay). */
+    public record PedirEntrega(String recoge, String documento, String fotoId) {}
+
+    public record Respuesta(String decision) {}
+
+    public record MensajeChat(Long id, boolean deResidente, String autor, String texto, LocalDateTime creadoEn) {}
+
+    public record Chat(Long correspondenciaId, String recoge, String torre, String apto, String que, boolean abierto,
+                       LocalDateTime cierraEn, List<MensajeChat> mensajes) {}
+
+    public record NuevoMensaje(String texto) {}
 
     public record Nueva(String torre, String apto, String tipo, String remitente, String nota, String fotoId) {}
 
@@ -52,11 +79,16 @@ public class CorrespondenciaService {
     private final AccesoService acceso;
     private final ZoneId zona;
     private final FotosPorteria fotos;
+    private final MensajeCorrespondenciaRepository mensajes;
+    private final ApplicationEventPublisher eventos;
 
     public CorrespondenciaService(CorrespondenciaRepository repo, ApartamentoRepository apartamentos,
                                   NotificacionService notificaciones, GuardiaService guardias, AccesoService acceso,
-                                  @Value("${app.zona-horaria:America/Bogota}") String zona, FotosPorteria fotos) {
+                                  @Value("${app.zona-horaria:America/Bogota}") String zona, FotosPorteria fotos,
+                                  MensajeCorrespondenciaRepository mensajes, ApplicationEventPublisher eventos) {
         this.fotos = fotos;
+        this.mensajes = mensajes;
+        this.eventos = eventos;
         this.repo = repo;
         this.apartamentos = apartamentos;
         this.notificaciones = notificaciones;
@@ -110,13 +142,149 @@ public class CorrespondenciaService {
         return repo.countByEstado(Correspondencia.PENDIENTE);
     }
 
-    public Item entregar(Long id, Entrega e) {
-        String quien = validar(e == null ? null : e.recibidaPor(), 150, "El nombre");
-        if (quien == null) throw invalido("Escribe el nombre de quien recoge");
+    /**
+     * P12 bloque 3: la portería pide al apartamento autorizar la entrega a quien la recoge; le
+     * suena la alarma como con una visita y tiene {@link Correspondencia#MINUTOS_SOLICITUD} minutos.
+     * Se puede volver a pedir si la anterior venció o la rechazaron (por ejemplo, para otra persona).
+     */
+    public Item pedirEntrega(Long id, PedirEntrega p) {
+        String recoge = validar(p == null ? null : p.recoge(), 150, "El nombre");
+        if (recoge == null) throw invalido("Escribe el nombre de quien recoge");
+        String documento = validar(p.documento(), 40, "El documento");
         Correspondencia c = repo.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("No se encontró esa correspondencia"));
         if (Correspondencia.ENTREGADA.equals(c.getEstado())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya se había entregado a " + c.getEntregadaA());
         }
+        LocalDateTime ahora = LocalDateTime.now(zona);
+        if (Correspondencia.SOLICITUD_PENDIENTE.equals(c.solicitudEn(ahora))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya se está esperando la respuesta del apartamento");
+        }
+        c.setSolicitudEstado(Correspondencia.SOLICITUD_PENDIENTE);
+        c.setSolicitudRecoge(recoge);
+        c.setSolicitudDocumento(documento);
+        c.setSolicitudFotoRuta(fotos.rutaDe(p.fotoId()));
+        c.setSolicitudCreadaEn(ahora);
+        c.setSolicitudVenceEn(ahora.plusMinutes(Correspondencia.MINUTOS_SOLICITUD));
+        c.setSolicitudRespondidaEn(null);
+        c.setSolicitudRespondidaPor(null);
+        c.setSolicitudCanal(null);
+        c = repo.save(c);
+        notificaciones.avisarSolicitudEntrega(c);
+        return aItem(c);
+    }
+
+    /** P12 bloque 3: las entregas que espera autorizar el apartamento de la sesión, con la foto de quien recoge. */
+    @Transactional(readOnly = true)
+    public List<Item> solicitudesDelApartamento() {
+        Long apto = acceso.apartamentoActual().orElseThrow(() -> new AccessDeniedException("Sin apartamento"));
+        LocalDateTime ahora = LocalDateTime.now(zona);
+        return repo.solicitudesPendientes(apto, ahora).stream()
+                .map(c -> aItem(c, c.getSolicitudFotoRuta() == null ? null : fotos.enlace(c.getSolicitudFotoRuta()))).toList();
+    }
+
+    /** P12 bloque 3: AUTORIZAR o RECHAZAR la entrega: el residente de ese apartamento, o la portería si contestó por llamada. */
+    public Item responderEntrega(Long id, String decision) {
+        String d = decision == null ? "" : decision.trim().toUpperCase(Locale.ROOT);
+        if (!d.equals("AUTORIZAR") && !d.equals("RECHAZAR")) throw invalido("La decisión debe ser AUTORIZAR o RECHAZAR");
+        Correspondencia c = visible(id);
+        LocalDateTime ahora = LocalDateTime.now(zona);
+        String estado = c.solicitudEn(ahora);
+        if (estado == null) throw new ResponseStatusException(HttpStatus.CONFLICT, "La portería no ha pedido autorizar esta entrega");
+        if (!Correspondencia.SOLICITUD_PENDIENTE.equals(estado)) {
+            if (Correspondencia.SOLICITUD_EXPIRADA.equals(estado)) c.setSolicitudEstado(Correspondencia.SOLICITUD_EXPIRADA);
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    Correspondencia.SOLICITUD_EXPIRADA.equals(estado) ? "La solicitud ya venció" : "La solicitud ya fue respondida");
+        }
+        boolean personal = esPersonal();
+        c.setSolicitudEstado(d.equals("AUTORIZAR") ? Correspondencia.SOLICITUD_AUTORIZADA : Correspondencia.SOLICITUD_RECHAZADA);
+        c.setSolicitudRespondidaEn(ahora);
+        c.setSolicitudRespondidaPor(acceso.tokenActual().map(Jwt::getSubject).orElse(null));
+        c.setSolicitudCanal(personal ? VisitaPorteria.CANAL_LLAMADA : VisitaPorteria.CANAL_APP);
+        return aItem(repo.save(c));
+    }
+
+    /** P12 bloque 3: la foto de quien recoge (portería o el apartamento). */
+    @Transactional(readOnly = true)
+    public FotosPorteria.Enlace fotoDeQuienRecoge(Long id) {
+        Correspondencia c = visible(id);
+        if (c.getSolicitudFotoRuta() == null) throw new RecursoNoEncontradoException("No hay foto de quien recoge");
+        return new FotosPorteria.Enlace(fotos.enlace(c.getSolicitudFotoRuta()));
+    }
+
+    /** P12 bloque 3: el chat de una entrega rechazada, abierto {@link VisitaPorteria#MINUTOS_CHAT} minutos. */
+    @Transactional(readOnly = true)
+    public Chat chat(Long id) {
+        Correspondencia c = visible(id);
+        LocalDateTime hasta = c.chatHasta();
+        if (hasta == null) throw new ResponseStatusException(HttpStatus.CONFLICT, "Solo hay chat cuando se rechaza la entrega");
+        Apartamento a = c.getApartamento();
+        return new Chat(c.getId(), c.getSolicitudRecoge(), a.getTorre(), a.getApto(), que(c), hasta.isAfter(LocalDateTime.now(zona)), hasta,
+                mensajes.findByCorrespondenciaIdOrderByCreadoEnAscIdAsc(c.getId()).stream()
+                        .map(m -> new MensajeChat(m.getId(), m.isDeResidente(), m.getAutor(), m.getTexto(), m.getCreadoEn())).toList());
+    }
+
+    public MensajeChat escribir(Long id, NuevoMensaje cuerpo) {
+        String texto = cuerpo == null ? null : validar(cuerpo.texto(), 500, "El mensaje");
+        if (texto == null) throw invalido("Escribe el mensaje");
+        Correspondencia c = visible(id);
+        LocalDateTime hasta = c.chatHasta();
+        LocalDateTime ahora = LocalDateTime.now(zona);
+        if (hasta == null) throw new ResponseStatusException(HttpStatus.CONFLICT, "Solo hay chat cuando se rechaza la entrega");
+        if (!hasta.isAfter(ahora)) throw new ResponseStatusException(HttpStatus.CONFLICT, "El chat de esta entrega ya se cerró");
+        boolean deResidente = !esPersonal();
+        Apartamento a = c.getApartamento();
+        MensajeCorrespondencia m = new MensajeCorrespondencia();
+        m.setCorrespondencia(c);
+        m.setDeResidente(deResidente);
+        m.setAutor(deResidente ? "Apto " + a.getTorre() + "-" + a.getApto() : guardias.delTurno().map(g -> g.getNombre()).orElse("Portería"));
+        m.setTexto(texto);
+        m.setCreadoEn(ahora);
+        m = mensajes.save(m);
+        eventos.publishEvent(new com.residencial.push.AvisosPush.MensajeEntregaNuevo(c.getId(), a.getId(), deResidente,
+                (deResidente ? "Apto " + a.getTorre() + "-" + a.getApto() : "Portería") + ": " + texto));
+        return new MensajeChat(m.getId(), m.isDeResidente(), m.getAutor(), m.getTexto(), m.getCreadoEn());
+    }
+
+    /** La correspondencia si la sesión es de la portería o la administración, o del apartamento al que llegó. */
+    private Correspondencia visible(Long id) {
+        Correspondencia c = repo.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("No se encontró esa correspondencia"));
+        if (!esPersonal()) {
+            Long suyo = acceso.apartamentoActual().orElse(null);
+            if (suyo == null || !suyo.equals(c.getApartamento().getId())) throw new AccessDeniedException("Esa correspondencia no es de tu apartamento");
+        }
+        return c;
+    }
+
+    private boolean esPersonal() {
+        String rol = acceso.tokenActual().map(t -> t.getClaimAsString(com.residencial.security.TokenService.CLAIM_ROL)).orElse(null);
+        return com.residencial.security.TokenService.ROL_PORTERIA.equals(rol) || com.residencial.security.TokenService.ROL_ADMIN.equals(rol);
+    }
+
+    private static String que(Correspondencia c) {
+        String tipo = switch (c.getTipo()) {
+            case Correspondencia.RECIBO -> "Recibo";
+            case "CARTA" -> "Carta";
+            case "DOCUMENTO" -> "Documento";
+            default -> "Paquete";
+        };
+        return c.getRemitente() == null ? tipo : tipo + " de " + c.getRemitente();
+    }
+
+    /**
+     * Marca entregada. P12 bloque 3: solo si el apartamento autorizó la entrega; se entrega a quien
+     * autorizó (o al nombre que se escriba, si se manda).
+     */
+    public Item entregar(Long id, Entrega e) {
+        Correspondencia c = repo.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("No se encontró esa correspondencia"));
+        if (Correspondencia.ENTREGADA.equals(c.getEstado())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya se había entregado a " + c.getEntregadaA());
+        }
+        if (!Correspondencia.SOLICITUD_AUTORIZADA.equals(c.solicitudEn(LocalDateTime.now(zona)))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Primero el apartamento debe autorizar la entrega");
+        }
+        String quien = validar(e == null ? null : e.recibidaPor(), 150, "El nombre");
+        if (quien == null) quien = c.getSolicitudRecoge();
+        if (quien == null) throw invalido("Escribe el nombre de quien recoge");
         c.setEstado(Correspondencia.ENTREGADA);
         c.setEntregadaEn(LocalDateTime.now(zona));
         c.setEntregadaA(quien);
@@ -180,10 +348,18 @@ public class CorrespondenciaService {
     }
 
     private Item aItem(Correspondencia c) {
+        return aItem(c, null);
+    }
+
+    private Item aItem(Correspondencia c, String fotoRecogeUrl) {
         Apartamento a = c.getApartamento();
+        Solicitud s = c.getSolicitudEstado() == null ? null : new Solicitud(c.solicitudEn(LocalDateTime.now(zona)),
+                c.getSolicitudRecoge(), c.getSolicitudDocumento(), c.getSolicitudFotoRuta() != null, fotoRecogeUrl,
+                c.getSolicitudCreadaEn(), c.getSolicitudVenceEn(), c.getSolicitudRespondidaEn(), c.getSolicitudCanal(),
+                c.chatHasta(), c.chatHasta() == null ? 0 : mensajes.countByCorrespondenciaIdAndDeResidenteTrue(c.getId()));
         return new Item(c.getId(), a.getId(), a.getTorre(), a.getApto(), c.getTipo(), c.getRemitente(), c.getNota(),
                 c.getEstado(), c.getRecibidaEn(), c.getGuardiaNombre(), c.getEntregadaEn(), c.getEntregadaA(), c.getEntregadaPor(),
-                c.getFotoRuta() != null);
+                c.getFotoRuta() != null, s);
     }
 
     private static boolean coincide(Correspondencia c, String q) {

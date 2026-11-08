@@ -81,4 +81,54 @@ public class Correspondencia extends EntidadConjunto {
     /** P11: la portería la quitó de su lista de entregados. */
     @Column(name = "oculta_porteria", nullable = false)
     private boolean ocultaPorteria;
+
+    // P12 bloque 3: para entregarla, el residente autoriza a quien la recoge (como en la citofonía)
+    public static final String SOLICITUD_PENDIENTE = "PENDIENTE";
+    public static final String SOLICITUD_AUTORIZADA = "AUTORIZADA";
+    public static final String SOLICITUD_RECHAZADA = "RECHAZADA";
+    public static final String SOLICITUD_EXPIRADA = "EXPIRADA";
+    /** Lo mismo que una visita en portería. */
+    public static final int MINUTOS_SOLICITUD = VisitaPorteria.MINUTOS_VIGENCIA;
+
+    @Column(name = "solicitud_estado", length = 20)
+    private String solicitudEstado;
+
+    @Column(name = "solicitud_recoge", length = 150)
+    private String solicitudRecoge;
+
+    @Column(name = "solicitud_documento", length = 40)
+    private String solicitudDocumento;
+
+    @Column(name = "solicitud_foto_ruta", length = 200)
+    private String solicitudFotoRuta;
+
+    @Column(name = "solicitud_creada_en")
+    private LocalDateTime solicitudCreadaEn;
+
+    @Column(name = "solicitud_vence_en")
+    private LocalDateTime solicitudVenceEn;
+
+    @Column(name = "solicitud_respondida_en")
+    private LocalDateTime solicitudRespondidaEn;
+
+    @Column(name = "solicitud_respondida_por", length = 100)
+    private String solicitudRespondidaPor;
+
+    /** APP (el residente) o LLAMADA (la portería registró lo que dijo por teléfono). */
+    @Column(name = "solicitud_canal", length = 20)
+    private String solicitudCanal;
+
+    /** El estado de la solicitud de entrega a la hora [ahora] (la pendiente vencida cuenta como expirada). */
+    public String solicitudEn(LocalDateTime ahora) {
+        if (SOLICITUD_PENDIENTE.equals(solicitudEstado) && solicitudVenceEn != null && !solicitudVenceEn.isAfter(ahora)) {
+            return SOLICITUD_EXPIRADA;
+        }
+        return solicitudEstado;
+    }
+
+    /** Hasta cuándo está abierto el chat si rechazaron la entrega (null si no aplica). */
+    public LocalDateTime chatHasta() {
+        return SOLICITUD_RECHAZADA.equals(solicitudEstado) && solicitudRespondidaEn != null
+                ? solicitudRespondidaEn.plusMinutes(VisitaPorteria.MINUTOS_CHAT) : null;
+    }
 }

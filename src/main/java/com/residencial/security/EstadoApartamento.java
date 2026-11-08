@@ -26,7 +26,7 @@ public class EstadoApartamento {
      * solicitudes de su arrendatario).
      */
     public static final Set<String> AVISOS_DEL_HOGAR = Set.of("VISITA_PORTERIA", "VISITA_FRECUENTE", "VISITA_SALIDA", "CORRESPONDENCIA", "RECIBO",
-            "CORRESPONDENCIA_ENTREGADA", "RESERVA_APROBADA", "RESERVA_RECHAZADA", "VEHICULO_APROBADO", "VEHICULO_RECHAZADO");
+            "CORRESPONDENCIA_ENTREGADA", "ENTREGA_CORRESPONDENCIA", "RESERVA_APROBADA", "RESERVA_RECHAZADA", "VEHICULO_APROBADO", "VEHICULO_RECHAZADO");
 
     /** P10: si a la sesión actual (propietario de un apartamento arrendado) no le tocan los avisos del hogar. */
     public boolean sinAvisosDelHogar(Long apartamentoId) {

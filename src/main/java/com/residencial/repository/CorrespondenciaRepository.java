@@ -24,4 +24,9 @@ public interface CorrespondenciaRepository extends JpaRepository<Correspondencia
     List<Correspondencia> delApartamento(Long apto, LocalDateTime desde);
 
     long countByEstado(String estado);
+
+    /** P12 bloque 3: lo que espera que el apartamento autorice la entrega (sin vencer). */
+    @Query("select c from Correspondencia c join fetch c.apartamento where c.apartamento.id = :apto and c.estado = 'PENDIENTE' "
+            + "and c.solicitudEstado = 'PENDIENTE' and c.solicitudVenceEn > :ahora order by c.solicitudCreadaEn desc, c.id desc")
+    List<Correspondencia> solicitudesPendientes(Long apto, LocalDateTime ahora);
 }

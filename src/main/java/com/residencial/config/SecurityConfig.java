@@ -197,6 +197,11 @@ public class SecurityConfig {
                 // P9 bloque 3: cada apartamento ve su correspondencia
                 .requestMatchers(HttpMethod.GET, "/api/porteria/correspondencia/mia").access(residentes())
                 .requestMatchers(HttpMethod.DELETE, "/api/porteria/correspondencia/mia/*").access(residentes())
+                // P12 bloque 3: el residente autoriza la entrega de su correspondencia (como una visita)
+                .requestMatchers(HttpMethod.GET, "/api/porteria/correspondencia/solicitudes").access(residentes())
+                .requestMatchers(HttpMethod.PATCH, "/api/porteria/correspondencia/*/solicitud/respuesta").access(respondeVisita())
+                .requestMatchers(HttpMethod.GET, "/api/porteria/correspondencia/*/solicitud/foto").access(respondeVisita())
+                .requestMatchers("/api/porteria/correspondencia/*/chat").access(respondeVisita())
                 .requestMatchers(HttpMethod.PATCH, "/api/porteria/visitas/*/respuesta").access(respondeVisita())
                 // P12: el residente ve sus visitantes dentro y puede darles la salida (el servicio
                 // le deja solo las de su apartamento)

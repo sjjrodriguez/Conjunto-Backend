@@ -43,6 +43,9 @@ public class AvisosPush {
     /** P12: el residente dio la salida a su visitante desde la app: el aviso va a la portería. */
     public record SalidaPorResidente(Long visitaId, String mensaje) {}
 
+    /** P12 bloque 3: mensaje en el chat de una entrega de correspondencia rechazada (como el de la visita). */
+    public record MensajeEntregaNuevo(Long correspondenciaId, Long apartamentoId, boolean deResidente, String mensaje) {}
+
     // Título del aviso en el celular según el tipo de notificación
     private static final Map<String, String> TITULOS = Map.ofEntries(
             Map.entry("RESERVA", "Nueva reserva"),
@@ -65,6 +68,7 @@ public class AvisosPush {
             Map.entry("CORRESPONDENCIA", "Llegó correspondencia"),
             Map.entry("RECIBO", "Llegó un recibo"),
             Map.entry("CORRESPONDENCIA_ENTREGADA", "Correspondencia entregada"),
+            Map.entry("ENTREGA_CORRESPONDENCIA", "Entrega de correspondencia"),
             Map.entry("SOLICITUD_ARRENDATARIO", "Solicitud de arrendatario"),
             Map.entry("COMPROBANTE", "Comprobante por revisar"),
             Map.entry("CUOTA_PAGADA", "Pago confirmado"),
@@ -144,6 +148,29 @@ public class AvisosPush {
         datos.put("titulo", evento.deResidente() ? "Mensaje de un residente" : "Mensaje de la portería");
         datos.put("mensaje", evento.mensaje());
         datos.put("referenciaId", String.valueOf(evento.visitaId()));
+        Set<String> invalidos = enviador.enviar(tokens, datos);
+        if (!invalidos.isEmpty()) dispositivos.borrarTokens(invalidos);
+    }
+
+    @Async
+    @TransactionalEventListener(fallbackExecution = true)
+    public void alEscribirEntrega(MensajeEntregaNuevo evento) {
+        List<String> tokens;
+        if (evento.deResidente()) {
+            tokens = deApp(dispositivos.findByRol(TokenService.ROL_PORTERIA), "RECEPCION");
+        } else {
+            List<Dispositivo> celulares = dispositivos.findByApartamentoId(evento.apartamentoId());
+            if (estado.arrendado(evento.apartamentoId())) {
+                celulares = celulares.stream().filter(d -> !TokenService.ROL_PROPIETARIO.equals(d.getRol())).toList();
+            }
+            tokens = deApp(celulares, "RESIDENTE");
+        }
+        if (tokens.isEmpty()) return;
+        Map<String, String> datos = new HashMap<>();
+        datos.put("tipo", "CHAT_ENTREGA");
+        datos.put("titulo", evento.deResidente() ? "Mensaje de un residente" : "Mensaje de la portería");
+        datos.put("mensaje", evento.mensaje());
+        datos.put("referenciaId", String.valueOf(evento.correspondenciaId()));
         Set<String> invalidos = enviador.enviar(tokens, datos);
         if (!invalidos.isEmpty()) dispositivos.borrarTokens(invalidos);
     }

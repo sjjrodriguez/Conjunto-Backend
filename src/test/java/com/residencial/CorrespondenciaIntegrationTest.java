@@ -84,10 +84,37 @@ class CorrespondenciaIntegrationTest {
         mvc.perform(get("/api/porteria/resumen").header("Authorization", porteria))
                 .andExpect(jsonPath("$.correspondenciaPendiente").value(1));
 
-        // Sin nombre no se entrega
-        enviar(post("/api/porteria/correspondencia/" + id + "/entrega"), porteria, "{\"recibidaPor\":\" \"}")
-                .andExpect(status().isBadRequest());
+        // P12 bloque 3: sin la autorización del apartamento no se entrega
         enviar(post("/api/porteria/correspondencia/" + id + "/entrega"), porteria, "{\"recibidaPor\":\"Laura Muñoz\"}")
+                .andExpect(status().isConflict());
+        // Sin nombre no se pide
+        enviar(post("/api/porteria/correspondencia/" + id + "/solicitud"), porteria, "{\"recoge\":\" \"}")
+                .andExpect(status().isBadRequest());
+        enviar(post("/api/porteria/correspondencia/" + id + "/solicitud"), porteria, "{\"recoge\":\"Laura Muñoz\",\"documento\":\"52.111\"}")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.solicitud.estado").value("PENDIENTE"))
+                .andExpect(jsonPath("$.solicitud.recoge").value("Laura Muñoz"));
+        // Mientras espera no se pide otra vez
+        enviar(post("/api/porteria/correspondencia/" + id + "/solicitud"), porteria, "{\"recoge\":\"Otra\"}")
+                .andExpect(status().isConflict());
+        assertThat(notificacionRepo.findAll()).anySatisfy(n -> {
+            assertThat(n.getTipo()).isEqualTo("ENTREGA_CORRESPONDENCIA");
+            assertThat(n.getDestinatarioApartamentoId()).isEqualTo(apto502);
+            assertThat(n.getMensaje()).startsWith("Laura Muñoz quiere recoger un paquete de Servientrega");
+        });
+        mvc.perform(get("/api/porteria/correspondencia/solicitudes").header("Authorization", residente502))
+                .andExpect(jsonPath("$", hasSize(1))).andExpect(jsonPath("$[0].solicitud.documento").value("52.111"));
+        mvc.perform(get("/api/porteria/correspondencia/solicitudes").header("Authorization", residente1001))
+                .andExpect(jsonPath("$", hasSize(0)));
+        // Otro apartamento no responde; el 502 autoriza (y no dos veces)
+        enviar(patch("/api/porteria/correspondencia/" + id + "/solicitud/respuesta"), residente1001, "{\"decision\":\"AUTORIZAR\"}")
+                .andExpect(status().isForbidden());
+        enviar(patch("/api/porteria/correspondencia/" + id + "/solicitud/respuesta"), residente502, "{\"decision\":\"AUTORIZAR\"}")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.solicitud.estado").value("AUTORIZADA"))
+                .andExpect(jsonPath("$.solicitud.canal").value("APP"));
+        enviar(patch("/api/porteria/correspondencia/" + id + "/solicitud/respuesta"), residente502, "{\"decision\":\"RECHAZAR\"}")
+                .andExpect(status().isConflict());
+        // Sin nombre se entrega a quien autorizaron
+        enviar(post("/api/porteria/correspondencia/" + id + "/entrega"), porteria, "{}")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("ENTREGADA")).andExpect(jsonPath("$.entregadaA").value("Laura Muñoz"))
                 .andExpect(jsonPath("$.entregadaPor").value("portero1"));
@@ -115,6 +142,10 @@ class CorrespondenciaIntegrationTest {
         // Pendiente: todavía no se puede quitar
         mvc.perform(delete("/api/porteria/correspondencia/mia/" + id).header("Authorization", residente502))
                 .andExpect(status().isBadRequest());
+        enviar(post("/api/porteria/correspondencia/" + id + "/solicitud"), porteria, "{\"recoge\":\"Laura\"}").andExpect(status().isOk());
+        // La portería registra la autorización dada por llamada
+        enviar(patch("/api/porteria/correspondencia/" + id + "/solicitud/respuesta"), porteria, "{\"decision\":\"AUTORIZAR\"}")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.solicitud.canal").value("LLAMADA"));
         enviar(post("/api/porteria/correspondencia/" + id + "/entrega"), porteria, "{\"recibidaPor\":\"Laura\"}")
                 .andExpect(status().isOk());
 
@@ -175,6 +206,39 @@ class CorrespondenciaIntegrationTest {
                 .andExpect(status().isCreated());
         assertThat(notificacionRepo.findAll()).singleElement()
                 .satisfies(n -> assertThat(n.getMensaje()).isEqualTo("Llegó una carta a la portería. Recógelo cuando puedas"));
+    }
+
+    @Test
+    void siElResidenteRechazaLaEntregaHayChatYSePuedePedirOtraVez() throws Exception {
+        int id = JsonPath.read(enviar(post("/api/porteria/correspondencia"), porteria,
+                        "{\"torre\":\"5\",\"apto\":\"502\",\"tipo\":\"paquete\",\"remitente\":\"Amazon\"}")
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(), "$.id");
+        // Sin pedirla no hay chat ni respuesta
+        mvc.perform(get("/api/porteria/correspondencia/" + id + "/chat").header("Authorization", porteria)).andExpect(status().isConflict());
+        enviar(patch("/api/porteria/correspondencia/" + id + "/solicitud/respuesta"), residente502, "{\"decision\":\"AUTORIZAR\"}")
+                .andExpect(status().isConflict());
+
+        enviar(post("/api/porteria/correspondencia/" + id + "/solicitud"), porteria, "{\"recoge\":\"Pedro Pérez\"}").andExpect(status().isOk());
+        enviar(patch("/api/porteria/correspondencia/" + id + "/solicitud/respuesta"), residente502, "{\"decision\":\"RECHAZAR\"}")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.solicitud.estado").value("RECHAZADA"))
+                .andExpect(jsonPath("$.solicitud.chatHasta").exists());
+        enviar(post("/api/porteria/correspondencia/" + id + "/entrega"), porteria, "{}").andExpect(status().isConflict());
+
+        // Chat: el residente explica y la portería contesta; otro apartamento no entra
+        enviar(post("/api/porteria/correspondencia/" + id + "/chat"), residente502, "{\"texto\":\"No conozco a Pedro\"}")
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.autor").value("Apto 5-502"));
+        enviar(post("/api/porteria/correspondencia/" + id + "/chat"), porteria, "{\"texto\":\"Entendido, no se entrega\"}")
+                .andExpect(status().isCreated());
+        mvc.perform(get("/api/porteria/correspondencia/" + id + "/chat").header("Authorization", residente1001)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/porteria/correspondencia/" + id + "/chat").header("Authorization", residente502))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.abierto").value(true))
+                .andExpect(jsonPath("$.que").value("Paquete de Amazon")).andExpect(jsonPath("$.mensajes", hasSize(2)));
+        mvc.perform(get("/api/porteria/correspondencia").header("Authorization", porteria))
+                .andExpect(jsonPath("$[0].solicitud.mensajesResidente").value(1));
+
+        // Se puede pedir otra vez para otra persona
+        enviar(post("/api/porteria/correspondencia/" + id + "/solicitud"), porteria, "{\"recoge\":\"Laura\"}")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.solicitud.estado").value("PENDIENTE"));
     }
 
     private ResultActions enviar(MockHttpServletRequestBuilder peticion, String auth, String cuerpo) throws Exception {

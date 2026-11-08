@@ -38,6 +38,41 @@ public class CorrespondenciaController {
         return ResponseEntity.status(HttpStatus.CREATED).body(servicio.reciboParaTodos(cuerpo));
     }
 
+    /** P12 bloque 3: portería: pedir al apartamento que autorice entregarla a quien la recoge. */
+    @PostMapping("/{id}/solicitud")
+    public CorrespondenciaService.Item pedirEntrega(@PathVariable Long id, @RequestBody CorrespondenciaService.PedirEntrega cuerpo) {
+        return servicio.pedirEntrega(id, cuerpo);
+    }
+
+    /** P12 bloque 3: residentes: las entregas que esperan su autorización. */
+    @GetMapping("/solicitudes")
+    public List<CorrespondenciaService.Item> solicitudes() {
+        return servicio.solicitudesDelApartamento();
+    }
+
+    /** P12 bloque 3: el residente (o la portería, si contestó por llamada): AUTORIZAR o RECHAZAR. */
+    @PatchMapping("/{id}/solicitud/respuesta")
+    public CorrespondenciaService.Item responder(@PathVariable Long id, @RequestBody CorrespondenciaService.Respuesta cuerpo) {
+        return servicio.responderEntrega(id, cuerpo == null ? null : cuerpo.decision());
+    }
+
+    @GetMapping("/{id}/solicitud/foto")
+    public com.residencial.service.FotosPorteria.Enlace fotoDeQuienRecoge(@PathVariable Long id) {
+        return servicio.fotoDeQuienRecoge(id);
+    }
+
+    /** P12 bloque 3: chat temporal si el residente rechaza la entrega. */
+    @GetMapping("/{id}/chat")
+    public CorrespondenciaService.Chat chat(@PathVariable Long id) {
+        return servicio.chat(id);
+    }
+
+    @PostMapping("/{id}/chat")
+    public ResponseEntity<CorrespondenciaService.MensajeChat> escribir(@PathVariable Long id, @RequestBody CorrespondenciaService.NuevoMensaje cuerpo) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(servicio.escribir(id, cuerpo));
+    }
+
+    /** Solo si el apartamento autorizó la entrega (P12); el nombre es opcional: por defecto, quien autorizó. */
     @PostMapping("/{id}/entrega")
     public CorrespondenciaService.Item entregar(@PathVariable Long id, @RequestBody CorrespondenciaService.Entrega cuerpo) {
         return servicio.entregar(id, cuerpo);

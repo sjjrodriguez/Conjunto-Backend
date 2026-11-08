@@ -48,6 +48,8 @@ public class NotificacionServiceImpl implements NotificacionService {
     public static final String TIPO_CORRESPONDENCIA = "CORRESPONDENCIA";
     public static final String TIPO_RECIBO = "RECIBO";
     public static final String TIPO_CORRESPONDENCIA_ENTREGADA = "CORRESPONDENCIA_ENTREGADA";
+    /** P12 bloque 3: alguien quiere recoger la correspondencia: suena como la visita en portería. */
+    public static final String TIPO_ENTREGA_CORRESPONDENCIA = "ENTREGA_CORRESPONDENCIA";
     public static final String TIPO_SOLICITUD_ARRENDATARIO = "SOLICITUD_ARRENDATARIO";
     public static final String TIPO_COMPROBANTE = "COMPROBANTE";
     public static final String TIPO_CUOTA_PAGADA = "CUOTA_PAGADA";
@@ -312,6 +314,14 @@ public class NotificacionServiceImpl implements NotificacionService {
         String nota = c.getNota() == null ? "" : " (" + c.getNota() + ")";
         crear(recibo ? TIPO_RECIBO : TIPO_CORRESPONDENCIA,
                 "Llegó " + queLlego(c) + nota + " a la portería. Recógelo cuando puedas",
+                c.getId(), c.getApartamento().getId(), c.getApartamento().getId());
+    }
+
+    @Override
+    public void avisarSolicitudEntrega(com.residencial.model.Correspondencia c) {
+        String que = queLlego(c);
+        crear(TIPO_ENTREGA_CORRESPONDENCIA, c.getSolicitudRecoge() + " quiere recoger " + que
+                        + ". Autoriza o rechaza la entrega en " + com.residencial.model.Correspondencia.MINUTOS_SOLICITUD + " minutos",
                 c.getId(), c.getApartamento().getId(), c.getApartamento().getId());
     }
 
