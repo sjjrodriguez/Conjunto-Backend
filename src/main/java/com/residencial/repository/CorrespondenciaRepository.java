@@ -29,4 +29,12 @@ public interface CorrespondenciaRepository extends JpaRepository<Correspondencia
     @Query("select c from Correspondencia c join fetch c.apartamento where c.apartamento.id = :apto and c.estado = 'PENDIENTE' "
             + "and c.solicitudEstado = 'PENDIENTE' and c.solicitudVenceEn > :ahora order by c.solicitudCreadaEn desc, c.id desc")
     List<Correspondencia> solicitudesPendientes(Long apto, LocalDateTime ahora);
+
+    /** P12: correspondencia con foto del paquete recibida antes de [limite] (para borrar la foto). */
+    @Query("select c from Correspondencia c where c.fotoRuta is not null and c.recibidaEn < :limite order by c.id")
+    List<Correspondencia> conFotoAntesDe(LocalDateTime limite, org.springframework.data.domain.Pageable pagina);
+
+    /** P12: con foto de quien la recogió, pedida antes de [limite]. */
+    @Query("select c from Correspondencia c where c.solicitudFotoRuta is not null and c.solicitudCreadaEn < :limite order by c.id")
+    List<Correspondencia> conFotoRecogeAntesDe(LocalDateTime limite, org.springframework.data.domain.Pageable pagina);
 }

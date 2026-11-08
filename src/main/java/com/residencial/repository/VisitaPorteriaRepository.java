@@ -58,6 +58,18 @@ public interface VisitaPorteriaRepository extends JpaRepository<VisitaPorteria, 
 
     /** Las que nadie respondió a tiempo. */
     // Con su propia transacción: la abre la tarea programada, que no está en ninguna (P7)
+    /**
+     * P12: autorizadas sin salida, que entraron después de [ventana] y llevan desde [limite] sin
+     * recordatorio (o, si nunca se les recordó, dentro desde antes de [limite]).
+     */
+    @Query("select v from VisitaPorteria v join fetch v.apartamento where v.salidaEn is null and v.estado = 'AUTORIZADA' "
+            + "and v.creadaEn >= :ventana and coalesce(v.recordatorioEn, v.respondidaEn, v.creadaEn) <= :limite")
+    List<VisitaPorteria> paraRecordar(LocalDateTime ventana, LocalDateTime limite);
+
+    /** P12: visitas con foto registradas antes de [limite] (para borrar la foto). */
+    @Query("select v from VisitaPorteria v where v.fotoRuta is not null and v.creadaEn < :limite order by v.id")
+    List<VisitaPorteria> conFotoAntesDe(LocalDateTime limite, org.springframework.data.domain.Pageable pagina);
+
     @Transactional
     @Modifying
     @Query("update VisitaPorteria v set v.estado = 'EXPIRADA' where v.estado = 'PENDIENTE' and v.venceEn <= :ahora")

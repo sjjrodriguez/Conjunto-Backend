@@ -63,6 +63,7 @@ public class AvisosPush {
             Map.entry("VISITA_PORTERIA", "Visita en portería"),
             Map.entry("VISITA_FRECUENTE", "Entró un visitante frecuente"),
             Map.entry("VISITA_SALIDA", "Tu visitante salió"),
+            Map.entry("VISITA_SIGUE_DENTRO", "¿Tu visitante sigue adentro?"),
             Map.entry("SOLICITUD_CONTABLE_APROBADA", "Solicitud aprobada"),
             Map.entry("SOLICITUD_CONTABLE_RECHAZADA", "Solicitud devuelta para corregir"),
             Map.entry("CORRESPONDENCIA", "Llegó correspondencia"),

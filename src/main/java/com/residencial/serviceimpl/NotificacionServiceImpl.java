@@ -44,6 +44,7 @@ public class NotificacionServiceImpl implements NotificacionService {
     public static final String TIPO_VISITA = "VISITA_PORTERIA";
     public static final String TIPO_VISITA_FRECUENTE = "VISITA_FRECUENTE";
     public static final String TIPO_VISITA_SALIDA = "VISITA_SALIDA";
+    public static final String TIPO_VISITA_SIGUE_DENTRO = "VISITA_SIGUE_DENTRO";
     // P9 bloque 3
     public static final String TIPO_CORRESPONDENCIA = "CORRESPONDENCIA";
     public static final String TIPO_RECIBO = "RECIBO";
@@ -296,6 +297,14 @@ public class NotificacionServiceImpl implements NotificacionService {
             tiempo = " después de " + (minutos < 60 ? minutos + " min" : (minutos / 60) + " h " + (minutos % 60) + " min");
         }
         crear(TIPO_VISITA_SALIDA, "La portería registró la salida de " + v.getVisitanteNombre() + tiempo,
+                v.getId(), v.getApartamento().getId(), v.getApartamento().getId());
+    }
+
+    @Override
+    public void avisarSigueDentro(com.residencial.model.VisitaPorteria v, long minutos) {
+        String tiempo = minutos < 60 ? minutos + " min"
+                : (minutos / 60) + " h" + (minutos % 60 == 0 ? "" : " " + (minutos % 60) + " min");
+        crear(TIPO_VISITA_SIGUE_DENTRO, v.getVisitanteNombre() + " lleva " + tiempo + " adentro. Si ya salió, márcale la salida",
                 v.getId(), v.getApartamento().getId(), v.getApartamento().getId());
     }
 

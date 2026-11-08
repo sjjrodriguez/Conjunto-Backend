@@ -78,7 +78,19 @@ public class AlmacenSupabase implements AlmacenArchivos {
 
     @Override
     public void borrar(String ruta) {
-        enviar(peticion("/object/" + bucket + "/" + codificar(ruta)).DELETE().build());
+        // P12: si el archivo ya no existe (404, o 400 "not_found" de Supabase) también cuenta como borrado
+        HttpRequest p = peticion("/object/" + bucket + "/" + codificar(ruta)).DELETE().build();
+        try {
+            HttpResponse<String> r = http.send(p, HttpResponse.BodyHandlers.ofString());
+            boolean noExiste = r.statusCode() == 404
+                    || (r.statusCode() == 400 && r.body() != null && r.body().toLowerCase().contains("not_found"));
+            if (r.statusCode() / 100 != 2 && !noExiste) throw fallo();
+        } catch (IOException e) {
+            throw fallo();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw fallo();
+        }
     }
 
     private HttpRequest.Builder peticion(String camino) {

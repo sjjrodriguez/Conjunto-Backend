@@ -97,6 +97,10 @@ public class VisitaPorteria extends EntidadConjunto {
     @Column(name = "salida_por", length = 20)
     private String salidaPor;
 
+    /** P12: la última vez que se le preguntó al residente si el visitante sigue adentro. */
+    @Column(name = "recordatorio_en")
+    private LocalDateTime recordatorioEn;
+
     // P10 bloque 7: foto de la cara que tomó la portería (ruta en el bucket privado)
     @Column(name = "foto_ruta", length = 200)
     private String fotoRuta;

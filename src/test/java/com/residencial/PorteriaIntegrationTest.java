@@ -37,6 +37,7 @@ class PorteriaIntegrationTest {
     @Autowired NotificacionRepository notificacionRepo;
     @Autowired ParqueaderoRepository parqueaderoRepo;
     @Autowired VisitanteFrecuenteRepository frecuenteRepo;
+    @Autowired com.residencial.service.TareasPorteria tareas;
     @Autowired PasswordEncoder encoder;
 
     Apartamento apto7;
@@ -231,6 +232,38 @@ class PorteriaIntegrationTest {
                 });
         mvc.perform(get("/api/porteria/visitas/activas").header("Authorization", residente7))
                 .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void alResidenteSeLePreguntaSiSuVisitanteSigueAdentroYLasFotosViejasSeBorran() throws Exception {
+        // P12: Ana autorizada; a las 3 h se le pregunta al 701, y no otra vez hasta 3 h después
+        int a = registrar("Ana");
+        enviar(patch("/api/porteria/visitas/" + a + "/respuesta"), residente7, "{\"decision\":\"AUTORIZAR\"}").andExpect(status().isOk());
+        java.time.LocalDateTime ahora = java.time.LocalDateTime.now(java.time.ZoneId.of("America/Bogota"));
+        assertThat(tareas.recordar(ahora.plusHours(2))).isZero();
+        assertThat(tareas.recordar(ahora.plusHours(4))).isEqualTo(1);
+        assertThat(tareas.recordar(ahora.plusHours(5))).isZero();
+        assertThat(tareas.recordar(ahora.plusHours(7).plusMinutes(5))).isEqualTo(1);
+        assertThat(notificacionRepo.findAll()).filteredOn(n -> "VISITA_SIGUE_DENTRO".equals(n.getTipo())).hasSize(2)
+                .allSatisfy(n -> {
+                    assertThat(n.getDestinatarioApartamentoId()).isEqualTo(apto7.getId());
+                    assertThat(n.getReferenciaId()).isEqualTo((long) a);
+                    assertThat(n.getMensaje()).startsWith("Ana lleva ");
+                });
+        // Con la salida ya no se pregunta más
+        mvc.perform(post("/api/porteria/visitas/" + a + "/salida").header("Authorization", residente7)).andExpect(status().isOk());
+        assertThat(tareas.recordar(ahora.plusHours(11))).isZero();
+
+        // La foto se borra a los 90 días (antes no); el registro se queda
+        VisitaPorteria v = visitaRepo.findById((long) a).orElseThrow();
+        v.setFotoRuta("porteria/conjunto-1/" + "a".repeat(32) + ".jpg");
+        visitaRepo.save(v);
+        assertThat(tareas.borrarFotos(ahora.plusDays(89))).isZero();
+        assertThat(tareas.borrarFotos(ahora.plusDays(91))).isEqualTo(1);
+        assertThat(visitaRepo.findById((long) a).orElseThrow()).satisfies(x -> {
+            assertThat(x.getFotoRuta()).isNull();
+            assertThat(x.getVisitanteNombre()).isEqualTo("Ana");
+        });
     }
 
     @Test

@@ -37,11 +37,11 @@ Esta política explica cómo se tratan los datos personales en MiConjunto, confo
 Los datos no se venden ni se usan para publicidad.
 
 # 4. Fotos de visitantes y de quien recoge la correspondencia
-La portería puede tomar una foto del rostro del visitante o de quien recoge un paquete, solo para que el residente sepa a quién autoriza. La ven únicamente la portería, la administración y el apartamento al que va la visita o el paquete. Se guardan en un almacenamiento privado y se muestran con enlaces que vencen a los 15 minutos. Si no quieres que te tomen foto, puedes pedirlo en la portería y el residente te autorizará por tu nombre.
+La portería puede tomar una foto del rostro del visitante o de quien recoge un paquete, solo para que el residente sepa a quién autoriza. La ven únicamente la portería, la administración y el apartamento al que va la visita o el paquete. Se guardan en un almacenamiento privado, se muestran con enlaces que vencen a los 15 minutos y se borran automáticamente a los 90 días. Si no quieres que te tomen foto, puedes pedirlo en la portería y el residente te autorizará por tu nombre.
 
 # 5. Cámara, notificaciones y alerta en pantalla completa
 - Cámara: la app abre la cámara del celular solo cuando la portería o el residente deciden tomar una foto.
-- Notificaciones: se usan para avisarte de visitas, correspondencia, pagos y comunicados. Puedes desactivarlas en Cuenta → Ajustes.
+- Notificaciones: se usan para avisarte de visitas, correspondencia, pagos y comunicados. Si un visitante tuyo lleva varias horas adentro sin salida, la app te pregunta si sigue adentro (no de noche) para que puedas marcarle la salida. Puedes desactivarlas en Cuenta → Ajustes.
 - Alerta en pantalla completa: cuando alguien llega a la portería o quiere recoger tu correspondencia, el celular suena como una alarma hasta que respondas o pasen 5 minutos.
 
 # 6. Huella o rostro
@@ -56,7 +56,7 @@ Solo con proveedores que MiConjunto necesita para funcionar, que tratan los dato
 Estos servicios pueden guardar datos en servidores fuera de Colombia, con medidas de seguridad adecuadas. La información de un conjunto no la ven los demás conjuntos.
 
 # 8. Cuánto tiempo se guardan
-Mientras el apartamento o la persona tenga relación con el conjunto y lo que exijan las normas contables y de propiedad horizontal. El chat de una visita o entrega rechazada solo se puede usar durante 30 minutos, aunque queda en el registro. Cuando un arrendatario se va, la administración puede desactivar o eliminar su cuenta.
+Mientras el apartamento o la persona tenga relación con el conjunto y lo que exijan las normas contables y de propiedad horizontal. Las fotos de visitantes, de paquetes y de quien recoge la correspondencia se borran automáticamente a los 90 días; el registro de la visita o de la entrega (nombre y horas) se conserva sin la foto. El chat de una visita o entrega rechazada solo se puede usar durante 30 minutos, aunque queda en el registro. Cuando un arrendatario se va, la administración puede desactivar o eliminar su cuenta.
 
 # 9. Datos de terceros
 Quien registra a otras personas (visitantes frecuentes, residentes de su hogar, personal de obra o del conjunto) debe contar con su autorización para compartir sus datos con la administración.
