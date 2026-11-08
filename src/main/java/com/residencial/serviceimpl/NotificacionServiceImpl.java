@@ -43,6 +43,7 @@ public class NotificacionServiceImpl implements NotificacionService {
     public static final String TIPO_PUBLICACION = "PUBLICACION";
     public static final String TIPO_VISITA = "VISITA_PORTERIA";
     public static final String TIPO_VISITA_FRECUENTE = "VISITA_FRECUENTE";
+    public static final String TIPO_VISITA_SALIDA = "VISITA_SALIDA";
     // P9 bloque 3
     public static final String TIPO_CORRESPONDENCIA = "CORRESPONDENCIA";
     public static final String TIPO_RECIBO = "RECIBO";
@@ -281,6 +282,18 @@ public class NotificacionServiceImpl implements NotificacionService {
         String vehiculo = !com.residencial.model.VisitaPorteria.VEHICULO.equals(v.getTipoIngreso()) ? ""
                 : " en vehículo " + v.getPlaca();
         crear(TIPO_VISITA_FRECUENTE, "Entró " + v.getVisitanteNombre() + vehiculo + ", visitante frecuente de tu apartamento",
+                v.getId(), v.getApartamento().getId(), v.getApartamento().getId());
+    }
+
+    @Override
+    public void avisarSalidaVisita(com.residencial.model.VisitaPorteria v) {
+        String tiempo = "";
+        LocalDateTime desde = v.getRespondidaEn() != null ? v.getRespondidaEn() : v.getCreadaEn();
+        if (desde != null && v.getSalidaEn() != null) {
+            long minutos = Math.max(0, java.time.Duration.between(desde, v.getSalidaEn()).toMinutes());
+            tiempo = " después de " + (minutos < 60 ? minutos + " min" : (minutos / 60) + " h " + (minutos % 60) + " min");
+        }
+        crear(TIPO_VISITA_SALIDA, "La portería registró la salida de " + v.getVisitanteNombre() + tiempo,
                 v.getId(), v.getApartamento().getId(), v.getApartamento().getId());
     }
 

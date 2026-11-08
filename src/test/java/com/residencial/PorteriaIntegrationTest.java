@@ -184,12 +184,53 @@ class PorteriaIntegrationTest {
         enviar(patch("/api/porteria/visitas/" + b + "/respuesta"), residente7, "{\"decision\":\"RECHAZAR\"}").andExpect(status().isOk());
         // Salida de la autorizada: también queda libre, y no se registra dos veces
         enviar(patch("/api/porteria/visitas/" + a + "/respuesta"), residente7, "{\"decision\":\"AUTORIZAR\"}").andExpect(status().isOk());
-        mvc.perform(post("/api/porteria/visitas/" + a + "/salida").header("Authorization", residente7)).andExpect(status().isForbidden());
+        mvc.perform(post("/api/porteria/visitas/" + a + "/salida").header("Authorization", residente8)).andExpect(status().isForbidden());
         mvc.perform(post("/api/porteria/visitas/" + a + "/salida").header("Authorization", porteria))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.salidaEn").exists());
         mvc.perform(post("/api/porteria/visitas/" + a + "/salida").header("Authorization", porteria)).andExpect(status().isConflict());
         mvc.perform(get("/api/porteria/parqueaderos").header("Authorization", porteria))
                 .andExpect(jsonPath("$[0].libre").value(true)).andExpect(jsonPath("$[1].libre").value(true));
+    }
+
+    @Test
+    void elResidenteVeSusVisitantesDentroYLesDaLaSalida() throws Exception {
+        // P12: dos visitas autorizadas del 701 y una pendiente; el 801 no ve las del 701
+        int a = registrar("Ana");
+        int b = registrar("Beto");
+        registrar("Carla");
+        enviar(patch("/api/porteria/visitas/" + a + "/respuesta"), residente7, "{\"decision\":\"AUTORIZAR\"}").andExpect(status().isOk());
+        enviar(patch("/api/porteria/visitas/" + b + "/respuesta"), residente7, "{\"decision\":\"AUTORIZAR\"}").andExpect(status().isOk());
+
+        mvc.perform(get("/api/porteria/visitas/activas").header("Authorization", residente7))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].dentroDesde").exists()).andExpect(jsonPath("$[0].telefono").doesNotExist());
+        mvc.perform(get("/api/porteria/visitas/activas").header("Authorization", residente8))
+                .andExpect(jsonPath("$.length()").value(0));
+        mvc.perform(get("/api/porteria/visitas/activas").header("Authorization", porteria)).andExpect(status().isForbidden());
+        // La portería también ve desde cuándo está dentro
+        mvc.perform(get("/api/porteria/visitas/dentro").header("Authorization", porteria))
+                .andExpect(jsonPath("$.length()").value(2)).andExpect(jsonPath("$[0].dentroDesde").exists());
+
+        // El residente da la salida a Ana (otro apartamento no puede); no le llega aviso a él mismo
+        mvc.perform(post("/api/porteria/visitas/" + a + "/salida").header("Authorization", residente8)).andExpect(status().isForbidden());
+        mvc.perform(post("/api/porteria/visitas/" + a + "/salida").header("Authorization", residente7))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.salidaPor").value("RESIDENTE"));
+        mvc.perform(post("/api/porteria/visitas/" + a + "/salida").header("Authorization", residente7)).andExpect(status().isConflict());
+        // Una pendiente no se puede sacar desde la app del residente
+        int c = visitaRepo.findAll().stream().filter(v -> "Carla".equals(v.getVisitanteNombre())).findFirst().orElseThrow().getId().intValue();
+        mvc.perform(post("/api/porteria/visitas/" + c + "/salida").header("Authorization", residente7)).andExpect(status().isConflict());
+        assertThat(notificacionRepo.findAll()).noneMatch(n -> "VISITA_SALIDA".equals(n.getTipo()));
+
+        // La portería da la salida a Beto: al apartamento le llega el aviso
+        mvc.perform(post("/api/porteria/visitas/" + b + "/salida").header("Authorization", porteria))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.salidaPor").value("PORTERIA"));
+        assertThat(notificacionRepo.findAll()).filteredOn(n -> "VISITA_SALIDA".equals(n.getTipo()))
+                .singleElement().satisfies(n -> {
+                    assertThat(n.getDestinatarioApartamentoId()).isEqualTo(apto7.getId());
+                    assertThat(n.getMensaje()).startsWith("La portería registró la salida de Beto");
+                });
+        mvc.perform(get("/api/porteria/visitas/activas").header("Authorization", residente7))
+                .andExpect(jsonPath("$.length()").value(0));
     }
 
     @Test

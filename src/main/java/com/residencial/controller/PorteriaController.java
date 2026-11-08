@@ -50,7 +50,16 @@ public class PorteriaController {
         return servicio.responder(id, cuerpo.decision());
     }
 
-    /** P8 bloque 4: portería y administración: el visitante salió (libera su parqueadero de invitados). */
+    /** P12: residentes: sus visitantes que siguen dentro del conjunto. */
+    @GetMapping("/visitas/activas")
+    public List<PorteriaService.Visita> activas() {
+        return servicio.activasDelApartamento();
+    }
+
+    /**
+     * P8 bloque 4: el visitante salió (libera su parqueadero de invitados). P12: también el
+     * residente de ese apartamento, si el vigilante lo olvidó.
+     */
     @PostMapping("/visitas/{id}/salida")
     public PorteriaService.Visita salida(@PathVariable Long id) {
         return servicio.registrarSalida(id);

@@ -33,6 +33,12 @@ public interface VisitaPorteriaRepository extends JpaRepository<VisitaPorteria, 
             + "and v.estado = 'AUTORIZADA' and (v.creadaEn >= :desde or v.parqueadero is not null) order by v.creadaEn desc, v.id desc")
     List<VisitaPorteria> dentro(LocalDateTime desde);
 
+    /** P12: lo mismo que {@link #dentro}, solo las de un apartamento (los visitantes activos del residente). */
+    @Query("select v from VisitaPorteria v join fetch v.apartamento left join fetch v.parqueadero where v.salidaEn is null "
+            + "and v.estado = 'AUTORIZADA' and v.apartamento.id = :apto and (v.creadaEn >= :desde or v.parqueadero is not null) "
+            + "order by v.creadaEn desc, v.id desc")
+    List<VisitaPorteria> dentroDe(Long apto, LocalDateTime desde);
+
     /**
      * P8 bloque 5: el historial. [patron] es "%texto%" en minúsculas y sin tildes: se compara con el
      * nombre, el documento, la placa y "torre-apto", también en minúsculas y sin tildes.

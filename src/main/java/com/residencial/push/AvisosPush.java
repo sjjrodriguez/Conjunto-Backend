@@ -40,6 +40,9 @@ public class AvisosPush {
      */
     public record MensajeVisitaNuevo(Long visitaId, Long apartamentoId, boolean deResidente, String mensaje) {}
 
+    /** P12: el residente dio la salida a su visitante desde la app: el aviso va a la portería. */
+    public record SalidaPorResidente(Long visitaId, String mensaje) {}
+
     // Título del aviso en el celular según el tipo de notificación
     private static final Map<String, String> TITULOS = Map.ofEntries(
             Map.entry("RESERVA", "Nueva reserva"),
@@ -56,6 +59,7 @@ public class AvisosPush {
             Map.entry("PUBLICACION", "Nueva publicación"),
             Map.entry("VISITA_PORTERIA", "Visita en portería"),
             Map.entry("VISITA_FRECUENTE", "Entró un visitante frecuente"),
+            Map.entry("VISITA_SALIDA", "Tu visitante salió"),
             Map.entry("SOLICITUD_CONTABLE_APROBADA", "Solicitud aprobada"),
             Map.entry("SOLICITUD_CONTABLE_RECHAZADA", "Solicitud devuelta para corregir"),
             Map.entry("CORRESPONDENCIA", "Llegó correspondencia"),
@@ -138,6 +142,20 @@ public class AvisosPush {
         Map<String, String> datos = new HashMap<>();
         datos.put("tipo", "CHAT_VISITA");
         datos.put("titulo", evento.deResidente() ? "Mensaje de un residente" : "Mensaje de la portería");
+        datos.put("mensaje", evento.mensaje());
+        datos.put("referenciaId", String.valueOf(evento.visitaId()));
+        Set<String> invalidos = enviador.enviar(tokens, datos);
+        if (!invalidos.isEmpty()) dispositivos.borrarTokens(invalidos);
+    }
+
+    @Async
+    @TransactionalEventListener(fallbackExecution = true)
+    public void alSalirPorResidente(SalidaPorResidente evento) {
+        List<String> tokens = deApp(dispositivos.findByRol(TokenService.ROL_PORTERIA), "RECEPCION");
+        if (tokens.isEmpty()) return;
+        Map<String, String> datos = new HashMap<>();
+        datos.put("tipo", "VISITA_SALIDA_RESIDENTE");
+        datos.put("titulo", "Salida dada por el residente");
         datos.put("mensaje", evento.mensaje());
         datos.put("referenciaId", String.valueOf(evento.visitaId()));
         Set<String> invalidos = enviador.enviar(tokens, datos);

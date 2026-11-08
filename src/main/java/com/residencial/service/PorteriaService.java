@@ -46,7 +46,10 @@ public class PorteriaService {
                          String tipoIngreso, Long parqueaderoId, String parqueadero, LocalDateTime salidaEn,
                          // P10 bloque 7: si hay foto del visitante (fotoUrl solo para el residente que la responde
                          // y al registrarla), hasta cuándo está abierto el chat y cuántos mensajes escribió el residente
-                         boolean tieneFoto, String fotoUrl, LocalDateTime chatHasta, long mensajesResidente) {}
+                         boolean tieneFoto, String fotoUrl, LocalDateTime chatHasta, long mensajesResidente,
+                         // P12: desde cuándo está dentro (al autorizarla; el frecuente, al registrarlo) y
+                         // quién dio la salida (PORTERIA o RESIDENTE)
+                         LocalDateTime dentroDesde, String salidaPor) {}
 
     /** P10 bloque 7: un mensaje del chat de una visita rechazada. */
     public record MensajeChat(Long id, boolean deResidente, String autor, String texto, LocalDateTime creadoEn) {}
@@ -347,12 +350,37 @@ public class PorteriaService {
         }).toList();
     }
 
-    /** P8 bloque 4: el visitante salió; si ocupaba un parqueadero de invitados, queda libre. */
+    /**
+     * P8 bloque 4: el visitante salió; si ocupaba un parqueadero de invitados, queda libre.
+     * P12: también puede darla el residente de ese apartamento (si el vigilante lo olvidó); la
+     * portería recibe el aviso. Si la da la portería, el aviso le llega al apartamento.
+     */
     public Visita registrarSalida(Long id) {
-        VisitaPorteria v = visitas.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("Visita no encontrada: " + id));
+        VisitaPorteria v = visitaVisible(id);
         if (v.getSalidaEn() != null) throw new ResponseStatusException(HttpStatus.CONFLICT, "La salida ya estaba registrada");
+        boolean residente = !esPersonal();
+        if (residente && !VisitaPorteria.AUTORIZADA.equals(v.getEstado())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Esa visita no está dentro del conjunto");
+        }
         v.setSalidaEn(LocalDateTime.now(zona));
-        return aDTO(visitas.save(v), true, null, 0);
+        v.setSalidaPor(residente ? VisitaPorteria.SALIDA_RESIDENTE : VisitaPorteria.SALIDA_PORTERIA);
+        v = visitas.save(v);
+        Apartamento a = v.getApartamento();
+        if (residente) {
+            eventos.publishEvent(new com.residencial.push.AvisosPush.SalidaPorResidente(v.getId(),
+                    "Apto " + a.getTorre() + "-" + a.getApto() + " dio la salida a " + v.getVisitanteNombre()));
+        } else if (VisitaPorteria.AUTORIZADA.equals(v.getEstado())) {
+            notificaciones.avisarSalidaVisita(v);
+        }
+        return aDTO(v, !residente, null, 0);
+    }
+
+    /** P12: los visitantes que siguen dentro, del apartamento de la sesión (con el tiempo que llevan). */
+    @Transactional(readOnly = true)
+    public List<Visita> activasDelApartamento() {
+        Long apto = acceso.apartamentoActual().orElseThrow(() -> new AccessDeniedException("Sin apartamento"));
+        LocalDateTime desde = LocalDateTime.now(zona).minusHours(PorteriaTableroService.HORAS_DENTRO);
+        return visitas.dentroDe(apto, desde).stream().map(v -> aDTO(v, false, null, 0)).toList();
     }
 
     /** Cada 15 segundos: las visitas sin respuesta pasan a EXPIRADA, en todos los conjuntos (P7). */
@@ -377,7 +405,9 @@ public class PorteriaService {
                 v.getCanalRespuesta(), telefono, conTelefono ? v.getGuardiaNombre() : null,
                 v.getTipoIngreso(), v.getParqueadero() == null ? null : v.getParqueadero().getId(),
                 v.getParqueadero() == null ? null : v.getParqueadero().getNumero(), v.getSalidaEn(),
-                v.getFotoRuta() != null, fotoUrl, v.chatHasta(), mensajesResidente);
+                v.getFotoRuta() != null, fotoUrl, v.chatHasta(), mensajesResidente,
+                VisitaPorteria.AUTORIZADA.equals(v.getEstado()) ? (v.getRespondidaEn() != null ? v.getRespondidaEn() : v.getCreadaEn()) : null,
+                v.getSalidaPor());
     }
 
     private static int largo(String s) {
